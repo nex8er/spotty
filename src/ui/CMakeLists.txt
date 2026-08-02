@@ -32,6 +32,24 @@ qt_add_executable(spotty
     InterfaceBar.h
     MainWindow.cpp
     MainWindow.h
+    SendBar.cpp
+    SendBar.h
+    TerminalView.cpp
+    TerminalView.h
+    dialogs/InterfaceSettingsDialog.cpp
+    dialogs/InterfaceSettingsDialog.h
+    dialogs/MacroEditDialog.cpp
+    dialogs/MacroEditDialog.h
+    panels/GeneratorPanel.cpp
+    panels/GeneratorPanel.h
+    panels/LoggingPanel.cpp
+    panels/LoggingPanel.h
+    panels/MacrosPanel.cpp
+    panels/MacrosPanel.h
+    panels/SearchPanel.cpp
+    panels/SearchPanel.h
+    theme/AnsiPalette.cpp
+    theme/AnsiPalette.h
     theme/MdiCodepoints.h
     theme/MdiIcons.cpp
     theme/MdiIcons.h

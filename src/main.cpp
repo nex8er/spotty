@@ -7,8 +7,10 @@
 #include "ui/theme/MdiIcons.h"
 #include "ui/theme/ThemeManager.h"
 
+#include <HistoryStore.h>
 #include <InterfaceRegistry.h>
 #include <PluginManager.h>
+#include <Session.h>
 #include <settings/Paths.h>
 #include <settings/SettingsStore.h>
 #include <spotty/api/ChannelState.h>
@@ -29,7 +31,8 @@
  * 5. Оформление — до создания виджетов, иначе окно моргнёт стилем по умолчанию.
  * 6. Шрифт значков — до построения окна, иначе кнопки останутся пустыми.
  * 7. Плагины — до реестра, который их опрашивает.
- * 8. Реестр — до окна, которое показывает список устройств.
+ * 8. Реестр — до сессии, которая берёт из него настройки устройства.
+ * 9. Сессия — до окна, которое показывает её буфер.
  *
  * \par Владение
  *
@@ -73,7 +76,13 @@ int main(int argc, char *argv[])
     spotty::InterfaceRegistry registry(&plugins, &interfaceStore);
     registry.start();
 
-    const spotty::AppContext context{&settings, &plugins, &registry, &theme};
+    spotty::HistoryStore history(spotty::Paths::historyFile());
+    history.load();
+
+    spotty::Session session(&plugins, &registry);
+
+    const spotty::AppContext context{&settings, &plugins,  &registry,
+                                     &theme,    &session,  &history};
 
     spotty::MainWindow window(context);
     window.show();

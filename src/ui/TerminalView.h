@@ -1,0 +1,306 @@
+/**
+ * \file TerminalView.h
+ * \brief Виджет вывода терминала с собственной отрисовкой.
+ */
+#pragma once
+
+#include "theme/AnsiPalette.h"
+
+#include <HighlightRules.h>
+#include <terminal/TerminalBuffer.h>
+
+#include <QAbstractScrollArea>
+#include <QFont>
+#include <QRegularExpression>
+#include <QString>
+
+#include <deque>
+
+class QTimer;
+
+namespace spotty {
+
+class ThemeManager;
+
+/**
+ * \class TerminalView
+ * \brief Отображение буфера терминала: текст с оформлением ANSI либо HEX-дамп.
+ *
+ * \par Почему не QPlainTextEdit
+ *
+ * Требуются колонка меток времени, отметка направления, режим HEX, правила подсветки,
+ * режим фильтра и буфер в сотни тысяч строк. Каждому из этих пунктов QPlainTextEdit
+ * сопротивляется, а посимвольный QTextCharFormat на большом буфере ещё и медленный.
+ * Плата за собственную отрисовку — выделение и копирование, написанные вручную.
+ *
+ * Рисуются только видимые строки, поэтому размер буфера на скорость отрисовки не влияет.
+ *
+ * \par Умный автоскролл
+ *
+ * Пока просмотр внизу, вид следует за выводом. Прокрутка вверх снимает слежение, и новые
+ * данные больше не уводят от читаемого места. Возврат в самый низ слежение включает
+ * обратно. Признак хранится в #m_followTail.
+ *
+ * \par Обновление
+ *
+ * Перерисовка не идёт на каждую порцию данных: сигналы буфера лишь взводят таймер, и
+ * перерисовка происходит с частотой около 60 Гц. Без этого поток на 3 Мбод занял бы весь
+ * поток интерфейса перерисовками.
+ *
+ * \par Строки и ряды
+ *
+ * Строка буфера в режиме HEX занимает несколько рядов на экране. Прокрутка ведётся в
+ * рядах, а не в строках: иначе пакет в четыре килобайта, занимающий 256 рядов,
+ * прокручивался бы одним прыжком и его нельзя было бы досмотреть. Число рядов каждой
+ * строки поддерживается в #m_rowCounts, чтобы не пересчитывать весь буфер при каждой
+ * прокрутке.
+ */
+class TerminalView : public QAbstractScrollArea
+{
+    Q_OBJECT
+
+public:
+    /// \brief Способ показа данных.
+    enum class ViewMode {
+        Text, ///< Текст с оформлением ANSI.
+        Hex,  ///< Шестнадцатеричный дамп со смещениями и колонкой ASCII.
+    };
+    Q_ENUM(ViewMode)
+
+    explicit TerminalView(QWidget *parent = nullptr);
+    ~TerminalView() override;
+
+    /// \brief Показываемый буфер. Виджет им не владеет.
+    void setBuffer(TerminalBuffer *buffer);
+    TerminalBuffer *buffer() const { return m_buffer; }
+
+    /// \brief Источник цветов. Виджет подписывается на смену темы.
+    void setThemeManager(ThemeManager *theme);
+
+    ViewMode viewMode() const { return m_viewMode; }
+    void setViewMode(ViewMode mode);
+
+    /// \brief Показывать колонку меток времени.
+    void setShowTimestamps(bool show);
+    bool showTimestamps() const { return m_showTimestamps; }
+
+    /**
+     * \brief Показывать метку времени относительно предыдущей строки, а не абсолютную.
+     *
+     * Разница между строками отвечает на вопрос «сколько устройство думало», ради
+     * которого метки чаще всего и включают.
+     */
+    void setRelativeTimestamps(bool relative);
+    bool relativeTimestamps() const { return m_relativeTimestamps; }
+
+    /// \brief Формат абсолютной метки времени в записи QDateTime::toString().
+    void setTimestampFormat(const QString &format);
+
+    /// \brief Показывать отметку направления обмена.
+    void setShowDirection(bool show);
+    bool showDirection() const { return m_showDirection; }
+
+    /// \brief Байтов в ряду HEX-дампа.
+    void setHexBytesPerRow(int bytes);
+    int hexBytesPerRow() const { return m_hexBytesPerRow; }
+
+    /// \brief Шрифт вывода. Ожидается моноширинный.
+    void setTerminalFont(const QFont &font);
+
+    /// \return `true`, если вид следует за выводом.
+    bool followTail() const { return m_followTail; }
+    void setFollowTail(bool follow);
+
+    /// \brief Текст выделения; пустая строка, если ничего не выделено.
+    QString selectedText() const;
+    bool hasSelection() const;
+
+    /// \brief Правила подсветки строк. Виджет хранит копию.
+    void setHighlightRules(const HighlightRules &rules);
+
+    /**
+     * \brief Задать образец поиска.
+     * \param pattern Текст или регулярное выражение; пустая строка снимает поиск.
+     * \param regularExpression Трактовать \p pattern как регулярное выражение.
+     * \param caseSensitive Учитывать регистр.
+     * \param wholeWords Искать только слова целиком.
+     *
+     * Совпадения подсвечиваются во всех видимых строках.
+     */
+    void setSearchPattern(const QString &pattern, bool regularExpression, bool caseSensitive,
+                          bool wholeWords);
+
+    /**
+     * \brief Показывать только строки, подходящие под образец поиска.
+     *
+     * Режим фильтра, а не поиска: несовпавшие строки скрываются, и в терминале остаётся
+     * только то, что нужно. Прокрутка и выделение работают по отфильтрованному набору.
+     */
+    void setFilterEnabled(bool enabled);
+    bool filterEnabled() const { return m_filterEnabled; }
+
+    /// \brief Число строк, подходящих под образец поиска.
+    int matchCount() const;
+
+    /// \brief Перейти к следующему совпадению и выделить его.
+    void findNext();
+
+    /// \brief Перейти к предыдущему совпадению.
+    void findPrevious();
+
+public Q_SLOTS:
+    void copySelection();
+    void selectAll();
+    void clearSelection();
+
+    /// \brief Прокрутить в самый низ и включить слежение за выводом.
+    void scrollToBottom();
+
+Q_SIGNALS:
+    /// \brief Изменилось слежение за выводом — панель может показать это кнопкой.
+    void followTailChanged(bool following);
+
+    /// \brief Изменилось число совпадений с образцом поиска.
+    void matchCountChanged(int count);
+
+protected:
+    void paintEvent(QPaintEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
+    void contextMenuEvent(QContextMenuEvent *event) override;
+    void scrollContentsBy(int dx, int dy) override;
+    bool viewportEvent(QEvent *event) override;
+
+private:
+    /**
+     * \struct Position
+     * \brief Положение внутри содержимого: строка, ряд в строке, столбец.
+     */
+    struct Position
+    {
+        qint64 lineNumber = -1;
+        int row = 0;
+        int column = 0;
+
+        auto operator<=>(const Position &) const = default;
+        bool isValid() const { return lineNumber >= 0; }
+    };
+
+    /**
+     * \struct VisibleLine
+     * \brief Строка, попавшая на экран, вместе с числом занимаемых рядов.
+     *
+     * Отдельный список, а не прямая адресация буфера: в режиме фильтра показывается лишь
+     * часть строк, и прокрутка должна вести себя так, будто остальных нет.
+     */
+    struct VisibleLine
+    {
+        qint64 lineNumber = 0;
+        int rows = 1;
+    };
+
+    /// \brief Пересчитать метрики шрифта и геометрию колонок.
+    void updateMetrics();
+
+    /// \brief Пересчитать диапазоны полос прокрутки.
+    void updateScrollBars();
+
+    /// \brief Полностью пересобрать список видимых строк.
+    void rebuildVisible();
+
+    /// \brief Добавить строку в конец списка видимых, если она проходит фильтр.
+    void appendVisible(qint64 lineNumber);
+
+    /// \brief Проходит ли строка текущий фильтр.
+    bool passesFilter(const TerminalBuffer::Line &line) const;
+
+    /// \brief Сколько экранных рядов занимает строка.
+    int rowsForLine(const TerminalBuffer::Line &line) const;
+
+    /// \brief Индекс строки в списке видимых или -1.
+    int visibleIndexOf(qint64 lineNumber) const;
+
+    /// \brief Число рядов строки из кэша.
+    int cachedRowsFor(qint64 lineNumber) const;
+
+    /// \brief Строка и ряд по сквозному номеру ряда.
+    Position positionAtRow(qint64 rowIndex) const;
+
+    /// \brief Номер первого ряда строки по её индексу в списке видимых.
+    qint64 rowOfVisibleIndex(int index) const;
+
+    /// \brief Перейти к совпадению: -1 назад, +1 вперёд.
+    void stepMatch(int direction);
+
+    /// \brief Отрезки строки, совпавшие с образцом поиска.
+    QList<QPair<int, int>> searchMatches(const QString &text) const;
+
+    /// \brief Текст одного экранного ряда без колонок слева.
+    QString rowText(const TerminalBuffer::Line &line, int row) const;
+
+    /// \brief Ширина колонки меток времени в знакоместах, вместе с отбивкой.
+    int timestampColumns() const;
+
+    /// \brief Ширина колонок слева от содержимого.
+    int gutterWidth() const;
+
+    /// \brief Текст колонки меток времени для строки.
+    QString timestampText(const TerminalBuffer::Line &line, qint64 lineNumber) const;
+
+    /// \brief Положение содержимого по точке в области просмотра.
+    Position positionAt(const QPoint &viewportPoint) const;
+
+    /// \brief Нормализованные границы выделения.
+    bool selectionRange(Position *from, Position *to) const;
+
+    /// \brief Запросить перерисовку не чаще, чем позволяет частота обновления.
+    void scheduleRepaint();
+
+    void onLinesAppended(qint64 firstLineNumber, qint64 count);
+    void onLineUpdated(qint64 lineNumber);
+    void onTrimmed(qint64 newFirstLineNumber);
+    void onCleared();
+
+    TerminalBuffer *m_buffer = nullptr;
+    ThemeManager *m_theme = nullptr;
+    AnsiPalette m_palette;
+
+    ViewMode m_viewMode = ViewMode::Text;
+    bool m_showTimestamps = false;
+    bool m_relativeTimestamps = false;
+    QString m_timestampFormat = QStringLiteral("HH:mm:ss.zzz");
+    bool m_showDirection = true;
+    int m_hexBytesPerRow = 16;
+
+    QFont m_font;
+    int m_charWidth = 8;
+    int m_lineHeight = 16;
+    int m_ascent = 12;
+
+    /// \brief Показываемые строки в порядке вывода; в режиме фильтра — только совпавшие.
+    std::deque<VisibleLine> m_visible;
+    qint64 m_totalRows = 0;
+
+    bool m_followTail = true;
+
+    HighlightRules m_highlightRules;
+
+    QRegularExpression m_searchRegex;
+    bool m_searchActive = false;
+    bool m_filterEnabled = false;
+
+    /// \brief Индекс текущего совпадения в m_visible; -1, если переход ещё не делался.
+    int m_currentMatch = -1;
+
+    Position m_selectionAnchor;
+    Position m_selectionCursor;
+    bool m_selecting = false;
+
+    QTimer *m_repaintTimer = nullptr;
+};
+
+} // namespace spotty

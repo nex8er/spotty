@@ -72,6 +72,13 @@ Q_SIGNALS:
     /// \brief Нажата кнопка настроек интерфейса.
     void settingsRequested(const QString &id);
 
+    /// \brief Нажата кнопка открытия или закрытия канала.
+    void toggleOpenRequested();
+
+protected:
+    /// \brief Гасит прокрутку колесом над списком интерфейсов.
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
     /// \brief Перестроить список из реестра, сохранив текущий выбор.
     void rebuild();
@@ -93,6 +100,7 @@ private:
     QLabel *m_statusDot = nullptr;        ///< Цветной кружок состояния.
     QLabel *m_statusText = nullptr;       ///< Подпись состояния.
     QComboBox *m_combo = nullptr;         ///< Выбор интерфейса.
+    QToolButton *m_openButton = nullptr;  ///< Открыть или закрыть канал.
     QToolButton *m_settingsButton = nullptr; ///< Переход в настройки интерфейса.
 
     ChannelState m_state = ChannelState::Closed; ///< Отображаемое состояние.

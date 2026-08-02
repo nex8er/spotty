@@ -6,8 +6,10 @@
 
 namespace spotty {
 
+class HistoryStore;
 class InterfaceRegistry;
 class PluginManager;
+class Session;
 class SettingsStore;
 class ThemeManager;
 
@@ -16,19 +18,21 @@ class ThemeManager;
  * \brief Службы, которые нужны интерфейсу; собираются в main() и передаются в MainWindow.
  *
  * Явная передача вместо обращения к одиночкам делает зависимости каждого виджета
- * видимыми прямо в его конструкторе. Это начнёт окупаться, как только появятся панели:
- * по сигнатуре сразу понятно, что панель логирования трогает настройки, а панель поиска —
- * нет.
+ * видимыми прямо в его конструкторе. Это начинает окупаться, как только появляются
+ * панели: по сигнатуре сразу понятно, что панель логирования трогает настройки, а панель
+ * поиска — нет.
  *
  * \note Ни один указатель не принадлежит структуре. Все объекты созданы в main() на стеке
  *       и переживают окно.
  */
 struct AppContext
 {
-    SettingsStore *settings = nullptr;   ///< Общие настройки (`settings.json`).
-    PluginManager *plugins = nullptr;    ///< Загруженные плагины.
+    SettingsStore *settings = nullptr;     ///< Общие настройки (`settings.json`).
+    PluginManager *plugins = nullptr;      ///< Загруженные плагины.
     InterfaceRegistry *registry = nullptr; ///< Доступные устройства.
-    ThemeManager *theme = nullptr;       ///< Оформление и палитра.
+    ThemeManager *theme = nullptr;         ///< Оформление и палитра.
+    Session *session = nullptr;            ///< Сеанс работы с интерфейсом.
+    HistoryStore *history = nullptr;       ///< История строки отправки.
 };
 
 } // namespace spotty

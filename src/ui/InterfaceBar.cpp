@@ -76,6 +76,14 @@ InterfaceBar::InterfaceBar(const AppContext &context, QWidget *parent)
     m_combo = new QComboBox(this);
     m_combo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     m_combo->setMinimumWidth(360);
+    // Колесо мыши над выпадающим списком по умолчанию переключает пункты, даже когда у
+    // него нет фокуса. Для выбора порта это недопустимо: случайная прокрутка над окном
+    // молча переключила бы активный интерфейс, закрыв текущий и открыв чужой.
+    m_combo->installEventFilter(this);
+
+    m_openButton = new QToolButton(this);
+    m_openButton->setAutoRaise(true);
+    m_openButton->setEnabled(false);
 
     m_settingsButton = new QToolButton(this);
     m_settingsButton->setToolTip(tr("Interface settings"));
@@ -88,6 +96,7 @@ InterfaceBar::InterfaceBar(const AppContext &context, QWidget *parent)
     layout->addWidget(m_statusDot);
     layout->addWidget(m_statusText);
     layout->addWidget(m_combo, 1);
+    layout->addWidget(m_openButton);
     layout->addWidget(m_settingsButton);
 
     connect(m_combo, &QComboBox::currentIndexChanged, this, [this](int index) {
@@ -95,8 +104,11 @@ InterfaceBar::InterfaceBar(const AppContext &context, QWidget *parent)
             return;
         const QString id = m_combo->itemData(index).toString();
         m_settingsButton->setEnabled(!id.isEmpty());
+        m_openButton->setEnabled(!id.isEmpty());
         Q_EMIT interfaceSelected(id);
     });
+
+    connect(m_openButton, &QToolButton::clicked, this, &InterfaceBar::toggleOpenRequested);
 
     connect(m_settingsButton, &QToolButton::clicked, this, [this] {
         const QString id = currentInterfaceId();
@@ -119,9 +131,26 @@ InterfaceBar::InterfaceBar(const AppContext &context, QWidget *parent)
     rebuild();
 }
 
+bool InterfaceBar::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_combo && event->type() == QEvent::Wheel) {
+        // Прокрутка не должна менять выбор; список открывается щелчком.
+        event->ignore();
+        return true;
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
 void InterfaceBar::updateIcons()
 {
     m_settingsButton->setIcon(MdiIcons::icon(mdi::TuneVariant, kButtonGlyphSize));
+
+    // Значок кнопки отражает действие, которое она выполнит, а не текущее состояние:
+    // «вилка вынута» на открытом канале означает «закрыть».
+    const bool open = m_state == ChannelState::Open || m_state == ChannelState::Opening;
+    m_openButton->setIcon(MdiIcons::icon(open ? mdi::PowerPlugOff : mdi::PowerPlug,
+                                         kButtonGlyphSize));
+    m_openButton->setToolTip(open ? tr("Close the interface") : tr("Open the interface"));
 }
 
 QString InterfaceBar::describe(const InterfaceEntry &entry) const
@@ -213,6 +242,7 @@ void InterfaceBar::setChannelState(ChannelState state, const QString &detail)
     m_state = state;
     m_stateDetail = detail;
     updateStatusIndicator();
+    updateIcons();
 }
 
 void InterfaceBar::updateStatusIndicator()

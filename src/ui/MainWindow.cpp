@@ -4,11 +4,20 @@
  */
 #include "MainWindow.h"
 
+#include "Formatting.h"
 #include "InterfaceBar.h"
+#include "SendBar.h"
+#include "dialogs/InterfaceSettingsDialog.h"
+#include "panels/GeneratorPanel.h"
+#include "panels/LoggingPanel.h"
+#include "panels/MacrosPanel.h"
+#include "panels/SearchPanel.h"
 #include "theme/MdiIcons.h"
 
+#include <HistoryStore.h>
 #include <InterfaceRegistry.h>
 #include <PluginManager.h>
+#include <Session.h>
 #include <settings/Paths.h>
 #include <settings/SettingsStore.h>
 #include <spotty/api/IInterfacePlugin.h>
@@ -17,14 +26,14 @@
 #include <QApplication>
 #include <QButtonGroup>
 #include <QCloseEvent>
-#include <QComboBox>
 #include <QFontDatabase>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QLineEdit>
+#include <QFile>
+#include <QFileInfo>
 #include <QMenu>
 #include <QMenuBar>
-#include <QPlainTextEdit>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -36,7 +45,8 @@ namespace spotty {
 
 namespace {
 
-constexpr int kPanelGlyphSize = 20; ///< Размер значка на рейке панелей, px.
+constexpr int kPanelGlyphSize = 20;
+constexpr int kToolGlyphSize = 18;
 
 // Ключи настроек. Собраны здесь, чтобы опечатка в строке не разошлась между записью и
 // чтением: такую ошибку компилятор не поймает, а проявится она лишь как «настройка не
@@ -46,24 +56,28 @@ constexpr auto kKeySplitter = "window/splitter";
 constexpr auto kKeyPanelIndex = "window/panelIndex";
 constexpr auto kKeyTheme = "appearance/theme";
 constexpr auto kKeyInterface = "session/interfaceId";
+constexpr auto kKeyViewMode = "terminal/viewMode";
+constexpr auto kKeyTimestamps = "terminal/timestamps";
+constexpr auto kKeyDirection = "terminal/showDirection";
+constexpr auto kKeyMaxLines = "terminal/maxLines";
+constexpr auto kKeySendFormat = "send/format";
+constexpr auto kKeySendTermination = "send/termination";
+constexpr auto kKeyAutoOpen = "session/autoOpen";
 
-/// \brief Описание одной правой панели.
-struct PanelSpec
-{
-    char32_t glyph;    ///< Значок на рейке.
-    const char *title; ///< Заголовок, помеченный для перевода.
+/// \brief Значки правых панелей в порядке их страниц в стопке.
+constexpr char32_t kPanelGlyphs[] = {
+    mdi::Flash,               // Макросы
+    mdi::RecordCircleOutline, // Логирование
+    mdi::Magnify,             // Поиск
+    mdi::ShuffleVariant,      // Генератор
 };
 
-/**
- * \brief Правые панели в порядке, заданном планом.
- *
- * Пока каждая — заглушка; этап 3 заменяет страницы за этими кнопками.
- */
-const PanelSpec kPanels[] = {
-    {mdi::Flash, QT_TRANSLATE_NOOP("spotty::MainWindow", "Macros")},
-    {mdi::RecordCircleOutline, QT_TRANSLATE_NOOP("spotty::MainWindow", "Logging")},
-    {mdi::Magnify, QT_TRANSLATE_NOOP("spotty::MainWindow", "Search")},
-    {mdi::ShuffleVariant, QT_TRANSLATE_NOOP("spotty::MainWindow", "Generator")},
+/// \brief Подсказки к значкам панелей, в том же порядке.
+const char *const kPanelTitles[] = {
+    QT_TRANSLATE_NOOP("spotty::MainWindow", "Macros"),
+    QT_TRANSLATE_NOOP("spotty::MainWindow", "Logging"),
+    QT_TRANSLATE_NOOP("spotty::MainWindow", "Search"),
+    QT_TRANSLATE_NOOP("spotty::MainWindow", "Generator"),
 };
 
 } // namespace
@@ -77,56 +91,251 @@ MainWindow::MainWindow(const AppContext &context, QWidget *parent)
     buildUi();
     buildMenus();
     restoreState();
-    showStartupReport();
 
-    if (m_context.theme) {
+    if (m_context.theme)
         connect(m_context.theme, &ThemeManager::themeChanged, this, [this] { updateIcons(); });
-    }
     updateIcons();
 }
 
 void MainWindow::buildUi()
 {
     m_interfaceBar = new InterfaceBar(m_context, this);
-    connect(m_interfaceBar, &InterfaceBar::interfaceSelected, this, [this](const QString &id) {
-        // Запоминание выбора — обещание этапа 1; открытие канала появится на этапе 2.
-        m_context.settings->setValue(QLatin1String(kKeyInterface), id);
-    });
+    m_terminal = new TerminalView(this);
+    m_terminal->setBuffer(m_context.session ? m_context.session->buffer() : nullptr);
+    m_terminal->setThemeManager(m_context.theme);
 
-    m_terminalPlaceholder = new QPlainTextEdit(this);
-    m_terminalPlaceholder->setReadOnly(true);
-    m_terminalPlaceholder->setFrameShape(QFrame::NoFrame);
-    QFont monospace = QFontDatabase::systemFont(QFontDatabase::FixedFont);
-    monospace.setPointSize(monospace.pointSize() + 1);
-    m_terminalPlaceholder->setFont(monospace);
+    m_sendBar = new SendBar(m_context.history, this);
 
     m_splitter = new QSplitter(Qt::Horizontal, this);
-    m_splitter->addWidget(m_terminalPlaceholder);
+    m_splitter->addWidget(m_terminal);
     m_splitter->addWidget(buildSidePanel());
     m_splitter->setStretchFactor(0, 1);
     m_splitter->setStretchFactor(1, 0);
-    // Панель должна полностью схлопываться: при работе с длинными строками терминалу нужна
-    // вся ширина окна.
+    // Панель должна полностью схлопываться: при работе с длинными строками терминалу
+    // нужна вся ширина окна.
     m_splitter->setChildrenCollapsible(true);
+
+    // Полоса просмотра лога: пока она скрыта, ничто о ней не напоминает, а при открытии
+    // файла она сразу отвечает на вопрос «что я сейчас вижу и как вернуться».
+    m_logViewBar = new QWidget(this);
+    m_logViewBar->setObjectName(QStringLiteral("terminalToolbar"));
+    m_logViewLabel = new QLabel(m_logViewBar);
+    auto *backButton = new QPushButton(tr("Back to live output"), m_logViewBar);
+    auto *logBarLayout = new QHBoxLayout(m_logViewBar);
+    logBarLayout->setContentsMargins(8, 4, 8, 4);
+    logBarLayout->addWidget(m_logViewLabel, 1);
+    logBarLayout->addWidget(backButton);
+    m_logViewBar->hide();
+    connect(backButton, &QPushButton::clicked, this, &MainWindow::returnToLiveView);
 
     auto *central = new QWidget(this);
     auto *layout = new QVBoxLayout(central);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
     layout->addWidget(m_interfaceBar);
+    layout->addWidget(buildTerminalToolbar());
+    layout->addWidget(m_logViewBar);
     layout->addWidget(m_splitter, 1);
-    layout->addWidget(buildSendBar());
-
+    layout->addWidget(m_sendBar);
     setCentralWidget(central);
-    statusBar()->showMessage(tr("Ready"));
+
+    m_statsLabel = new QLabel(this);
+    m_linesLabel = new QLabel(this);
+    statusBar()->addPermanentWidget(m_linesLabel);
+    statusBar()->addPermanentWidget(m_statsLabel);
+
+    // --- Связывание -----------------------------------------------------------------
+
+    connect(m_interfaceBar, &InterfaceBar::interfaceSelected, this, [this](const QString &id) {
+        m_context.settings->setValue(QLatin1String(kKeyInterface), id);
+        if (m_context.session)
+            m_context.session->setInterfaceId(id);
+    });
+
+    connect(m_interfaceBar, &InterfaceBar::toggleOpenRequested,
+            this, &MainWindow::toggleConnection);
+
+    connect(m_interfaceBar, &InterfaceBar::settingsRequested,
+            this, &MainWindow::showInterfaceSettings);
+
+    connect(m_sendBar, &SendBar::sendRequested, this, [this](const QByteArray &data) {
+        if (m_context.session)
+            m_context.session->send(data);
+    });
+
+    connect(m_sendBar, &SendBar::optionsChanged, this, [this] {
+        m_context.settings->setValue(QLatin1String(kKeySendFormat), int(m_sendBar->format()));
+        m_context.settings->setValue(QLatin1String(kKeySendTermination),
+                                     int(m_sendBar->termination()));
+    });
+
+    connect(m_terminal, &TerminalView::followTailChanged, this, [this](bool following) {
+        m_followButton->setChecked(following);
+    });
+
+    if (m_context.session) {
+        connect(m_context.session, &Session::stateChanged,
+                this, &MainWindow::applyChannelState);
+        connect(m_context.session, &Session::statisticsChanged,
+                this, &MainWindow::updateStatistics);
+        connect(m_context.session, &Session::controlLinesChanged,
+                this, &MainWindow::updateControlLines);
+        connect(m_context.session, &Session::errorOccurred, this, [this](const QString &message) {
+            statusBar()->showMessage(message, 8000);
+        });
+    }
+
+    // --- Панели ----------------------------------------------------------------------
+
+    const auto sendFromPanel = [this](const QByteArray &data) {
+        if (m_context.session)
+            m_context.session->send(data);
+    };
+    connect(m_macrosPanel, &MacrosPanel::sendRequested, this, sendFromPanel);
+    connect(m_generatorPanel, &GeneratorPanel::sendRequested, this, sendFromPanel);
+
+    const auto showStatus = [this](const QString &message) {
+        statusBar()->showMessage(message, 8000);
+    };
+    connect(m_macrosPanel, &MacrosPanel::statusMessage, this, showStatus);
+    connect(m_loggingPanel, &LoggingPanel::statusMessage, this, showStatus);
+
+    connect(m_generatorPanel, &GeneratorPanel::pushToSendBarRequested, this,
+            [this](const QString &text, int format) {
+                m_sendBar->setFormat(DataCodec::Format(format));
+                m_sendBar->setText(text);
+                m_sendBar->focusInput();
+            });
+
+    connect(m_loggingPanel, &LoggingPanel::logFileRequested, this, &MainWindow::showLogFile);
+
+    connect(m_searchPanel, &SearchPanel::searchChanged, this,
+            [this](const QString &pattern, bool regex, bool caseSensitive, bool wholeWords) {
+                m_terminal->setSearchPattern(pattern, regex, caseSensitive, wholeWords);
+            });
+    connect(m_searchPanel, &SearchPanel::filterToggled,
+            m_terminal, &TerminalView::setFilterEnabled);
+    connect(m_searchPanel, &SearchPanel::findNextRequested,
+            m_terminal, &TerminalView::findNext);
+    connect(m_searchPanel, &SearchPanel::findPreviousRequested,
+            m_terminal, &TerminalView::findPrevious);
+    connect(m_searchPanel, &SearchPanel::highlightRulesChanged,
+            m_terminal, &TerminalView::setHighlightRules);
+    connect(m_terminal, &TerminalView::matchCountChanged,
+            m_searchPanel, &SearchPanel::setMatchCount);
+
+    // Правила, прочитанные панелью из настроек в её конструкторе, до подключения выше не
+    // дошли бы: сигнала тогда ещё некому было слушать.
+    m_terminal->setHighlightRules(m_searchPanel->highlightRules());
+
+    applyChannelState(ChannelState::Closed, {});
+    updateStatistics();
+    updateControlLines({});
     resize(1180, 720);
+}
+
+void MainWindow::showLogFile(const QString &filePath)
+{
+    if (filePath.isEmpty())
+        return;
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        statusBar()->showMessage(tr("Cannot open %1: %2")
+                                     .arg(QFileInfo(filePath).fileName(), file.errorString()),
+                                 8000);
+        return;
+    }
+
+    if (!m_logBuffer)
+        m_logBuffer = new TerminalBuffer(this);
+    m_logBuffer->clear();
+
+    // Предел строк тот же, что у живого вывода: огромный лог иначе съел бы всю память,
+    // а начало всё равно уехало бы за пределы буфера.
+    m_logBuffer->setMaxLines(m_context.settings->value(QLatin1String(kKeyMaxLines), 20000).toInt());
+    m_logBuffer->append(file.readAll(), DataDirection::Rx, 0, /*terminatesLine=*/true);
+
+    m_terminal->setBuffer(m_logBuffer);
+    m_logViewLabel->setText(tr("Viewing log: %1").arg(QFileInfo(filePath).fileName()));
+    m_logViewLabel->setToolTip(filePath);
+    m_logViewBar->show();
+}
+
+void MainWindow::returnToLiveView()
+{
+    if (!m_context.session)
+        return;
+
+    m_terminal->setBuffer(m_context.session->buffer());
+    m_logViewBar->hide();
+
+    if (m_logBuffer)
+        m_logBuffer->clear();
+}
+
+QWidget *MainWindow::buildTerminalToolbar()
+{
+    auto *bar = new QWidget(this);
+    bar->setObjectName(QStringLiteral("terminalToolbar"));
+
+    const auto makeButton = [this, bar](const QString &tip, bool checkable) {
+        auto *button = new QToolButton(bar);
+        button->setAutoRaise(true);
+        button->setCheckable(checkable);
+        button->setToolTip(tip);
+        button->setIconSize(QSize(kToolGlyphSize, kToolGlyphSize));
+        return button;
+    };
+
+    m_hexButton = makeButton(tr("Show data as a hexadecimal dump"), true);
+    m_timestampButton = makeButton(tr("Show timestamps"), true);
+    m_directionButton = makeButton(tr("Show transmit and receive marks"), true);
+    m_clearButton = makeButton(tr("Clear the terminal"), false);
+    m_followButton = makeButton(tr("Follow output"), true);
+    m_followButton->setChecked(true);
+
+    connect(m_hexButton, &QToolButton::toggled, this, [this](bool hex) {
+        m_terminal->setViewMode(hex ? TerminalView::ViewMode::Hex
+                                    : TerminalView::ViewMode::Text);
+        m_context.settings->setValue(QLatin1String(kKeyViewMode),
+                                     hex ? QStringLiteral("hex") : QStringLiteral("text"));
+    });
+    connect(m_timestampButton, &QToolButton::toggled, this, [this](bool show) {
+        m_terminal->setShowTimestamps(show);
+        m_context.settings->setValue(QLatin1String(kKeyTimestamps), show);
+    });
+    connect(m_directionButton, &QToolButton::toggled, this, [this](bool show) {
+        m_terminal->setShowDirection(show);
+        m_context.settings->setValue(QLatin1String(kKeyDirection), show);
+    });
+    connect(m_clearButton, &QToolButton::clicked, this, [this] {
+        if (m_context.session)
+            m_context.session->buffer()->clear();
+    });
+    connect(m_followButton, &QToolButton::toggled, this, [this](bool follow) {
+        m_terminal->setFollowTail(follow);
+    });
+
+    auto *layout = new QHBoxLayout(bar);
+    layout->setContentsMargins(8, 3, 8, 3);
+    layout->setSpacing(2);
+    layout->addWidget(m_hexButton);
+    layout->addWidget(m_timestampButton);
+    layout->addWidget(m_directionButton);
+    layout->addSpacing(8);
+    layout->addWidget(m_clearButton);
+    layout->addWidget(m_followButton);
+    layout->addStretch(1);
+
+    return bar;
 }
 
 QWidget *MainWindow::buildSidePanel()
 {
     auto *panel = new QWidget(this);
     panel->setObjectName(QStringLiteral("sidePanel"));
-    panel->setMinimumWidth(260);
+    panel->setMinimumWidth(300);
 
     // Вертикальная рейка значков вместо полосы вкладок: она читается при любой ширине
     // панели и не вносит в оформление лишних рамок.
@@ -140,40 +349,28 @@ QWidget *MainWindow::buildSidePanel()
 
     m_panelStack = new QStackedWidget(panel);
 
-    int index = 0;
-    for (const PanelSpec &spec : kPanels) {
-        const QString title = tr(spec.title);
+    m_macrosPanel = new MacrosPanel(m_context, m_panelStack);
+    m_loggingPanel = new LoggingPanel(m_context, m_panelStack);
+    m_searchPanel = new SearchPanel(m_context, m_panelStack);
+    m_generatorPanel = new GeneratorPanel(m_context, m_panelStack);
 
+    m_panelStack->addWidget(m_macrosPanel);
+    m_panelStack->addWidget(m_loggingPanel);
+    m_panelStack->addWidget(m_searchPanel);
+    m_panelStack->addWidget(m_generatorPanel);
+
+    for (int index = 0; index < int(std::size(kPanelGlyphs)); ++index) {
         auto *button = new QToolButton(rail);
         button->setCheckable(true);
         button->setAutoRaise(true);
-        button->setToolTip(title);
+        button->setToolTip(tr(kPanelTitles[index]));
         button->setIconSize(QSize(kPanelGlyphSize, kPanelGlyphSize));
         group->addButton(button, index);
         railLayout->addWidget(button);
         m_panelButtons.append(button);
-
-        auto *page = new QWidget(m_panelStack);
-        auto *pageLayout = new QVBoxLayout(page);
-        pageLayout->setContentsMargins(10, 10, 10, 10);
-
-        auto *heading = new QLabel(title, page);
-        heading->setObjectName(QStringLiteral("panelTitle"));
-
-        auto *hint = new QLabel(tr("Not implemented yet."), page);
-        hint->setObjectName(QStringLiteral("hintLabel"));
-        hint->setWordWrap(true);
-
-        pageLayout->addWidget(heading);
-        pageLayout->addWidget(hint);
-        pageLayout->addStretch(1);
-
-        m_panelStack->addWidget(page);
-        ++index;
     }
 
     railLayout->addStretch(1);
-
     connect(group, &QButtonGroup::idClicked, m_panelStack, &QStackedWidget::setCurrentIndex);
 
     auto *layout = new QHBoxLayout(panel);
@@ -188,41 +385,6 @@ QWidget *MainWindow::buildSidePanel()
     return panel;
 }
 
-QWidget *MainWindow::buildSendBar()
-{
-    auto *bar = new QWidget(this);
-    bar->setObjectName(QStringLiteral("sendBar"));
-
-    // Всё выключено: раскладка задаёт форму, наполнение приходит на этапе 2 вместе с
-    // историей, автодополнением по Tab и кодированием форматов.
-    auto *input = new QLineEdit(bar);
-    input->setPlaceholderText(tr("Data to send"));
-    input->setEnabled(false);
-
-    auto *format = new QComboBox(bar);
-    format->addItems({tr("Text"), tr("Hex"), tr("Base64")});
-    format->setEnabled(false);
-
-    auto *termination = new QComboBox(bar);
-    termination->addItems({QStringLiteral("None"), QStringLiteral("LF"), QStringLiteral("CR"),
-                           QStringLiteral("CR+LF"), QStringLiteral("NUL")});
-    termination->setCurrentIndex(3);
-    termination->setEnabled(false);
-
-    auto *send = new QPushButton(tr("Send"), bar);
-    send->setEnabled(false);
-
-    auto *layout = new QHBoxLayout(bar);
-    layout->setContentsMargins(8, 6, 8, 6);
-    layout->setSpacing(8);
-    layout->addWidget(input, 1);
-    layout->addWidget(format);
-    layout->addWidget(termination);
-    layout->addWidget(send);
-
-    return bar;
-}
-
 void MainWindow::buildMenus()
 {
     // На macOS пункты «Settings» и «Quit» переезжают в меню приложения, а «About» — тоже
@@ -234,9 +396,54 @@ void MainWindow::buildMenus()
     QAction *quit = fileMenu->addAction(tr("&Quit"), this, &QWidget::close);
     quit->setShortcut(QKeySequence::Quit);
 
-    QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
-    QMenu *themeMenu = viewMenu->addMenu(tr("&Theme"));
+    QMenu *interfaceMenu = menuBar()->addMenu(tr("&Interface"));
+    QAction *toggle = interfaceMenu->addAction(tr("&Open / Close"), this,
+                                               &MainWindow::toggleConnection);
+    toggle->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_O));
+    interfaceMenu->addSeparator();
 
+    // Ручное управление линиями: у многих плат DTR и RTS заведены на сброс и загрузчик,
+    // и дёрнуть их вручную — обычная отладочная операция.
+    interfaceMenu->addAction(tr("Toggle &DTR"), this, [this] {
+        if (m_context.session) {
+            const bool current = m_context.session->controlLines()
+                                     .value(QStringLiteral("DTR")).toBool();
+            m_context.session->setControlLine(QStringLiteral("DTR"), !current);
+        }
+    });
+    interfaceMenu->addAction(tr("Toggle &RTS"), this, [this] {
+        if (m_context.session) {
+            const bool current = m_context.session->controlLines()
+                                     .value(QStringLiteral("RTS")).toBool();
+            m_context.session->setControlLine(QStringLiteral("RTS"), !current);
+        }
+    });
+    interfaceMenu->addAction(tr("Send &Break"), this, [this] {
+        if (m_context.session)
+            m_context.session->sendBreak();
+    });
+
+    QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
+
+    QAction *hexAction = viewMenu->addAction(tr("&Hexadecimal dump"));
+    hexAction->setCheckable(true);
+    hexAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_H));
+    connect(hexAction, &QAction::toggled, m_hexButton, &QToolButton::setChecked);
+    connect(m_hexButton, &QToolButton::toggled, hexAction, &QAction::setChecked);
+
+    QAction *timestampAction = viewMenu->addAction(tr("&Timestamps"));
+    timestampAction->setCheckable(true);
+    connect(timestampAction, &QAction::toggled, m_timestampButton, &QToolButton::setChecked);
+    connect(m_timestampButton, &QToolButton::toggled, timestampAction, &QAction::setChecked);
+
+    QAction *relativeAction = viewMenu->addAction(tr("Timestamps &relative to previous line"));
+    relativeAction->setCheckable(true);
+    connect(relativeAction, &QAction::toggled, this,
+            [this](bool on) { m_terminal->setRelativeTimestamps(on); });
+
+    viewMenu->addSeparator();
+
+    QMenu *themeMenu = viewMenu->addMenu(tr("&Theme"));
     auto *themeGroup = new QActionGroup(this);
     themeGroup->setExclusive(true);
 
@@ -252,10 +459,112 @@ void MainWindow::buildMenus()
 
     QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
     helpMenu->addAction(tr("&About Spotty"), this, [this] {
-        statusBar()->showMessage(
-            tr("Spotty %1 - modular terminal port monitor").arg(QLatin1String(SPOTTY_VERSION)),
-            5000);
+        QMessageBox::about(this, tr("About Spotty"),
+                           tr("<b>Spotty %1</b><br>Modular terminal port monitor.<br><br>"
+                              "Configuration: %2")
+                               .arg(QLatin1String(SPOTTY_VERSION), Paths::configDir()));
     });
+}
+
+void MainWindow::toggleConnection()
+{
+    if (!m_context.session)
+        return;
+
+    if (m_context.session->isActive())
+        m_context.session->close();
+    else
+        m_context.session->open();
+}
+
+void MainWindow::showInterfaceSettings(const QString &interfaceId)
+{
+    if (interfaceId.isEmpty() || !m_context.registry || !m_context.plugins)
+        return;
+
+    const InterfaceEntry *entry = m_context.registry->entry(interfaceId);
+    if (!entry)
+        return;
+
+    IInterfacePlugin *plugin = m_context.plugins->plugin(entry->descriptor.pluginId);
+    if (!plugin)
+        return;
+
+    InterfaceSettingsDialog dialog(entry->descriptor.systemName, plugin->settingsSchema(),
+                                   m_context.registry->settingsFor(interfaceId),
+                                   entry->alias, this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    m_context.registry->setAlias(interfaceId, dialog.alias());
+    m_context.registry->setSettingsFor(interfaceId, dialog.values());
+
+    // Настройки применяются к уже открытому каналу: закрывать его ради смены скорости
+    // значило бы дёрнуть DTR и перезагрузить плату.
+    if (m_context.session)
+        m_context.session->reloadSettings();
+}
+
+void MainWindow::applyChannelState(ChannelState state, const QString &detail)
+{
+    const bool open = state == ChannelState::Open;
+
+    m_interfaceBar->setChannelState(state, detail);
+    m_sendBar->setSendEnabled(open);
+
+    if (m_macrosPanel)
+        m_macrosPanel->setSendEnabled(open);
+    if (m_generatorPanel)
+        m_generatorPanel->setSendEnabled(open);
+    if (m_loggingPanel)
+        m_loggingPanel->setInterfaceOpen(open);
+
+    if (open)
+        m_sendBar->focusInput();
+}
+
+void MainWindow::updateStatistics()
+{
+    if (!m_context.session) {
+        m_statsLabel->clear();
+        return;
+    }
+
+    const Session::Statistics stats = m_context.session->statistics();
+    QString text = tr("RX %1  TX %2")
+                       .arg(Formatting::byteCount(stats.bytesReceived),
+                            Formatting::byteCount(stats.bytesSent));
+
+    if (stats.receiveRateBps > 0.5)
+        text += tr("  ·  %1/s").arg(Formatting::byteCount(qint64(stats.receiveRateBps)));
+    if (stats.errorCount > 0)
+        text += tr("  ·  %n error(s)", nullptr, int(stats.errorCount));
+
+    m_statsLabel->setText(text);
+}
+
+void MainWindow::updateControlLines(const QVariantMap &lines)
+{
+    if (lines.isEmpty()) {
+        m_linesLabel->clear();
+        return;
+    }
+
+    // Порядок фиксирован, а не взят из карты: линии должны стоять на одних и тех же
+    // местах, иначе взгляд каждый раз ищет нужную заново.
+    static const QStringList order = {QStringLiteral("CTS"), QStringLiteral("DSR"),
+                                      QStringLiteral("DCD"), QStringLiteral("RI"),
+                                      QStringLiteral("DTR"), QStringLiteral("RTS")};
+
+    QStringList parts;
+    for (const QString &name : order) {
+        if (!lines.contains(name))
+            continue;
+        parts << (lines.value(name).toBool() ? name : name.toLower());
+    }
+
+    m_linesLabel->setText(parts.join(u' '));
+    m_linesLabel->setToolTip(tr("Control lines: uppercase means asserted"));
 }
 
 void MainWindow::setTheme(ThemeManager::Theme theme)
@@ -269,68 +578,65 @@ void MainWindow::setTheme(ThemeManager::Theme theme)
 
 void MainWindow::updateIcons()
 {
-    for (int i = 0; i < m_panelButtons.size() && i < int(std::size(kPanels)); ++i)
-        m_panelButtons.at(i)->setIcon(MdiIcons::icon(kPanels[i].glyph, kPanelGlyphSize));
-}
+    for (int i = 0; i < m_panelButtons.size() && i < int(std::size(kPanelGlyphs)); ++i)
+        m_panelButtons.at(i)->setIcon(MdiIcons::icon(kPanelGlyphs[i], kPanelGlyphSize));
 
-void MainWindow::showStartupReport()
-{
-    QStringList lines;
-    lines << tr("Spotty %1").arg(QLatin1String(SPOTTY_VERSION));
-    lines << tr("Configuration: %1%2")
-                 .arg(Paths::configDir(), Paths::isPortable() ? tr("  (portable)") : QString());
-    lines << QString();
-
-    const QList<IInterfacePlugin *> plugins = m_context.plugins->plugins();
-    lines << tr("Plugins loaded: %1").arg(plugins.size());
-    for (IInterfacePlugin *plugin : plugins) {
-        lines << QStringLiteral("  %1  (%2)  -  %3 %4")
-                     .arg(plugin->displayName(), plugin->pluginId())
-                     .arg(plugin->enumerate().size())
-                     .arg(tr("interface(s)"));
-    }
-
-    // Отклонённые плагины показываются с причиной: чаще всего это несовпадение версии Qt
-    // или компилятора, и без объяснения плагин выглядел бы просто исчезнувшим.
-    const QList<PluginManager::LoadFailure> failures = m_context.plugins->failures();
-    if (!failures.isEmpty()) {
-        lines << QString();
-        lines << tr("Rejected: %1").arg(failures.size());
-        for (const PluginManager::LoadFailure &failure : failures)
-            lines << QStringLiteral("  %1\n    %2").arg(failure.path, failure.reason);
-    }
-
-    lines << QString();
-    lines << tr("Searched for plugins in:");
-    const QStringList dirs = m_context.plugins->searchedDirectories();
-    if (dirs.isEmpty())
-        lines << tr("  (no existing directories)");
-    for (const QString &dir : dirs)
-        lines << QStringLiteral("  %1").arg(dir);
-
-    m_terminalPlaceholder->setPlainText(lines.join(u'\n'));
+    m_hexButton->setIcon(MdiIcons::icon(mdi::Hexadecimal, kToolGlyphSize));
+    m_timestampButton->setIcon(MdiIcons::icon(mdi::ClockOutline, kToolGlyphSize));
+    m_directionButton->setIcon(MdiIcons::icon(mdi::SwapHorizontal, kToolGlyphSize));
+    m_clearButton->setIcon(MdiIcons::icon(mdi::Broom, kToolGlyphSize));
+    m_followButton->setIcon(MdiIcons::icon(mdi::ArrowCollapseDown, kToolGlyphSize));
 }
 
 void MainWindow::restoreState()
 {
-    const QByteArray geometry =
-        m_context.settings->value(QLatin1String(kKeyGeometry)).toByteArray();
+    SettingsStore *settings = m_context.settings;
+
+    const QByteArray geometry = settings->value(QLatin1String(kKeyGeometry)).toByteArray();
     if (!geometry.isEmpty())
         restoreGeometry(geometry);
 
-    const QByteArray splitter =
-        m_context.settings->value(QLatin1String(kKeySplitter)).toByteArray();
+    const QByteArray splitter = settings->value(QLatin1String(kKeySplitter)).toByteArray();
     if (!splitter.isEmpty())
         m_splitter->restoreState(splitter);
 
-    const int panelIndex = m_context.settings->value(QLatin1String(kKeyPanelIndex), 0).toInt();
+    const int panelIndex = settings->value(QLatin1String(kKeyPanelIndex), 0).toInt();
     if (panelIndex >= 0 && panelIndex < m_panelButtons.size()) {
         m_panelButtons.at(panelIndex)->setChecked(true);
         m_panelStack->setCurrentIndex(panelIndex);
     }
 
-    m_interfaceBar->setCurrentInterfaceId(
-        m_context.settings->value(QLatin1String(kKeyInterface)).toString());
+    m_hexButton->setChecked(settings->value(QLatin1String(kKeyViewMode)).toString()
+                            == QLatin1String("hex"));
+    m_timestampButton->setChecked(settings->value(QLatin1String(kKeyTimestamps), false).toBool());
+    m_directionButton->setChecked(settings->value(QLatin1String(kKeyDirection), true).toBool());
+
+    m_terminal->setBuffer(m_context.session ? m_context.session->buffer() : nullptr);
+    if (m_context.session) {
+        m_context.session->buffer()->setMaxLines(
+            settings->value(QLatin1String(kKeyMaxLines), 20000).toInt());
+    }
+
+    m_sendBar->setFormat(DataCodec::Format(
+        settings->value(QLatin1String(kKeySendFormat), int(DataCodec::Format::Text)).toInt()));
+    m_sendBar->setTermination(DataCodec::Termination(
+        settings->value(QLatin1String(kKeySendTermination),
+                        int(DataCodec::Termination::CrLf)).toInt()));
+
+    // Интерфейс восстанавливается последним: обработчик выбора обращается к сессии,
+    // которая к этому моменту уже должна быть настроена.
+    const QString interfaceId = settings->value(QLatin1String(kKeyInterface)).toString();
+    m_interfaceBar->setCurrentInterfaceId(interfaceId);
+    if (m_context.session && !interfaceId.isEmpty()) {
+        m_context.session->setInterfaceId(interfaceId);
+
+        // По умолчанию выключено. Открытие порта — действие с последствиями: оно дёргает
+        // DTR, а у многих плат это сброс, и оно же перехватывает порт у другой программы,
+        // которой он мог быть нужен. Запускать это молча при каждом старте нельзя;
+        // пользователь включает настройку сам, если хочет.
+        if (settings->value(QLatin1String(kKeyAutoOpen), false).toBool())
+            m_context.session->open();
+    }
 }
 
 void MainWindow::persistState()
@@ -340,11 +646,20 @@ void MainWindow::persistState()
     m_context.settings->setValue(QLatin1String(kKeyPanelIndex), m_panelStack->currentIndex());
     // Явный save(), а не отложенный: приложение вот-вот завершится, ждать таймер некому.
     m_context.settings->save();
+
+    if (m_context.history)
+        m_context.history->save();
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     persistState();
+
+    // Канал закрывается до разрушения окна: поток ввода-вывода должен остановиться, пока
+    // объекты, на которые он ссылается, ещё живы.
+    if (m_context.session)
+        m_context.session->close();
+
     QMainWindow::closeEvent(event);
 }
 

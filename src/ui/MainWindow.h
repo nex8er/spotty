@@ -5,18 +5,26 @@
 #pragma once
 
 #include "AppContext.h"
+#include "TerminalView.h"
 #include "theme/ThemeManager.h"
+
+#include <spotty/api/ChannelState.h>
 
 #include <QMainWindow>
 
-class QPlainTextEdit;
+class QLabel;
 class QSplitter;
 class QStackedWidget;
 class QToolButton;
 
 namespace spotty {
 
+class GeneratorPanel;
 class InterfaceBar;
+class LoggingPanel;
+class MacrosPanel;
+class SearchPanel;
+class SendBar;
 
 /**
  * \class MainWindow
@@ -27,36 +35,27 @@ class InterfaceBar;
  * \verbatim
  *  ┌───────────────────────────────────────────────────────┐
  *  │ InterfaceBar: состояние · выбор интерфейса · настройки │
+ *  ├───────────────────────────────────────────────────────┤
+ *  │ панель терминала: текст/HEX · метки · очистка · слежение│
  *  ├──────────────────────────────────┬────────────────────┤
  *  │                                  │ ▌ рейка значков    │
- *  │        область терминала         │ ▌ панель:          │
+ *  │        TerminalView              │ ▌ панель:          │
  *  │                                  │ ▌ макросы / логи / │
  *  │                                  │ ▌ поиск / генератор│
  *  ├──────────────────────────────────┴────────────────────┤
- *  │ строка отправки: ввод · формат · терминация · Отправить│
+ *  │ SendBar: ввод · формат · терминация · Отправить       │
+ *  ├───────────────────────────────────────────────────────┤
+ *  │ строка состояния: счётчики, скорость, линии управления │
  *  └───────────────────────────────────────────────────────┘
  * \endverbatim
  *
- * \par Состояние этапа 1
- *
- * Терминал, строка отправки и панели пока заглушки. Центральная область работает как
- * диагностический отчёт о запуске, строка отправки выключена, панели показывают
- * заголовок. Каркас вокруг них — то, что наполняют следующие этапы.
- *
- * \par Что запоминается
- *
- * Геометрия окна, положение разделителя, активная панель, тема и выбранный интерфейс.
+ * Панели справа пока заглушки — их наполняет этап 3.
  */
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    /**
-     * \brief Конструктор.
-     * \param context Службы приложения; копируется, указатели внутри переживают окно.
-     * \param parent Родительский виджет.
-     */
     explicit MainWindow(const AppContext &context, QWidget *parent = nullptr);
 
 protected:
@@ -64,46 +63,79 @@ protected:
     void closeEvent(QCloseEvent *event) override;
 
 private:
-    /// \brief Собрать центральный виджет и раскладку.
     void buildUi();
-
-    /// \brief Собрать строку меню.
     void buildMenus();
 
-    /// \brief Собрать правую панель: рейку значков и стопку страниц.
+    /// \brief Панель управления показом терминала.
+    QWidget *buildTerminalToolbar();
+
+    /// \brief Правая панель: рейка значков и стопка страниц.
     QWidget *buildSidePanel();
 
-    /// \brief Собрать нижнюю строку отправки.
-    QWidget *buildSendBar();
-
-    /// \brief Восстановить сохранённое состояние окна.
     void restoreState();
-
-    /// \brief Записать состояние окна в настройки.
     void persistState();
 
-    /// \brief Переключить тему и запомнить выбор.
     void setTheme(ThemeManager::Theme theme);
 
     /// \brief Пересобрать раскрашенные значки. Вызывается при смене темы.
     void updateIcons();
 
+    /// \brief Открыть или закрыть канал в зависимости от текущего состояния.
+    void toggleConnection();
+
+    /// \brief Показать диалог настроек интерфейса и применить результат.
+    void showInterfaceSettings(const QString &interfaceId);
+
+    /// \brief Отразить новое состояние канала во всех элементах окна.
+    void applyChannelState(ChannelState state, const QString &detail);
+
+    /// \brief Обновить счётчики в строке состояния.
+    void updateStatistics();
+
+    /// \brief Обновить индикаторы линий управления.
+    void updateControlLines(const QVariantMap &lines);
+
     /**
-     * \brief Заполнить центральную область отчётом о запуске.
+     * \brief Показать файл лога в области терминала.
      *
-     * Пока нет терминала, центральная область служит диагностикой. Обнаружение плагинов —
-     * то, что чаще всего идёт не так на новой машине, поэтому отчёт показывается целиком,
-     * а не прячется в журнал.
+     * Живой вывод при этом не теряется: он остаётся в своём буфере и возвращается на
+     * экран кнопкой «к живому выводу». Показывать лог в том же буфере значило бы
+     * затереть то, что пришло с устройства.
      */
-    void showStartupReport();
+    void showLogFile(const QString &filePath);
+
+    /// \brief Вернуть в область терминала живой вывод сессии.
+    void returnToLiveView();
+
+    GeneratorPanel *m_generatorPanel = nullptr;
+    LoggingPanel *m_loggingPanel = nullptr;
+    MacrosPanel *m_macrosPanel = nullptr;
+    SearchPanel *m_searchPanel = nullptr;
+
+    /// \brief Буфер под просматриваемый файл лога; живой вывод хранится отдельно.
+    TerminalBuffer *m_logBuffer = nullptr;
+
+    /// \brief Полоса с именем открытого лога и кнопкой возврата.
+    QWidget *m_logViewBar = nullptr;
+    QLabel *m_logViewLabel = nullptr;
 
     AppContext m_context;
 
     InterfaceBar *m_interfaceBar = nullptr;
-    QPlainTextEdit *m_terminalPlaceholder = nullptr; ///< Заглушка терминала (этап 2).
-    QSplitter *m_splitter = nullptr;      ///< Разделитель «терминал / панели».
-    QStackedWidget *m_panelStack = nullptr; ///< Страницы правых панелей.
-    QList<QToolButton *> m_panelButtons;  ///< Кнопки рейки, по одной на панель.
+    TerminalView *m_terminal = nullptr;
+    SendBar *m_sendBar = nullptr;
+    QSplitter *m_splitter = nullptr;
+    QStackedWidget *m_panelStack = nullptr;
+    QList<QToolButton *> m_panelButtons;
+
+    QToolButton *m_hexButton = nullptr;
+    QToolButton *m_timestampButton = nullptr;
+    QToolButton *m_directionButton = nullptr;
+    QToolButton *m_clearButton = nullptr;
+    QToolButton *m_followButton = nullptr;
+
+    QLabel *m_statsLabel = nullptr;
+    QLabel *m_linesLabel = nullptr;
 };
 
 } // namespace spotty
