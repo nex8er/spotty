@@ -1,0 +1,106 @@
+# Конфигурация Doxygen для Spotty.
+#
+#   doxygen Doxyfile
+#   open docs/html/index.html
+#
+# Doxygen и graphviz ставятся отдельно:
+#   brew install doxygen graphviz
+#   apt install doxygen graphviz
+
+PROJECT_NAME           = "Spotty"
+PROJECT_NUMBER         = "0.1.0a"
+PROJECT_BRIEF          = "Модульный терминал-монитор портов"
+
+OUTPUT_DIRECTORY       = docs
+OUTPUT_LANGUAGE        = Russian
+CREATE_SUBDIRS         = NO
+
+# --- Что документируем -------------------------------------------------------------
+
+INPUT                  = include \
+                         src \
+                         plugins \
+                         README.md \
+                         docs/PLUGIN_API.md
+
+# Титульная страница — README, чтобы сгенерированная документация начиналась с того же,
+# с чего начинается репозиторий.
+USE_MDFILE_AS_MAINPAGE = README.md
+
+FILE_PATTERNS          = *.h *.cpp *.md
+RECURSIVE              = YES
+EXCLUDE_PATTERNS       = */build/* */build-*/* *_autogen/* moc_* qrc_*
+
+# --- Полнота -----------------------------------------------------------------------
+
+# Приватные члены и статические функции включены намеренно: документация нужна прежде
+# всего сопровождающему, а он читает и внутренности.
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = YES
+
+# Недокументированное должно быть заметно, иначе пробелы копятся незаметно.
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_NO_PARAMDOC       = YES
+
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = YES
+MARKDOWN_SUPPORT       = YES
+AUTOLINK_SUPPORT       = YES
+
+# --- C++ -----------------------------------------------------------------------------
+
+BUILTIN_STL_SUPPORT    = YES
+DISTRIBUTE_GROUP_DOC   = YES
+INHERIT_DOCS           = YES
+
+# Макросы, которые иначе сбивают разбор объявлений классов.
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+PREDEFINED             = SPOTTY_API_EXPORT= \
+                         Q_OBJECT= \
+                         Q_SIGNALS=public \
+                         Q_SLOTS= \
+                         Q_DECL_EXPORT= \
+                         Q_DECL_IMPORT= \
+                         "Q_DECLARE_METATYPE(x)=" \
+                         "Q_DECLARE_INTERFACE(a,b)=" \
+                         "Q_PLUGIN_METADATA(x)=" \
+                         "Q_INTERFACES(x)=" \
+                         "Q_ENUM(x)=" \
+                         "Q_DECLARE_TR_FUNCTIONS(x)="
+
+# --- Вывод ---------------------------------------------------------------------------
+
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_TREEVIEW      = YES
+DISABLE_INDEX          = NO
+FULL_SIDEBAR           = NO
+HTML_COLORSTYLE        = TOGGLE
+
+GENERATE_LATEX         = NO
+GENERATE_MAN           = NO
+
+# --- Диаграммы -----------------------------------------------------------------------
+
+# Требуют graphviz; без него Doxygen предупредит и продолжит без схем.
+HAVE_DOT               = YES
+CLASS_GRAPH            = YES
+COLLABORATION_GRAPH    = NO
+INCLUDE_GRAPH          = NO
+INCLUDED_BY_GRAPH      = NO
+CALL_GRAPH             = NO
+CALLER_GRAPH           = NO
+DOT_IMAGE_FORMAT       = svg
+INTERACTIVE_SVG        = YES
+
+# --- Исходники -----------------------------------------------------------------------
+
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES

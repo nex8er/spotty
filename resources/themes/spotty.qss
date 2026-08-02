@@ -1,0 +1,270 @@
+/* Таблица стилей Spotty.
+ *
+ * Плейсхолдеры вида @имя подставляет ThemeManager из структуры ThemeColors, поэтому одни и
+ * те же значения управляют и этой таблицей, и собственной отрисовкой терминала.
+ * Записывать цвет числом здесь нельзя: он немедленно разойдётся с тем, чем рисует себя
+ * терминал.
+ *
+ * Оформление намеренно плоское и монохромное: ни градиентов, ни скруглённой обводки,
+ * единственный акцентный цвет — только для фокуса и выделения. Структура выражается
+ * линиями толщиной в пиксель, а не рамками.
+ *
+ * Список допустимых плейсхолдеров задан в ThemeManager::resolveStylesheet(); незнакомый
+ * @имя вызывает предупреждение при запуске. */
+
+QWidget {
+    font-size: 13px;
+}
+
+QMainWindow,
+QDialog {
+    background: @window;
+}
+
+/* --- Области окна ----------------------------------------------------------------- */
+
+#interfaceBar,
+#panelHeader {
+    background: @panel;
+    border-bottom: 1px solid @border;
+}
+
+#sendBar {
+    background: @panel;
+    border-top: 1px solid @border;
+}
+
+#sidePanel {
+    background: @panel;
+    border-left: 1px solid @border;
+}
+
+#panelTitle {
+    font-weight: 600;
+    padding: 6px 8px;
+}
+
+#statusDot {
+    padding: 0 4px;
+}
+
+#hintLabel {
+    color: @textMuted;
+}
+
+/* --- Элементы управления ---------------------------------------------------------- */
+
+QToolButton {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    padding: 4px;
+}
+
+QToolButton:hover {
+    background: @base;
+    border-color: @border;
+}
+
+QToolButton:pressed,
+QToolButton:checked {
+    background: @selection;
+    border-color: @accent;
+}
+
+QToolButton::menu-indicator {
+    image: none;
+}
+
+QPushButton {
+    background: @panel;
+    border: 1px solid @border;
+    border-radius: 3px;
+    padding: 5px 14px;
+}
+
+QPushButton:hover {
+    border-color: @accent;
+}
+
+QPushButton:pressed {
+    background: @selection;
+}
+
+QPushButton:disabled {
+    color: @textMuted;
+    border-color: @border;
+}
+
+QLineEdit,
+QComboBox,
+QSpinBox,
+QPlainTextEdit,
+QAbstractScrollArea {
+    background: @base;
+    border: 1px solid @border;
+    border-radius: 3px;
+    selection-background-color: @selection;
+    selection-color: @text;
+}
+
+QLineEdit,
+QComboBox,
+QSpinBox {
+    padding: 4px 6px;
+}
+
+QLineEdit:focus,
+QComboBox:focus,
+QSpinBox:focus {
+    border-color: @accent;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 18px;
+}
+
+QComboBox QAbstractItemView {
+    background: @base;
+    border: 1px solid @border;
+    selection-background-color: @selection;
+    outline: none;
+}
+
+/* --- Списки и меню ---------------------------------------------------------------- */
+
+QListView,
+QTreeView,
+QTableView {
+    background: @base;
+    border: 1px solid @border;
+    outline: none;
+}
+
+QListView::item,
+QTreeView::item {
+    padding: 4px 6px;
+    border: none;
+}
+
+QListView::item:selected,
+QTreeView::item:selected {
+    background: @selection;
+    color: @text;
+}
+
+QMenuBar {
+    background: @panel;
+    border-bottom: 1px solid @border;
+}
+
+QMenuBar::item {
+    padding: 5px 10px;
+    background: transparent;
+}
+
+QMenuBar::item:selected {
+    background: @selection;
+}
+
+QMenu {
+    background: @panel;
+    border: 1px solid @border;
+    padding: 4px 0;
+}
+
+QMenu::item {
+    padding: 5px 22px;
+}
+
+QMenu::item:selected {
+    background: @selection;
+}
+
+QMenu::separator {
+    height: 1px;
+    background: @border;
+    margin: 4px 8px;
+}
+
+/* --- Полосы прокрутки: тонкие, без стрелок и оформления дорожки -------------------- */
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 10px;
+    margin: 0;
+}
+
+QScrollBar:horizontal {
+    background: transparent;
+    height: 10px;
+    margin: 0;
+}
+
+QScrollBar::handle:vertical,
+QScrollBar::handle:horizontal {
+    background: @border;
+    border-radius: 5px;
+    min-height: 24px;
+    min-width: 24px;
+}
+
+QScrollBar::handle:hover {
+    background: @textMuted;
+}
+
+QScrollBar::add-line,
+QScrollBar::sub-line,
+QScrollBar::add-page,
+QScrollBar::sub-page {
+    background: none;
+    border: none;
+    height: 0;
+    width: 0;
+}
+
+/* --- Разделители ------------------------------------------------------------------ */
+
+QSplitter::handle {
+    background: @border;
+}
+
+QSplitter::handle:horizontal {
+    width: 1px;
+}
+
+QSplitter::handle:vertical {
+    height: 1px;
+}
+
+QStatusBar {
+    background: @panel;
+    border-top: 1px solid @border;
+    color: @textMuted;
+}
+
+QStatusBar::item {
+    border: none;
+}
+
+QToolTip {
+    background: @panel;
+    color: @text;
+    border: 1px solid @border;
+    padding: 4px 6px;
+}
+
+QGroupBox {
+    border: 1px solid @border;
+    border-radius: 3px;
+    margin-top: 10px;
+    padding-top: 8px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 8px;
+    padding: 0 4px;
+    color: @textMuted;
+}

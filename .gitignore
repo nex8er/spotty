@@ -1,0 +1,23 @@
+build/
+build-*/
+cmake-build-*/
+.cache/
+compile_commands.json
+
+# Документация, порождаемая Doxygen (исходники разметки в docs/ отслеживаются)
+docs/html/
+docs/latex/
+
+# Qt
+*.qm
+*_autogen/
+.qmake.stash
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+
+# IDE / OS
+.vscode/
+.idea/
+*.user
+.DS_Store
