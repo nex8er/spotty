@@ -209,6 +209,18 @@ void TerminalView::setHighlightRules(const HighlightRules &rules)
     viewport()->update();
 }
 
+void TerminalView::setAnsiPalette(const QStringList &colors)
+{
+    m_palette.setCustomColors(colors);
+    viewport()->update();
+}
+
+void TerminalView::setEncoding(QStringConverter::Encoding encoding)
+{
+    if (m_buffer)
+        m_buffer->setEncoding(encoding);
+}
+
 void TerminalView::setSearchPattern(const QString &pattern, bool regularExpression,
                                     bool caseSensitive, bool wholeWords)
 {

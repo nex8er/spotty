@@ -4,6 +4,13 @@ cmake-build-*/
 .cache/
 compile_commands.json
 
+# Отчёты о покрытии
+coverage/
+*.profraw
+*.profdata
+*.gcda
+*.gcno
+
 # Документация, порождаемая Doxygen (исходники разметки в docs/ отслеживаются)
 docs/html/
 docs/latex/

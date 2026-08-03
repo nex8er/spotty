@@ -7,6 +7,7 @@
 #include <terminal/TextStyle.h>
 
 #include <QColor>
+#include <QStringList>
 
 namespace spotty {
 
@@ -37,8 +38,23 @@ public:
      * \brief Задать базовые шестнадцать цветов из темы.
      *
      * Вызывается при смене темы. Остальные цвета палитры вычисляются и от темы не зависят.
+     *
+     * \note Если заданы пользовательские цвета, они имеют приоритет и тему переопределяют.
      */
     void setThemeColors(const ThemeColors &colors);
+
+    /**
+     * \brief Задать свои базовые цвета вместо цветов темы.
+     * \param colors Ровно шестнадцать значений вида `"#rrggbb"`; любое другое число
+     *        записей возвращает палитру к цветам темы.
+     *
+     * Пустой список — не «чёрная палитра», а «вернуть как было»: пока пользователь не
+     * задал свои цвета, смена темы должна продолжать менять и палитру.
+     */
+    void setCustomColors(const QStringList &colors);
+
+    /// \brief Текущие шестнадцать базовых цветов в записи `"#rrggbb"`.
+    QStringList baseColors() const;
 
     /**
      * \brief Цвет по номеру палитры xterm-256.
@@ -66,7 +82,13 @@ private:
     QColor resolve(ColorSource source, quint8 index, quint32 rgb,
                    const QColor &fallback) const;
 
+    /// \brief Применить пользовательские цвета поверх текущих, если они заданы.
+    void applyCustomColors();
+
     QColor m_base[16];
+
+    /// \brief Цвета, заданные пользователем; пустой список — используются цвета темы.
+    QStringList m_custom;
 };
 
 } // namespace spotty

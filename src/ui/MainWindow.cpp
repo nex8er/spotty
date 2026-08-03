@@ -8,6 +8,7 @@
 #include "InterfaceBar.h"
 #include "SendBar.h"
 #include "dialogs/InterfaceSettingsDialog.h"
+#include "dialogs/SettingsDialog.h"
 #include "panels/GeneratorPanel.h"
 #include "panels/LoggingPanel.h"
 #include "panels/MacrosPanel.h"
@@ -26,11 +27,11 @@
 #include <QApplication>
 #include <QButtonGroup>
 #include <QCloseEvent>
+#include <QFile>
+#include <QFileInfo>
 #include <QFontDatabase>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QFile>
-#include <QFileInfo>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -48,21 +49,11 @@ namespace {
 constexpr int kPanelGlyphSize = 20;
 constexpr int kToolGlyphSize = 18;
 
-// Ключи настроек. Собраны здесь, чтобы опечатка в строке не разошлась между записью и
-// чтением: такую ошибку компилятор не поймает, а проявится она лишь как «настройка не
-// сохраняется».
+// Состояние окна, а не пользовательские настройки: сюда spotty::AppSettings не лезет.
 constexpr auto kKeyGeometry = "window/geometry";
 constexpr auto kKeySplitter = "window/splitter";
 constexpr auto kKeyPanelIndex = "window/panelIndex";
-constexpr auto kKeyTheme = "appearance/theme";
 constexpr auto kKeyInterface = "session/interfaceId";
-constexpr auto kKeyViewMode = "terminal/viewMode";
-constexpr auto kKeyTimestamps = "terminal/timestamps";
-constexpr auto kKeyDirection = "terminal/showDirection";
-constexpr auto kKeyMaxLines = "terminal/maxLines";
-constexpr auto kKeySendFormat = "send/format";
-constexpr auto kKeySendTermination = "send/termination";
-constexpr auto kKeyAutoOpen = "session/autoOpen";
 
 /// \brief Значки правых панелей в порядке их страниц в стопке.
 constexpr char32_t kPanelGlyphs[] = {
@@ -80,21 +71,41 @@ const char *const kPanelTitles[] = {
     QT_TRANSLATE_NOOP("spotty::MainWindow", "Generator"),
 };
 
+/// \brief Кодировка приёма по имени из настроек.
+QStringConverter::Encoding encodingFromName(const QString &name)
+{
+    return name == QLatin1String("latin1") ? QStringConverter::Latin1
+                                           : QStringConverter::Utf8;
+}
+
 } // namespace
 
 MainWindow::MainWindow(const AppContext &context, QWidget *parent)
     : QMainWindow(parent)
     , m_context(context)
+    , m_settings(AppSettings::load(*context.settings))
 {
     setWindowTitle(QStringLiteral("Spotty %1").arg(QLatin1String(SPOTTY_VERSION)));
 
     buildUi();
     buildMenus();
-    restoreState();
+    restoreWindowState();
+    applySettings();
 
     if (m_context.theme)
         connect(m_context.theme, &ThemeManager::themeChanged, this, [this] { updateIcons(); });
     updateIcons();
+
+    // Интерфейс восстанавливается последним: обработчики выбора обращаются к сессии и к
+    // панелям, которые к этому моменту уже настроены.
+    const QString interfaceId =
+        m_context.settings->value(QLatin1String(kKeyInterface)).toString();
+    m_interfaceBar->setCurrentInterfaceId(interfaceId);
+    if (m_context.session && !interfaceId.isEmpty()) {
+        m_context.session->setInterfaceId(interfaceId);
+        if (m_settings.autoOpenLastInterface)
+            m_context.session->open();
+    }
 }
 
 void MainWindow::buildUi()
@@ -144,7 +155,7 @@ void MainWindow::buildUi()
     statusBar()->addPermanentWidget(m_linesLabel);
     statusBar()->addPermanentWidget(m_statsLabel);
 
-    // --- Связывание -----------------------------------------------------------------
+    // --- Связывание ------------------------------------------------------------------
 
     connect(m_interfaceBar, &InterfaceBar::interfaceSelected, this, [this](const QString &id) {
         m_context.settings->setValue(QLatin1String(kKeyInterface), id);
@@ -154,7 +165,6 @@ void MainWindow::buildUi()
 
     connect(m_interfaceBar, &InterfaceBar::toggleOpenRequested,
             this, &MainWindow::toggleConnection);
-
     connect(m_interfaceBar, &InterfaceBar::settingsRequested,
             this, &MainWindow::showInterfaceSettings);
 
@@ -164,9 +174,9 @@ void MainWindow::buildUi()
     });
 
     connect(m_sendBar, &SendBar::optionsChanged, this, [this] {
-        m_context.settings->setValue(QLatin1String(kKeySendFormat), int(m_sendBar->format()));
-        m_context.settings->setValue(QLatin1String(kKeySendTermination),
-                                     int(m_sendBar->termination()));
+        m_settings.sendFormat = int(m_sendBar->format());
+        m_settings.sendTermination = int(m_sendBar->termination());
+        m_settings.save(*m_context.settings);
     });
 
     connect(m_terminal, &TerminalView::followTailChanged, this, [this](bool following) {
@@ -208,6 +218,12 @@ void MainWindow::buildUi()
             });
 
     connect(m_loggingPanel, &LoggingPanel::logFileRequested, this, &MainWindow::showLogFile);
+    connect(m_loggingPanel, &LoggingPanel::optionsChanged, this,
+            [this](bool filterAnsi, bool includeTx) {
+                m_settings.logFilterAnsi = filterAnsi;
+                m_settings.logIncludeTx = includeTx;
+                m_settings.save(*m_context.settings);
+            });
 
     connect(m_searchPanel, &SearchPanel::searchChanged, this,
             [this](const QString &pattern, bool regex, bool caseSensitive, bool wholeWords) {
@@ -234,46 +250,6 @@ void MainWindow::buildUi()
     resize(1180, 720);
 }
 
-void MainWindow::showLogFile(const QString &filePath)
-{
-    if (filePath.isEmpty())
-        return;
-
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        statusBar()->showMessage(tr("Cannot open %1: %2")
-                                     .arg(QFileInfo(filePath).fileName(), file.errorString()),
-                                 8000);
-        return;
-    }
-
-    if (!m_logBuffer)
-        m_logBuffer = new TerminalBuffer(this);
-    m_logBuffer->clear();
-
-    // Предел строк тот же, что у живого вывода: огромный лог иначе съел бы всю память,
-    // а начало всё равно уехало бы за пределы буфера.
-    m_logBuffer->setMaxLines(m_context.settings->value(QLatin1String(kKeyMaxLines), 20000).toInt());
-    m_logBuffer->append(file.readAll(), DataDirection::Rx, 0, /*terminatesLine=*/true);
-
-    m_terminal->setBuffer(m_logBuffer);
-    m_logViewLabel->setText(tr("Viewing log: %1").arg(QFileInfo(filePath).fileName()));
-    m_logViewLabel->setToolTip(filePath);
-    m_logViewBar->show();
-}
-
-void MainWindow::returnToLiveView()
-{
-    if (!m_context.session)
-        return;
-
-    m_terminal->setBuffer(m_context.session->buffer());
-    m_logViewBar->hide();
-
-    if (m_logBuffer)
-        m_logBuffer->clear();
-}
-
 QWidget *MainWindow::buildTerminalToolbar()
 {
     auto *bar = new QWidget(this);
@@ -298,24 +274,25 @@ QWidget *MainWindow::buildTerminalToolbar()
     connect(m_hexButton, &QToolButton::toggled, this, [this](bool hex) {
         m_terminal->setViewMode(hex ? TerminalView::ViewMode::Hex
                                     : TerminalView::ViewMode::Text);
-        m_context.settings->setValue(QLatin1String(kKeyViewMode),
-                                     hex ? QStringLiteral("hex") : QStringLiteral("text"));
+        m_settings.viewMode = hex ? QStringLiteral("hex") : QStringLiteral("text");
+        m_settings.save(*m_context.settings);
     });
     connect(m_timestampButton, &QToolButton::toggled, this, [this](bool show) {
         m_terminal->setShowTimestamps(show);
-        m_context.settings->setValue(QLatin1String(kKeyTimestamps), show);
+        m_settings.showTimestamps = show;
+        m_settings.save(*m_context.settings);
     });
     connect(m_directionButton, &QToolButton::toggled, this, [this](bool show) {
         m_terminal->setShowDirection(show);
-        m_context.settings->setValue(QLatin1String(kKeyDirection), show);
+        m_settings.showDirection = show;
+        m_settings.save(*m_context.settings);
     });
     connect(m_clearButton, &QToolButton::clicked, this, [this] {
         if (m_context.session)
             m_context.session->buffer()->clear();
     });
-    connect(m_followButton, &QToolButton::toggled, this, [this](bool follow) {
-        m_terminal->setFollowTail(follow);
-    });
+    connect(m_followButton, &QToolButton::toggled,
+            m_terminal, &TerminalView::setFollowTail);
 
     auto *layout = new QHBoxLayout(bar);
     layout->setContentsMargins(8, 3, 8, 3);
@@ -391,30 +368,33 @@ void MainWindow::buildMenus()
     // туда, поэтому меню «File» и «Help» в строке меню не показываются. Это штатное
     // поведение Qt, а не потерянные пункты.
     QMenu *fileMenu = menuBar()->addMenu(tr("&File"));
-    fileMenu->addAction(tr("&Settings..."))->setEnabled(false);
+    QAction *preferences = fileMenu->addAction(tr("&Settings..."), this,
+                                               &MainWindow::showSettingsDialog);
+    preferences->setShortcut(QKeySequence::Preferences);
+    preferences->setMenuRole(QAction::PreferencesRole);
     fileMenu->addSeparator();
     QAction *quit = fileMenu->addAction(tr("&Quit"), this, &QWidget::close);
     quit->setShortcut(QKeySequence::Quit);
 
     QMenu *interfaceMenu = menuBar()->addMenu(tr("&Interface"));
-    QAction *toggle = interfaceMenu->addAction(tr("&Open / Close"), this,
-                                               &MainWindow::toggleConnection);
-    toggle->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_O));
+    m_actions.insert(QStringLiteral("interface.toggle"),
+                     interfaceMenu->addAction(tr("&Open / Close"), this,
+                                              &MainWindow::toggleConnection));
     interfaceMenu->addSeparator();
 
     // Ручное управление линиями: у многих плат DTR и RTS заведены на сброс и загрузчик,
     // и дёрнуть их вручную — обычная отладочная операция.
     interfaceMenu->addAction(tr("Toggle &DTR"), this, [this] {
         if (m_context.session) {
-            const bool current = m_context.session->controlLines()
-                                     .value(QStringLiteral("DTR")).toBool();
+            const bool current =
+                m_context.session->controlLines().value(QStringLiteral("DTR")).toBool();
             m_context.session->setControlLine(QStringLiteral("DTR"), !current);
         }
     });
     interfaceMenu->addAction(tr("Toggle &RTS"), this, [this] {
         if (m_context.session) {
-            const bool current = m_context.session->controlLines()
-                                     .value(QStringLiteral("RTS")).toBool();
+            const bool current =
+                m_context.session->controlLines().value(QStringLiteral("RTS")).toBool();
             m_context.session->setControlLine(QStringLiteral("RTS"), !current);
         }
     });
@@ -427,19 +407,43 @@ void MainWindow::buildMenus()
 
     QAction *hexAction = viewMenu->addAction(tr("&Hexadecimal dump"));
     hexAction->setCheckable(true);
-    hexAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_H));
     connect(hexAction, &QAction::toggled, m_hexButton, &QToolButton::setChecked);
     connect(m_hexButton, &QToolButton::toggled, hexAction, &QAction::setChecked);
+    m_actions.insert(QStringLiteral("terminal.hex"), hexAction);
 
     QAction *timestampAction = viewMenu->addAction(tr("&Timestamps"));
     timestampAction->setCheckable(true);
     connect(timestampAction, &QAction::toggled, m_timestampButton, &QToolButton::setChecked);
     connect(m_timestampButton, &QToolButton::toggled, timestampAction, &QAction::setChecked);
+    m_actions.insert(QStringLiteral("terminal.timestamps"), timestampAction);
 
-    QAction *relativeAction = viewMenu->addAction(tr("Timestamps &relative to previous line"));
-    relativeAction->setCheckable(true);
-    connect(relativeAction, &QAction::toggled, this,
-            [this](bool on) { m_terminal->setRelativeTimestamps(on); });
+    m_actions.insert(QStringLiteral("terminal.clear"),
+                     viewMenu->addAction(tr("C&lear terminal"), this, [this] {
+                         if (m_context.session)
+                             m_context.session->buffer()->clear();
+                     }));
+
+    viewMenu->addSeparator();
+
+    m_actions.insert(QStringLiteral("search.focus"),
+                     viewMenu->addAction(tr("&Find..."), this, [this] {
+                         m_panelStack->setCurrentIndex(2);
+                         if (m_panelButtons.size() > 2)
+                             m_panelButtons.at(2)->setChecked(true);
+                         m_searchPanel->focusSearch();
+                     }));
+
+    m_actions.insert(QStringLiteral("send.focus"),
+                     viewMenu->addAction(tr("Focus &send bar"), this,
+                                         [this] { m_sendBar->focusInput(); }));
+
+    m_actions.insert(QStringLiteral("logging.toggle"),
+                     viewMenu->addAction(tr("Start / stop &recording"), this, [this] {
+                         m_panelStack->setCurrentIndex(1);
+                         if (m_panelButtons.size() > 1)
+                             m_panelButtons.at(1)->setChecked(true);
+                         m_loggingPanel->toggleRecordingFromShortcut();
+                     }));
 
     viewMenu->addSeparator();
 
@@ -452,7 +456,13 @@ void MainWindow::buildMenus()
         action->setCheckable(true);
         action->setChecked(m_context.theme && m_context.theme->theme() == theme);
         themeGroup->addAction(action);
-        connect(action, &QAction::triggered, this, [this, theme] { setTheme(theme); });
+        connect(action, &QAction::triggered, this, [this, theme] {
+            if (!m_context.theme)
+                return;
+            m_context.theme->setTheme(theme);
+            m_settings.theme = ThemeManager::themeToString(theme);
+            m_settings.save(*m_context.settings);
+        });
     };
     addTheme(tr("&Dark"), ThemeManager::Theme::Dark);
     addTheme(tr("&Light"), ThemeManager::Theme::Light);
@@ -464,6 +474,92 @@ void MainWindow::buildMenus()
                               "Configuration: %2")
                                .arg(QLatin1String(SPOTTY_VERSION), Paths::configDir()));
     });
+}
+
+void MainWindow::applySettings()
+{
+    // Единственное место, где настройка превращается в действие. Добавление новой — одна
+    // строка здесь и одна в структуре AppSettings.
+    QFont font = m_settings.fontFamily.isEmpty()
+                     ? QFontDatabase::systemFont(QFontDatabase::FixedFont)
+                     : QFont(m_settings.fontFamily);
+    if (m_settings.fontSize > 0)
+        font.setPointSize(m_settings.fontSize);
+    m_terminal->setTerminalFont(font);
+
+    m_terminal->setShowTimestamps(m_settings.showTimestamps);
+    m_terminal->setRelativeTimestamps(m_settings.relativeTimestamps);
+    m_terminal->setTimestampFormat(m_settings.timestampFormat);
+    m_terminal->setShowDirection(m_settings.showDirection);
+    m_terminal->setHexBytesPerRow(m_settings.hexBytesPerRow);
+    m_terminal->setAnsiPalette(m_settings.ansiPalette);
+    m_terminal->setViewMode(m_settings.viewMode == QLatin1String("hex")
+                                ? TerminalView::ViewMode::Hex
+                                : TerminalView::ViewMode::Text);
+
+    // Кнопки панели держим в согласии с настройками, не поднимая при этом их обработчики:
+    // иначе применение настроек тут же перезаписало бы их значениями кнопок.
+    const QSignalBlocker hexBlocker(m_hexButton);
+    const QSignalBlocker timestampBlocker(m_timestampButton);
+    const QSignalBlocker directionBlocker(m_directionButton);
+    m_hexButton->setChecked(m_settings.viewMode == QLatin1String("hex"));
+    m_timestampButton->setChecked(m_settings.showTimestamps);
+    m_directionButton->setChecked(m_settings.showDirection);
+
+    if (m_context.session) {
+        m_context.session->buffer()->setMaxLines(m_settings.maxLines);
+        m_context.session->buffer()->setEncoding(encodingFromName(m_settings.encoding));
+        m_context.session->setEchoEnabled(m_settings.localEcho);
+        m_context.session->setPacketizerMode(Packetizer::Mode(m_settings.packetizerMode));
+        m_context.session->setPacketizerTimeout(m_settings.packetizerTimeoutMs);
+        m_context.session->setPacketizerDelimiter(
+            QByteArray::fromHex(m_settings.packetizerDelimiterHex.toLatin1()));
+        m_context.session->setPacketizerFixedLength(m_settings.packetizerFixedLength);
+    }
+
+    m_sendBar->setFormat(DataCodec::Format(m_settings.sendFormat));
+    m_sendBar->setTermination(DataCodec::Termination(m_settings.sendTermination));
+
+    m_loggingPanel->applySettings(m_settings);
+
+    applyShortcuts();
+}
+
+void MainWindow::applyShortcuts()
+{
+    for (const ShortcutAction &action : SettingsDialog::shortcutActions()) {
+        QAction *target = m_actions.value(action.id);
+        if (!target)
+            continue;
+        target->setShortcut(
+            QKeySequence(m_settings.shortcuts.value(action.id, action.defaultSequence)));
+    }
+}
+
+void MainWindow::showSettingsDialog()
+{
+    SettingsDialog dialog(m_settings, m_terminal->ansiPalette(), this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    const bool restartNeeded = dialog.requiresRestart();
+
+    m_settings = dialog.settings();
+    m_settings.save(*m_context.settings);
+    m_context.settings->save();
+
+    if (m_context.theme) {
+        m_context.theme->setTheme(
+            ThemeManager::themeFromString(m_settings.theme, m_context.theme->theme()));
+    }
+
+    applySettings();
+
+    if (restartNeeded) {
+        QMessageBox::information(this, tr("Settings"),
+                                 tr("The language and single-instance settings take effect "
+                                    "after Spotty is restarted."));
+    }
 }
 
 void MainWindow::toggleConnection()
@@ -567,13 +663,54 @@ void MainWindow::updateControlLines(const QVariantMap &lines)
     m_linesLabel->setToolTip(tr("Control lines: uppercase means asserted"));
 }
 
-void MainWindow::setTheme(ThemeManager::Theme theme)
+void MainWindow::showLogFile(const QString &filePath)
 {
-    if (!m_context.theme)
+    if (filePath.isEmpty())
         return;
 
-    m_context.theme->setTheme(theme);
-    m_context.settings->setValue(QLatin1String(kKeyTheme), ThemeManager::themeToString(theme));
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        statusBar()->showMessage(tr("Cannot open %1: %2")
+                                     .arg(QFileInfo(filePath).fileName(), file.errorString()),
+                                 8000);
+        return;
+    }
+
+    if (!m_logBuffer)
+        m_logBuffer = new TerminalBuffer(this);
+    m_logBuffer->clear();
+
+    // Предел строк тот же, что у живого вывода: огромный лог иначе съел бы всю память,
+    // а начало всё равно уехало бы за пределы буфера.
+    m_logBuffer->setMaxLines(m_settings.maxLines);
+    m_logBuffer->setEncoding(encodingFromName(m_settings.encoding));
+    m_logBuffer->append(file.readAll(), DataDirection::Rx, 0, /*terminatesLine=*/true);
+
+    m_terminal->setBuffer(m_logBuffer);
+    m_logViewLabel->setText(tr("Viewing log: %1").arg(QFileInfo(filePath).fileName()));
+    m_logViewLabel->setToolTip(filePath);
+    m_logViewBar->show();
+}
+
+void MainWindow::returnToLiveView()
+{
+    if (!m_context.session)
+        return;
+
+    m_terminal->setBuffer(m_context.session->buffer());
+    m_logViewBar->hide();
+
+    if (m_logBuffer)
+        m_logBuffer->clear();
+}
+
+void MainWindow::raiseWindow()
+{
+    // Порядок важен: свёрнутое окно нужно сначала развернуть, иначе activateWindow()
+    // ничего не даст.
+    showNormal();
+    raise();
+    activateWindow();
 }
 
 void MainWindow::updateIcons()
@@ -588,58 +725,26 @@ void MainWindow::updateIcons()
     m_followButton->setIcon(MdiIcons::icon(mdi::ArrowCollapseDown, kToolGlyphSize));
 }
 
-void MainWindow::restoreState()
+void MainWindow::restoreWindowState()
 {
-    SettingsStore *settings = m_context.settings;
+    SettingsStore *store = m_context.settings;
 
-    const QByteArray geometry = settings->value(QLatin1String(kKeyGeometry)).toByteArray();
+    const QByteArray geometry = store->value(QLatin1String(kKeyGeometry)).toByteArray();
     if (!geometry.isEmpty())
         restoreGeometry(geometry);
 
-    const QByteArray splitter = settings->value(QLatin1String(kKeySplitter)).toByteArray();
+    const QByteArray splitter = store->value(QLatin1String(kKeySplitter)).toByteArray();
     if (!splitter.isEmpty())
         m_splitter->restoreState(splitter);
 
-    const int panelIndex = settings->value(QLatin1String(kKeyPanelIndex), 0).toInt();
+    const int panelIndex = store->value(QLatin1String(kKeyPanelIndex), 0).toInt();
     if (panelIndex >= 0 && panelIndex < m_panelButtons.size()) {
         m_panelButtons.at(panelIndex)->setChecked(true);
         m_panelStack->setCurrentIndex(panelIndex);
     }
-
-    m_hexButton->setChecked(settings->value(QLatin1String(kKeyViewMode)).toString()
-                            == QLatin1String("hex"));
-    m_timestampButton->setChecked(settings->value(QLatin1String(kKeyTimestamps), false).toBool());
-    m_directionButton->setChecked(settings->value(QLatin1String(kKeyDirection), true).toBool());
-
-    m_terminal->setBuffer(m_context.session ? m_context.session->buffer() : nullptr);
-    if (m_context.session) {
-        m_context.session->buffer()->setMaxLines(
-            settings->value(QLatin1String(kKeyMaxLines), 20000).toInt());
-    }
-
-    m_sendBar->setFormat(DataCodec::Format(
-        settings->value(QLatin1String(kKeySendFormat), int(DataCodec::Format::Text)).toInt()));
-    m_sendBar->setTermination(DataCodec::Termination(
-        settings->value(QLatin1String(kKeySendTermination),
-                        int(DataCodec::Termination::CrLf)).toInt()));
-
-    // Интерфейс восстанавливается последним: обработчик выбора обращается к сессии,
-    // которая к этому моменту уже должна быть настроена.
-    const QString interfaceId = settings->value(QLatin1String(kKeyInterface)).toString();
-    m_interfaceBar->setCurrentInterfaceId(interfaceId);
-    if (m_context.session && !interfaceId.isEmpty()) {
-        m_context.session->setInterfaceId(interfaceId);
-
-        // По умолчанию выключено. Открытие порта — действие с последствиями: оно дёргает
-        // DTR, а у многих плат это сброс, и оно же перехватывает порт у другой программы,
-        // которой он мог быть нужен. Запускать это молча при каждом старте нельзя;
-        // пользователь включает настройку сам, если хочет.
-        if (settings->value(QLatin1String(kKeyAutoOpen), false).toBool())
-            m_context.session->open();
-    }
 }
 
-void MainWindow::persistState()
+void MainWindow::persistWindowState()
 {
     m_context.settings->setValue(QLatin1String(kKeyGeometry), saveGeometry());
     m_context.settings->setValue(QLatin1String(kKeySplitter), m_splitter->saveState());
@@ -653,7 +758,7 @@ void MainWindow::persistState()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    persistState();
+    persistWindowState();
 
     // Канал закрывается до разрушения окна: поток ввода-вывода должен остановиться, пока
     // объекты, на которые он ссылается, ещё живы.

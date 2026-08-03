@@ -198,6 +198,13 @@ void TerminalBuffer::append(const QByteArray &data, DataDirection direction,
     }
 
     if (terminatesLine) {
+        // Пакет мог состоять из одних управляющих байтов — разборщик их отбрасывает, и
+        // текста не появилось. Строку всё равно нужно создать: иначе исходные байты
+        // пропадут вместе с ней, и двоичная посылка исчезнет из вывода целиком, включая
+        // HEX-режим.
+        if (!m_hasOpenLine && !m_pendingRaw.isEmpty())
+            startLine(direction, monotonicNs);
+
         if (Line *line = currentLine())
             line->complete = true;
         m_hasOpenLine = false;

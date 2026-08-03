@@ -81,6 +81,21 @@ public:
      */
     IInterfacePlugin *plugin(const QString &pluginId) const;
 
+    /**
+     * \brief Зарегистрировать уже созданный экземпляр плагина.
+     * \param instance QObject, реализующий spotty::IInterfacePlugin.
+     * \param origin Откуда он взялся — попадает в сообщение об отказе.
+     * \return `false`, если экземпляр отклонён; причина добавляется в failures().
+     *
+     * Тот же путь, которым регистрируются вкомпилированные плагины: проверки версии API,
+     * пустого и повторяющегося идентификатора выполняются полностью. Публичным сделан
+     * потому, что иначе ни эти проверки, ни зависящий от них реестр невозможно проверить,
+     * не раскладывая собранные плагины по каталогам.
+     *
+     * \note Владение остаётся за вызывающей стороной.
+     */
+    bool addPlugin(QObject *instance, const QString &origin = QStringLiteral("<embedded>"));
+
     /// \return Отклонённые файлы с причинами. Показывается в стартовом отчёте.
     const QList<LoadFailure> &failures() const { return m_failures; }
 

@@ -16,8 +16,14 @@ set(SPOTTY_VERSION "${PROJECT_VERSION}a")
 
 option(SPOTTY_STATIC_PLUGINS "Link interface plugins into the executable instead of loading them at runtime" OFF)
 option(SPOTTY_BUILD_TESTS "Build unit tests" OFF)
+option(SPOTTY_ENABLE_COVERAGE "Instrument spotty-core for coverage analysis" OFF)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets)
+if(SPOTTY_ENABLE_COVERAGE AND NOT SPOTTY_BUILD_TESTS)
+    # Инструментирование без тестов бессмысленно: измерять было бы нечем.
+    message(FATAL_ERROR "SPOTTY_ENABLE_COVERAGE requires SPOTTY_BUILD_TESTS=ON")
+endif()
+
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets Network)
 # SerialPort нужен только плагину UART, LinguistTools — только переводам. Оба
 # необязательны: без них собирается урезанный, но работающий комплект.
 find_package(Qt6 6.5 QUIET COMPONENTS SerialPort LinguistTools)
@@ -44,6 +50,7 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(SpottyPlugin)
+include(SpottyCoverage)
 
 add_subdirectory(src/api)
 add_subdirectory(src/core)

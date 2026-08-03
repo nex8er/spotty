@@ -5,6 +5,7 @@
 #pragma once
 
 #include <LogWriter.h>
+#include <settings/AppSettings.h>
 
 // Полный заголовок, а не форвард-объявление: LogFileList наследуется от QListWidget.
 #include <QListWidget>
@@ -73,12 +74,26 @@ public:
 
     bool isRecording() const;
 
+    /// \brief Применить настройки приложения к писателю и к флажкам панели.
+    void applySettings(const AppSettings &settings);
+
+    /// \brief Переключить запись. Вызывается по горячей клавише из главного окна.
+    void toggleRecordingFromShortcut();
+
 Q_SIGNALS:
     /// \brief Пользователь просит показать файл лога в терминале.
     void logFileRequested(const QString &filePath);
 
     /// \brief Сообщение для строки состояния.
     void statusMessage(const QString &message);
+
+    /**
+     * \brief Пользователь переключил флажок прямо в панели.
+     *
+     * Те же значения есть в диалоге настроек, поэтому изменение отсюда нужно вернуть
+     * владельцу — иначе панель и диалог разошлись бы.
+     */
+    void optionsChanged(bool filterAnsi, bool includeTx);
 
 private:
     void toggleRecording();
@@ -96,6 +111,9 @@ private:
     LogFileList *m_files = nullptr;
 
     bool m_interfaceOpen = false;
+
+    /// \brief Начинать запись автоматически при открытии интерфейса.
+    bool m_autoStart = false;
 };
 
 } // namespace spotty

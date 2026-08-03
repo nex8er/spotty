@@ -64,6 +64,36 @@ void AnsiPalette::setThemeColors(const ThemeColors &colors)
     // Тему различаем по светлоте фона, а не по перечислению: так палитра не зависит от
     // числа тем и заработает сама, если тем станет больше.
     fillBaseColors(m_base, colors.base.lightness() < 128);
+    applyCustomColors();
+}
+
+void AnsiPalette::setCustomColors(const QStringList &colors)
+{
+    m_custom = colors.size() == 16 ? colors : QStringList{};
+    applyCustomColors();
+}
+
+void AnsiPalette::applyCustomColors()
+{
+    if (m_custom.size() != 16)
+        return;
+
+    for (int i = 0; i < 16; ++i) {
+        const QColor color(m_custom.at(i));
+        // Неразобранное значение пропускаем, оставляя цвет темы: испорченная строка в
+        // настройках не должна превращать текст в чёрный на чёрном.
+        if (color.isValid())
+            m_base[i] = color;
+    }
+}
+
+QStringList AnsiPalette::baseColors() const
+{
+    QStringList result;
+    result.reserve(16);
+    for (const QColor &color : m_base)
+        result.append(color.name(QColor::HexRgb));
+    return result;
 }
 
 QColor AnsiPalette::indexedColor(quint8 index) const

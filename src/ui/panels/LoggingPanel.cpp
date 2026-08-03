@@ -23,6 +23,7 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QMimeData>
+#include <QSignalBlocker>
 #include <QToolButton>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -32,11 +33,6 @@ namespace spotty {
 namespace {
 
 constexpr int kToolGlyphSize = 18;
-
-constexpr auto kKeyFilterAnsi = "logging/filterAnsi";
-constexpr auto kKeyIncludeTx = "logging/includeTx";
-constexpr auto kKeyDirectory = "logging/directory";
-constexpr auto kKeyTemplate = "logging/fileNameTemplate";
 
 } // namespace
 
@@ -154,12 +150,8 @@ LoggingPanel::LoggingPanel(const AppContext &context, QWidget *parent)
     m_filterAnsi->setToolTip(
         tr("Colour codes make the file hard to read outside a terminal and break "
            "searching through it."));
-    m_filterAnsi->setChecked(
-        m_context.settings->value(QLatin1String(kKeyFilterAnsi), true).toBool());
 
     m_includeTx = new QCheckBox(tr("Include sent data"), this);
-    m_includeTx->setChecked(
-        m_context.settings->value(QLatin1String(kKeyIncludeTx), true).toBool());
 
     layout->addWidget(m_filterAnsi);
     layout->addWidget(m_includeTx);
@@ -175,28 +167,19 @@ LoggingPanel::LoggingPanel(const AppContext &context, QWidget *parent)
                            "copy the file itself."));
     layout->addWidget(m_files, 1);
 
-    // --- Настройка писателя ----------------------------------------------------------
-
-    m_writer.setDirectory(
-        m_context.settings->value(QLatin1String(kKeyDirectory), Paths::defaultLogDir())
-            .toString());
-    m_writer.setFileNameTemplate(
-        m_context.settings->value(QLatin1String(kKeyTemplate)).toString());
-    m_writer.setFilterAnsi(m_filterAnsi->isChecked());
-    m_writer.setIncludeTx(m_includeTx->isChecked());
-
     // --- Связывание ------------------------------------------------------------------
 
     connect(m_recordButton, &QToolButton::clicked, this, &LoggingPanel::toggleRecording);
 
-    connect(m_filterAnsi, &QCheckBox::toggled, this, [this](bool on) {
-        m_writer.setFilterAnsi(on);
-        m_context.settings->setValue(QLatin1String(kKeyFilterAnsi), on);
-    });
-    connect(m_includeTx, &QCheckBox::toggled, this, [this](bool on) {
-        m_writer.setIncludeTx(on);
-        m_context.settings->setValue(QLatin1String(kKeyIncludeTx), on);
-    });
+    // Флажки дублируют поля диалога настроек, поэтому изменение отсюда возвращается
+    // владельцу сигналом: иначе панель и диалог показывали бы разное.
+    const auto onOptionToggled = [this] {
+        m_writer.setFilterAnsi(m_filterAnsi->isChecked());
+        m_writer.setIncludeTx(m_includeTx->isChecked());
+        Q_EMIT optionsChanged(m_filterAnsi->isChecked(), m_includeTx->isChecked());
+    };
+    connect(m_filterAnsi, &QCheckBox::toggled, this, onOptionToggled);
+    connect(m_includeTx, &QCheckBox::toggled, this, onOptionToggled);
 
     connect(m_files, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
         Q_EMIT logFileRequested(item->data(Qt::UserRole).toString());
@@ -230,6 +213,29 @@ LoggingPanel::LoggingPanel(const AppContext &context, QWidget *parent)
     refreshFileList();
     updateRecordingUi();
     setInterfaceOpen(false);
+}
+
+void LoggingPanel::applySettings(const AppSettings &settings)
+{
+    m_writer.setDirectory(settings.effectiveLogDirectory());
+    m_writer.setFileNameTemplate(settings.logFileNameTemplate);
+    m_writer.setFilterAnsi(settings.logFilterAnsi);
+    m_writer.setIncludeTx(settings.logIncludeTx);
+    m_autoStart = settings.logAutoStart;
+
+    // Флажки приводим в согласие с настройками, не поднимая их обработчики: иначе
+    // применение настроек тут же вернуло бы владельцу то, что он только что задал.
+    const QSignalBlocker filterBlocker(m_filterAnsi);
+    const QSignalBlocker txBlocker(m_includeTx);
+    m_filterAnsi->setChecked(settings.logFilterAnsi);
+    m_includeTx->setChecked(settings.logIncludeTx);
+
+    refreshFileList();
+}
+
+void LoggingPanel::toggleRecordingFromShortcut()
+{
+    m_recordButton->click();
 }
 
 void LoggingPanel::toggleRecording()
@@ -291,6 +297,7 @@ void LoggingPanel::updateRecordingUi()
 
 void LoggingPanel::setInterfaceOpen(bool open)
 {
+    const bool wasOpen = m_interfaceOpen;
     m_interfaceOpen = open;
 
     // Закрытие канала завершает запись: продолжать её означало бы держать открытым файл,
@@ -299,6 +306,11 @@ void LoggingPanel::setInterfaceOpen(bool open)
         m_writer.stop();
 
     updateRecordingUi();
+
+    // Автозапуск именно на переходе в открытое состояние, а не на каждом вызове: иначе
+    // повторное сообщение о том же состоянии начинало бы новый файл.
+    if (open && !wasOpen && m_autoStart && !m_writer.isRecording())
+        toggleRecording();
 }
 
 void LoggingPanel::refreshFileList()

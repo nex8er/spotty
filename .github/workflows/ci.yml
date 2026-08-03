@@ -1,0 +1,224 @@
+# Сборка и тесты на всех целевых платформах.
+#
+# Матрица покрывает обе архитектуры на каждой системе, потому что именно архитектурные
+# различия ловят то, что не ловит одна машина разработчика: выравнивание, знаковость char
+# и порядок байтов. Разработка идёт на macOS arm64, поэтому x86-64 здесь особенно ценен.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Новый коммит в ветку отменяет предыдущий прогон: держать очередь из устаревших сборок
+# незачем.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_VERSION: 6.8.1
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Падение на одной платформе не должно скрывать состояние остальных: разбираться
+      # проще, когда видно, где именно сломалось.
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86-64
+            os: ubuntu-latest
+            qt_arch: linux_gcc_64
+          - name: Linux arm64
+            os: ubuntu-24.04-arm
+            qt_arch: linux_arm64_gcc_64
+          - name: macOS arm64
+            os: macos-14
+            qt_arch: clang_64
+          - name: macOS x86-64
+            os: macos-13
+            qt_arch: clang_64
+          - name: Windows x86-64
+            os: windows-latest
+            qt_arch: win64_msvc2022_64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: ${{ matrix.qt_arch }}
+          # SerialPort нужен плагину UART, Tools — переводам. Без них соберётся урезанный
+          # комплект, и проверка потеряет смысл.
+          modules: qtserialport
+          tools: tools_qtcreator
+          cache: true
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        # Qt на Linux требует библиотек X11 и звуковой подсистемы даже для сборки: без них
+        # не находится платформенный модуль xcb.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build \
+            libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
+
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Install Ninja (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ninja --no-progress
+
+      - name: Set up MSVC environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DSPOTTY_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        # Графической подсистемы на бегунках нет; ядро её и не требует, но платформенный
+        # модуль Qt всё равно выбирается при создании QCoreApplication.
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ctest --test-dir build --output-on-failure --timeout 120
+
+      # Вторая половина гибрида проверяется отдельно: обычная сборка не докажет, что
+      # плагины линкуются внутрь, а именно этот режим идёт в релиз.
+      - name: Build with static plugins
+        run: |
+          cmake -S . -B build-static -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DSPOTTY_STATIC_PLUGINS=ON
+          cmake --build build-static
+        shell: bash
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: linux_gcc_64
+          modules: qtserialport
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build gcovr libgl1-mesa-dev
+
+      - name: Configure
+        # Отладочная сборка: с оптимизацией строки сливаются и переставляются, и отчёт о
+        # покрытии перестаёт соответствовать исходному тексту.
+        run: >
+          cmake -S . -B build-cov -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DSPOTTY_BUILD_TESTS=ON
+          -DSPOTTY_ENABLE_COVERAGE=ON
+
+      - name: Build
+        run: cmake --build build-cov
+
+      - name: Measure coverage
+        # Цель сама завершится с ошибкой, если покрытие упало ниже порога.
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: cmake --build build-cov --target coverage
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: build-cov/coverage/html
+          if-no-files-found: warn
+
+  package:
+    name: Package ${{ matrix.name }}
+    needs: build
+    runs-on: ${{ matrix.os }}
+    # Пакеты собираются только для помеченных версий: гонять развёртывание на каждый
+    # коммит незачем, а артефакты хранятся не бесплатно.
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS arm64
+            os: macos-14
+            qt_arch: clang_64
+          - name: Windows x86-64
+            os: windows-latest
+            qt_arch: win64_msvc2022_64
+          - name: Linux x86-64
+            os: ubuntu-latest
+            qt_arch: linux_gcc_64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: ${{ matrix.qt_arch }}
+          modules: qtserialport
+          cache: true
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgl1-mesa-dev libfuse2
+
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Install Ninja (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ninja --no-progress
+
+      - name: Set up MSVC environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure and build
+        # Плагины линкуются внутрь: один самодостаточный файл проще распространять и
+        # подписывать, а несовпадение версии Qt между приложением и плагином становится
+        # невозможным по построению.
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DSPOTTY_STATIC_PLUGINS=ON
+          && cmake --build build
+        shell: bash
+
+      - name: Package
+        run: cmake --build build --target spotty-package
+        shell: bash
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spotty-${{ matrix.name }}
+          path: build/package/*
+          if-no-files-found: error

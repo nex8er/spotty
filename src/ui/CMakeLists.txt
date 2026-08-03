@@ -40,6 +40,8 @@ qt_add_executable(spotty
     dialogs/InterfaceSettingsDialog.h
     dialogs/MacroEditDialog.cpp
     dialogs/MacroEditDialog.h
+    dialogs/SettingsDialog.cpp
+    dialogs/SettingsDialog.h
     panels/GeneratorPanel.cpp
     panels/GeneratorPanel.h
     panels/LoggingPanel.cpp
@@ -70,6 +72,22 @@ qt_add_resources(spotty "spotty-resources"
 
 target_include_directories(spotty PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 
+# Переводы. Исходный язык строк — английский, поэтому файла spotty_en.ts нет: без
+# перевода интерфейс уже английский.
+#
+# LinguistTools необязателен: без него собирается тот же комплект, только на английском.
+# Отказываться от сборки из-за отсутствия переводчика было бы неоправданно.
+if(Qt6LinguistTools_FOUND)
+    qt_add_translations(spotty
+        TS_FILES "${CMAKE_SOURCE_DIR}/resources/i18n/spotty_ru.ts"
+        RESOURCE_PREFIX "/i18n"
+        LUPDATE_OPTIONS -no-obsolete -locations none
+    )
+else()
+    message(WARNING "Qt6 LinguistTools not found - Spotty will be English-only. "
+                    "Install qttools to build translations.")
+endif()
+
 target_link_libraries(spotty PRIVATE
     Qt6::Widgets
     Spotty::Core
@@ -86,3 +104,7 @@ set_target_properties(spotty PROPERTIES
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
     MACOSX_BUNDLE_GUI_IDENTIFIER "org.spotty.Spotty"
 )
+
+# Цель spotty-package: распространяемый комплект для текущей платформы.
+include(SpottyPackaging)
+spotty_setup_packaging(spotty)

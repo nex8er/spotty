@@ -119,6 +119,19 @@ public:
     void setHighlightRules(const HighlightRules &rules);
 
     /**
+     * \brief Свои шестнадцать базовых цветов ANSI вместо цветов темы.
+     * \param colors Ровно шестнадцать значений `"#rrggbb"`; пустой список возвращает
+     *        цвета темы.
+     */
+    void setAnsiPalette(const QStringList &colors);
+
+    /// \brief Действующие шестнадцать базовых цветов ANSI.
+    QStringList ansiPalette() const { return m_palette.baseColors(); }
+
+    /// \brief Кодировка принимаемого текста. Передаётся буферу.
+    void setEncoding(QStringConverter::Encoding encoding);
+
+    /**
      * \brief Задать образец поиска.
      * \param pattern Текст или регулярное выражение; пустая строка снимает поиск.
      * \param regularExpression Трактовать \p pattern как регулярное выражение.

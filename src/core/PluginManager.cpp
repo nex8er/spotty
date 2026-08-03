@@ -78,6 +78,11 @@ void PluginManager::loadDynamicPlugins()
     }
 }
 
+bool PluginManager::addPlugin(QObject *instance, const QString &origin)
+{
+    return registerInstance(instance, origin);
+}
+
 bool PluginManager::registerInstance(QObject *instance, const QString &origin)
 {
     auto *plugin = qobject_cast<IInterfacePlugin *>(instance);

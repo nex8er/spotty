@@ -23,6 +23,10 @@ add_library(spotty-core STATIC
     PluginManager.h
     Session.cpp
     Session.h
+    SingleInstanceGuard.cpp
+    SingleInstanceGuard.h
+    settings/AppSettings.cpp
+    settings/AppSettings.h
     settings/Paths.cpp
     settings/Paths.h
     settings/SettingsStore.cpp
@@ -46,8 +50,16 @@ target_link_libraries(spotty-core
     PUBLIC
         Qt6::Core
         Spotty::Api
+    PRIVATE
+        # Только ради QLocalServer в SingleInstanceGuard: сети как таковой ядру не нужно,
+        # и PRIVATE не пускает эту зависимость дальше в плагины и в UI.
+        Qt6::Network
 )
 
 # Версия попадает в код отсюда, а не из отдельного заголовка: единственный источник —
 # project(VERSION) в корневом CMakeLists.txt.
 target_compile_definitions(spotty-core PUBLIC SPOTTY_VERSION="${SPOTTY_VERSION}")
+
+# Покрытие меряется только здесь: UI и плагины модульными тестами не покрываются, и
+# включать их в отчёт значило бы размывать цифру до бессмысленной.
+spotty_enable_coverage(spotty-core)

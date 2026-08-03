@@ -34,6 +34,7 @@ void Packetizer::reset()
 {
     m_pending.clear();
     m_lastByteNs = 0;
+    m_hasLastByte = false;
 }
 
 QList<Packetizer::Packet> Packetizer::feed(const QByteArray &data, qint64 monotonicNs)
@@ -54,13 +55,14 @@ QList<Packetizer::Packet> Packetizer::feed(const QByteArray &data, qint64 monoto
         // Проверка идёт до накопления: данные, пришедшие после паузы, принадлежат уже
         // следующему сообщению.
         const qint64 gapNs = monotonicNs - m_lastByteNs;
-        if (!m_pending.isEmpty() && m_lastByteNs != 0
+        if (!m_pending.isEmpty() && m_hasLastByte
             && gapNs > qint64(m_timeoutMs) * 1'000'000) {
             packets.append(Packet{m_pending, true});
             m_pending.clear();
         }
         m_pending.append(data);
         m_lastByteNs = monotonicNs;
+        m_hasLastByte = true;
         break;
     }
 
