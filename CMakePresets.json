@@ -1,0 +1,79 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "debug",
+      "inherits": "base",
+      "displayName": "Debug",
+      "description": "Debug build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release",
+      "inherits": "base",
+      "displayName": "Release",
+      "description": "Release build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "tests",
+      "inherits": "debug",
+      "displayName": "Tests",
+      "description": "Debug build with tests enabled",
+      "cacheVariables": {
+        "SPOTTY_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "coverage",
+      "inherits": "tests",
+      "displayName": "Coverage",
+      "description": "Debug build with tests and coverage enabled",
+      "cacheVariables": {
+        "SPOTTY_ENABLE_COVERAGE": "ON"
+      }
+    },
+    {
+      "name": "static-plugins",
+      "inherits": "debug",
+      "displayName": "Debug with Static Plugins",
+      "description": "Debug build with static plugins enabled",
+      "cacheVariables": {
+        "SPOTTY_STATIC_PLUGINS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "tests",
+      "configurePreset": "tests"
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage"
+    },
+    {
+      "name": "static-plugins",
+      "configurePreset": "static-plugins"
+    }
+  ]
+}
