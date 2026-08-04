@@ -30,6 +30,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFontDatabase>
+#include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMenu>
@@ -51,7 +52,10 @@ constexpr int kToolGlyphSize = 18;
 
 // Состояние окна, а не пользовательские настройки: сюда spotty::AppSettings не лезет.
 constexpr auto kKeyGeometry = "window/geometry";
-constexpr auto kKeySplitter = "window/splitter";
+// Ключ сменился вместе с раскладкой: панель переехала налево, и сохранённые прежде
+// размеры относились к обратному порядку виджетов. Восстановление старого состояния
+// растянуло бы панель на всё окно.
+constexpr auto kKeySplitter = "window/mainSplitter";
 constexpr auto kKeyPanelIndex = "window/panelIndex";
 constexpr auto kKeyInterface = "session/interfaceId";
 
@@ -108,23 +112,31 @@ MainWindow::MainWindow(const AppContext &context, QWidget *parent)
     }
 }
 
+QWidget *MainWindow::makeCard(QWidget *content)
+{
+    // Каждый блок — отдельная карточка с рамкой и скруглением. Оформление задаётся
+    // единственным правилом QSS по objectName, поэтому все блоки заведомо выглядят
+    // одинаково и не расходятся при правках.
+    auto *card = new QFrame(this);
+    card->setObjectName(QStringLiteral("card"));
+
+    auto *layout = new QVBoxLayout(card);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+    layout->addWidget(content);
+
+    return card;
+}
+
 void MainWindow::buildUi()
 {
     m_interfaceBar = new InterfaceBar(m_context, this);
     m_terminal = new TerminalView(this);
+    m_terminal->setObjectName(QStringLiteral("terminalView"));
     m_terminal->setBuffer(m_context.session ? m_context.session->buffer() : nullptr);
     m_terminal->setThemeManager(m_context.theme);
 
     m_sendBar = new SendBar(m_context.history, this);
-
-    m_splitter = new QSplitter(Qt::Horizontal, this);
-    m_splitter->addWidget(m_terminal);
-    m_splitter->addWidget(buildSidePanel());
-    m_splitter->setStretchFactor(0, 1);
-    m_splitter->setStretchFactor(1, 0);
-    // Панель должна полностью схлопываться: при работе с длинными строками терминалу
-    // нужна вся ширина окна.
-    m_splitter->setChildrenCollapsible(true);
 
     // Полоса просмотра лога: пока она скрыта, ничто о ней не напоминает, а при открытии
     // файла она сразу отвечает на вопрос «что я сейчас вижу и как вернуться».
@@ -139,16 +151,38 @@ void MainWindow::buildUi()
     m_logViewBar->hide();
     connect(backButton, &QPushButton::clicked, this, &MainWindow::returnToLiveView);
 
-    auto *central = new QWidget(this);
-    auto *layout = new QVBoxLayout(central);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
-    layout->addWidget(m_interfaceBar);
-    layout->addWidget(buildTerminalToolbar());
-    layout->addWidget(m_logViewBar);
-    layout->addWidget(m_splitter, 1);
-    layout->addWidget(m_sendBar);
-    setCentralWidget(central);
+    // --- Блок терминала: кнопки показа и сам вывод одной карточкой -------------------
+    //
+    // Кнопки управляют именно этим выводом, поэтому живут внутри его рамки, а не отдельной
+    // полосой через всё окно: так видно, к чему они относятся.
+    auto *terminalBlock = new QWidget(this);
+    auto *terminalLayout = new QVBoxLayout(terminalBlock);
+    terminalLayout->setContentsMargins(0, 0, 0, 0);
+    terminalLayout->setSpacing(0);
+    terminalLayout->addWidget(buildTerminalToolbar());
+    terminalLayout->addWidget(m_logViewBar);
+    terminalLayout->addWidget(m_terminal, 1);
+
+    // --- Правая колонка: интерфейс, терминал, отправка --------------------------------
+    auto *rightColumn = new QWidget(this);
+    auto *rightLayout = new QVBoxLayout(rightColumn);
+    rightLayout->setContentsMargins(6, 6, 6, 6);
+    rightLayout->setSpacing(6);
+    rightLayout->addWidget(makeCard(m_interfaceBar));
+    rightLayout->addWidget(makeCard(terminalBlock), 1);
+    rightLayout->addWidget(makeCard(m_sendBar));
+
+    // --- Панель слева во всю высоту ---------------------------------------------------
+    m_splitter = new QSplitter(Qt::Horizontal, this);
+    m_splitter->addWidget(buildSidePanel());
+    m_splitter->addWidget(rightColumn);
+    m_splitter->setStretchFactor(0, 0);
+    m_splitter->setStretchFactor(1, 1);
+    // Панель должна полностью схлопываться: при работе с длинными строками терминалу
+    // нужна вся ширина окна.
+    m_splitter->setChildrenCollapsible(true);
+
+    setCentralWidget(m_splitter);
 
     m_statsLabel = new QLabel(this);
     m_linesLabel = new QLabel(this);
@@ -736,6 +770,8 @@ void MainWindow::restoreWindowState()
     const QByteArray splitter = store->value(QLatin1String(kKeySplitter)).toByteArray();
     if (!splitter.isEmpty())
         m_splitter->restoreState(splitter);
+    else
+        m_splitter->setSizes({320, 860}); // Первый запуск: панель узкая, терминалу — остальное.
 
     const int panelIndex = store->value(QLatin1String(kKeyPanelIndex), 0).toInt();
     if (panelIndex >= 0 && panelIndex < m_panelButtons.size()) {

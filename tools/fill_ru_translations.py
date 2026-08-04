@@ -10,6 +10,10 @@
 Скрипт трогает только пустые и помеченные `unfinished` переводы, поэтому правки,
 внесённые вручную или в Qt Linguist, он не затирает.
 
+С `--force` перезаписываются и готовые переводы — это нужно, когда формулировку в
+словаре исправили: без ключа правка осталась бы только в скрипте и до интерфейса не
+дошла.
+
 Строки, которых нет в словаре, остаются непереведёнными и печатаются в конце — это
 единственный способ заметить, что в интерфейсе появился новый текст.
 """
@@ -179,7 +183,9 @@ TRANSLATIONS = {
     "actual: %1 ms": "фактически: %1 мс",
 
     # --- Логирование ---
-    "Strip ANSI escape sequences": "Убирать управляющие последовательности ANSI",
+    # Коротко: подпись стоит в узкой боковой панели и в полном виде не помещается.
+    # Подробное объяснение живёт во всплывающей подсказке.
+    "Strip ANSI escape sequences": "Убирать коды ANSI",
     "Colour codes make the file hard to read outside a terminal and break searching through it.":
         "Цветовые коды мешают читать файл вне терминала и ломают поиск по нему.",
     "Include sent data": "Записывать отправленное",
@@ -215,7 +221,7 @@ TRANSLATIONS = {
     "Regular expression": "Регулярное выражение",
     "Case sensitive": "Учитывать регистр",
     "Whole words": "Слова целиком",
-    "Show only matching lines": "Показывать только совпавшие строки",
+    "Show only matching lines": "Только совпавшие строки",
     "Hides everything that does not match, instead of just highlighting it.":
         "Скрывает всё несовпавшее, а не просто подсвечивает совпадения.",
     "Highlight rules": "Правила подсветки",
@@ -376,13 +382,14 @@ def unescape(text: str) -> str:
                 .replace("&lt;", "<").replace("&gt;", ">"))
 
 
-def translate_message(block: str, missing: list[str]) -> tuple[str, bool]:
+def translate_message(block: str, missing: list[str], force: bool) -> tuple[str, bool]:
     """Заполняет перевод в одном блоке <message>.
 
     Возвращает изменённый блок и признак того, что перевод был проставлен.
     """
     # Уже переведённое не трогаем: правки из Qt Linguist должны переживать запуск.
-    if 'type="unfinished"' not in block:
+    # Исключение — режим --force, когда словарь исправили и нужно раскатать правку.
+    if not force and 'type="unfinished"' not in block:
         return block, False
 
     source_match = re.search(r"<source>(.*?)</source>", block, re.S)
@@ -410,13 +417,17 @@ def translate_message(block: str, missing: list[str]) -> tuple[str, bool]:
 
 
 def main() -> int:
+    # --force перезаписывает и уже готовые переводы. Нужен, когда формулировку в словаре
+    # исправили: без него правка осталась бы только в скрипте и до интерфейса не дошла.
+    force = "--force" in sys.argv[1:]
+
     text = TS_FILE.read_text(encoding="utf-8")
     missing: list[str] = []
     filled = 0
 
     def handle(match: re.Match) -> str:
         nonlocal filled
-        block, changed = translate_message(match.group(0), missing)
+        block, changed = translate_message(match.group(0), missing, force)
         filled += int(changed)
         return block
 

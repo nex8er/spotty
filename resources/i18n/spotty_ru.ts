@@ -253,7 +253,7 @@
     </message>
     <message>
         <source>Strip ANSI escape sequences</source>
-        <translation>Убирать управляющие последовательности ANSI</translation>
+        <translation>Убирать коды ANSI</translation>
     </message>
     <message>
         <source>Colour codes make the file hard to read outside a terminal and break searching through it.</source>
@@ -680,7 +680,7 @@
     </message>
     <message>
         <source>Show only matching lines</source>
-        <translation>Показывать только совпавшие строки</translation>
+        <translation>Только совпавшие строки</translation>
     </message>
     <message>
         <source>Hides everything that does not match, instead of just highlighting it.</source>
@@ -1057,7 +1057,7 @@
     </message>
     <message>
         <source>Strip ANSI escape sequences</source>
-        <translation>Убирать управляющие последовательности ANSI</translation>
+        <translation>Убирать коды ANSI</translation>
     </message>
     <message>
         <source>Include sent data</source>

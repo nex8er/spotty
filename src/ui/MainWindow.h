@@ -77,8 +77,11 @@ private:
     /// \brief Панель управления показом терминала.
     QWidget *buildTerminalToolbar();
 
-    /// \brief Правая панель: рейка значков и стопка страниц.
+    /// \brief Боковая панель слева: рейка значков и стопка страниц.
     QWidget *buildSidePanel();
+
+    /// \brief Обернуть содержимое в карточку с рамкой — общий вид всех блоков окна.
+    QWidget *makeCard(QWidget *content);
 
     /// \brief Раздать текущие настройки всем потребителям.
     void applySettings();
