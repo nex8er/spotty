@@ -15,10 +15,9 @@ using spotty::test::TempDir;
 
 namespace {
 
-Macro makeMacro(const QString &name, const QString &payload)
+Macro makeMacro(const QString &payload)
 {
     Macro macro;
-    macro.name = name;
     macro.payload = payload;
     macro.format = DataCodec::Format::Text;
     macro.termination = DataCodec::Termination::CrLf;
@@ -65,7 +64,7 @@ TEST(MacroStore, RoundTripPreservesEveryField)
         MacroStore store(dir.path());
         ASSERT_TRUE(store.createPreset(QStringLiteral("set")));
 
-        Macro macro = makeMacro(QStringLiteral("Reset"), QStringLiteral("AT+RST"));
+        Macro macro = makeMacro(QStringLiteral("AT+RST"));
         macro.format = DataCodec::Format::Hex;
         macro.termination = DataCodec::Termination::Lf;
         macro.shortcut = QStringLiteral("Ctrl+1");
@@ -79,7 +78,6 @@ TEST(MacroStore, RoundTripPreservesEveryField)
 
     ASSERT_EQ(reloaded.macros().size(), 1);
     const Macro &macro = reloaded.macros().first();
-    EXPECT_EQ(macro.name, QStringLiteral("Reset"));
     EXPECT_EQ(macro.payload, QStringLiteral("AT+RST"));
     EXPECT_EQ(macro.format, DataCodec::Format::Hex);
     EXPECT_EQ(macro.termination, DataCodec::Termination::Lf);
@@ -88,7 +86,7 @@ TEST(MacroStore, RoundTripPreservesEveryField)
 
 TEST(MacroStore, MacroEncodesThroughCodec)
 {
-    Macro macro = makeMacro(QStringLiteral("Ping"), QStringLiteral("AA 55"));
+    Macro macro = makeMacro(QStringLiteral("AA 55"));
     macro.format = DataCodec::Format::Hex;
     macro.termination = DataCodec::Termination::None;
 
@@ -180,7 +178,7 @@ TEST(MacroStore, BareArrayFormatIsAccepted)
     ASSERT_TRUE(store.loadPreset(QStringLiteral("hand")));
 
     ASSERT_EQ(store.macros().size(), 1);
-    EXPECT_EQ(store.macros().first().name, QStringLiteral("A"));
+    EXPECT_EQ(store.macros().first().payload, QStringLiteral("x"));
 }
 
 TEST(MacroStore, MalformedJsonDoesNotDestroyFile)
@@ -200,6 +198,147 @@ TEST(MacroStore, MalformedJsonDoesNotDestroyFile)
     QFile check(path);
     ASSERT_TRUE(check.open(QIODevice::ReadOnly));
     EXPECT_EQ(check.readAll(), broken);
+}
+
+TEST(MacroStore, LegacyNameBecomesPayloadWhenPayloadIsMissing)
+{
+    TempDir dir;
+    const QString path = dir.filePath(QStringLiteral("old.json"));
+
+    // Наборы прежних версий хранили отдельное имя. Если команды в записи нет, командой
+    // было имя — иначе такой макрос молча превратился бы в пустую строку.
+    QFile file(path);
+    ASSERT_TRUE(file.open(QIODevice::WriteOnly));
+    file.write(QByteArrayLiteral(R"([{"name":"AT+GMR"}])"));
+    file.close();
+
+    MacroStore store(dir.path());
+    ASSERT_TRUE(store.loadPreset(QStringLiteral("old")));
+
+    ASSERT_EQ(store.macros().size(), 1);
+    EXPECT_EQ(store.macros().first().payload, QStringLiteral("AT+GMR"));
+}
+
+TEST(MacroStore, SuggestedShortcutTakesFirstFreeFunctionKey)
+{
+    TempDir dir;
+    MacroStore store(dir.path());
+    ASSERT_TRUE(store.createPreset(QStringLiteral("set")));
+
+    EXPECT_EQ(store.suggestShortcut(), QStringLiteral("F1"));
+
+    Macro first = makeMacro(QStringLiteral("a"));
+    first.shortcut = QStringLiteral("F1");
+    store.macros().append(first);
+    EXPECT_EQ(store.suggestShortcut(), QStringLiteral("F2"));
+
+    // Пропуск в середине занимается раньше, чем следующая по порядку.
+    Macro third = makeMacro(QStringLiteral("c"));
+    third.shortcut = QStringLiteral("F3");
+    store.macros().append(third);
+    EXPECT_EQ(store.suggestShortcut(), QStringLiteral("F2"));
+}
+
+TEST(MacroStore, SuggestedShortcutIsEmptyWhenAllFunctionKeysAreTaken)
+{
+    TempDir dir;
+    MacroStore store(dir.path());
+    ASSERT_TRUE(store.createPreset(QStringLiteral("full")));
+
+    for (int i = 1; i <= 12; ++i) {
+        Macro macro = makeMacro(QStringLiteral("cmd%1").arg(i));
+        macro.shortcut = QStringLiteral("F%1").arg(i);
+        store.macros().append(macro);
+    }
+
+    // Назначать тринадцатому «Ctrl+Shift+F1» программа не вправе: такое сочетание
+    // выбирает пользователь.
+    EXPECT_TRUE(store.suggestShortcut().isEmpty());
+}
+
+TEST(MacroStore, ImportAppendsToCurrentPreset)
+{
+    TempDir dir;
+    MacroStore store(dir.path());
+    ASSERT_TRUE(store.createPreset(QStringLiteral("mine")));
+    store.macros().append(makeMacro(QStringLiteral("own")));
+
+    const QString incoming = dir.filePath(QStringLiteral("incoming.json"));
+    {
+        MacroStore other(dir.path());
+        ASSERT_TRUE(other.createPreset(QStringLiteral("other")));
+        other.macros().append(makeMacro(QStringLiteral("theirs")));
+        ASSERT_TRUE(other.exportTo(incoming));
+    }
+
+    int added = 0;
+    ASSERT_TRUE(store.importFrom(incoming, &added));
+
+    // Именно дописать: импорт нужен, чтобы принести чужие команды к своим.
+    EXPECT_EQ(added, 1);
+    ASSERT_EQ(store.macros().size(), 2);
+    EXPECT_EQ(store.macros().at(0).payload, QStringLiteral("own"));
+    EXPECT_EQ(store.macros().at(1).payload, QStringLiteral("theirs"));
+}
+
+TEST(MacroStore, ImportDropsShortcutsAlreadyTaken)
+{
+    TempDir dir;
+    MacroStore store(dir.path());
+    ASSERT_TRUE(store.createPreset(QStringLiteral("mine")));
+
+    Macro own = makeMacro(QStringLiteral("own"));
+    own.shortcut = QStringLiteral("F1");
+    store.macros().append(own);
+
+    const QString incoming = dir.filePath(QStringLiteral("incoming.json"));
+    {
+        MacroStore other(dir.path());
+        ASSERT_TRUE(other.createPreset(QStringLiteral("other")));
+        Macro clash = makeMacro(QStringLiteral("clash"));
+        clash.shortcut = QStringLiteral("F1");
+        Macro free = makeMacro(QStringLiteral("free"));
+        free.shortcut = QStringLiteral("F5");
+        other.macros().append(clash);
+        other.macros().append(free);
+        ASSERT_TRUE(other.exportTo(incoming));
+    }
+
+    ASSERT_TRUE(store.importFrom(incoming));
+
+    ASSERT_EQ(store.macros().size(), 3);
+    // Занятое сочетание снимается: одно нажатие не может отвечать за две команды.
+    EXPECT_TRUE(store.macros().at(1).shortcut.isEmpty());
+    // Свободное сохраняется.
+    EXPECT_EQ(store.macros().at(2).shortcut, QStringLiteral("F5"));
+}
+
+TEST(MacroStore, ImportOfMissingFileFails)
+{
+    TempDir dir;
+    MacroStore store(dir.path());
+    ASSERT_TRUE(store.createPreset(QStringLiteral("mine")));
+
+    EXPECT_FALSE(store.importFrom(dir.filePath(QStringLiteral("nothing.json"))));
+}
+
+TEST(MacroStore, ExportWritesReadableFile)
+{
+    TempDir dir;
+    MacroStore store(dir.path());
+    ASSERT_TRUE(store.createPreset(QStringLiteral("set")));
+    store.macros().append(makeMacro(QStringLiteral("AT")));
+
+    const QString path = dir.filePath(QStringLiteral("out.json"));
+    ASSERT_TRUE(store.exportTo(path));
+
+    MacroStore reader(dir.path());
+    ASSERT_TRUE(reader.createPreset(QStringLiteral("empty")));
+    int added = 0;
+    ASSERT_TRUE(reader.importFrom(path, &added));
+
+    EXPECT_EQ(added, 1);
+    EXPECT_EQ(reader.macros().first().payload, QStringLiteral("AT"));
 }
 
 TEST(MacroStore, DefaultPresetNameIsUsable)

@@ -56,7 +56,8 @@ SearchPanel::SearchPanel(const AppContext &context, QWidget *parent)
     , m_context(context)
 {
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(10, 10, 10, 10);
+    // Тот же отступ, что и в остальных боковых панелях — см. комментарий в MacrosPanel.
+    layout->setContentsMargins(6, 10, 6, 10);
     layout->setSpacing(8);
 
     auto *title = new QLabel(tr("Search"), this);

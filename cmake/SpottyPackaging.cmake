@@ -139,7 +139,10 @@ DESKTOP
 
 export PATH=\"${CMAKE_BINARY_DIR}:\$PATH\"
 export OUTPUT=\"\$package_dir/Spotty-${SPOTTY_VERSION}-Linux-x86_64.AppImage\"
-linuxdeploy --appdir \"\$appdir\" --plugin qt --output appimage
+linuxdeploy --appdir \"\$appdir\" --plugin qt \\
+    --icon-file '${CMAKE_SOURCE_DIR}/resources/icons/spotty-256.png' \\
+    --icon-filename spotty \\
+    --output appimage
 ")
 
     add_custom_command(TARGET spotty-package POST_BUILD

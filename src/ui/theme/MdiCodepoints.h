@@ -63,5 +63,8 @@ inline constexpr char32_t AlertOutline = 0xF002A;
 inline constexpr char32_t TimerOutline = 0xF051B;
 inline constexpr char32_t Puzzle = 0xF0431;
 inline constexpr char32_t RenameBox = 0xF0455;
+inline constexpr char32_t ContentDuplicate = 0xF0191;
+inline constexpr char32_t FileImport = 0xF0220;
+inline constexpr char32_t FileExport = 0xF021D;
 
 } // namespace spotty::mdi

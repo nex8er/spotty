@@ -25,6 +25,9 @@ qt_add_executable(spotty
     WIN32 MACOSX_BUNDLE
     ../main.cpp
     "${spotty_static_plugins_file}"
+    # Значок собран заранее скриптом tools/make_icons.sh из resources/icons/spotty-master.png;
+    # регенерировать при каждой сборке незачем, дизайн иконки не меняется от сборки к сборке.
+    $<$<PLATFORM_ID:Windows>:${CMAKE_SOURCE_DIR}/resources/icons/spotty.rc>
     AppContext.h
     Formatting.cpp
     Formatting.h
@@ -38,8 +41,6 @@ qt_add_executable(spotty
     TerminalView.h
     dialogs/InterfaceSettingsDialog.cpp
     dialogs/InterfaceSettingsDialog.h
-    dialogs/MacroEditDialog.cpp
-    dialogs/MacroEditDialog.h
     dialogs/SettingsDialog.cpp
     dialogs/SettingsDialog.h
     panels/GeneratorPanel.cpp
@@ -48,6 +49,8 @@ qt_add_executable(spotty
     panels/LoggingPanel.h
     panels/MacrosPanel.cpp
     panels/MacrosPanel.h
+    panels/ShortcutDelegate.cpp
+    panels/ShortcutDelegate.h
     panels/SearchPanel.cpp
     panels/SearchPanel.h
     theme/AnsiPalette.cpp
@@ -71,6 +74,17 @@ qt_add_resources(spotty "spotty-resources"
 )
 
 target_include_directories(spotty PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+
+if(APPLE)
+    # MACOSX_BUNDLE_ICON_FILE называет файл по имени, а не по пути; CMake находит его
+    # среди источников цели благодаря MACOSX_PACKAGE_LOCATION и copy-параметрам ниже.
+    target_sources(spotty PRIVATE "${CMAKE_SOURCE_DIR}/resources/icons/spotty.icns")
+    set_source_files_properties(
+        "${CMAKE_SOURCE_DIR}/resources/icons/spotty.icns"
+        PROPERTIES MACOSX_PACKAGE_LOCATION "Resources"
+    )
+    set_target_properties(spotty PROPERTIES MACOSX_BUNDLE_ICON_FILE "spotty.icns")
+endif()
 
 # Переводы. Исходный язык строк — английский, поэтому файла spotty_en.ts нет: без
 # перевода интерфейс уже английский.

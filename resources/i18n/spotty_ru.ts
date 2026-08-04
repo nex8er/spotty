@@ -9,7 +9,11 @@
     </message>
     <message numerus="yes">
         <source>Could not send %n byte(s).</source>
-        <translation><numerusform>Не удалось отправить %n байт.</numerusform><numerusform>Не удалось отправить %n байта.</numerusform><numerusform>Не удалось отправить %n байт.</numerusform></translation>
+        <translation>
+            <numerusform>Не удалось отправить %n байт.</numerusform>
+            <numerusform>Не удалось отправить %n байта.</numerusform>
+            <numerusform>Не удалось отправить %n байт.</numerusform>
+        </translation>
     </message>
     <message>
         <source>Could not reopen the interface.</source>
@@ -78,19 +82,35 @@
     </message>
     <message numerus="yes">
         <source>%n s ago</source>
-        <translation><numerusform>%n секунду назад</numerusform><numerusform>%n секунды назад</numerusform><numerusform>%n секунд назад</numerusform></translation>
+        <translation>
+            <numerusform>%n секунду назад</numerusform>
+            <numerusform>%n секунды назад</numerusform>
+            <numerusform>%n секунд назад</numerusform>
+        </translation>
     </message>
     <message numerus="yes">
         <source>%n min ago</source>
-        <translation><numerusform>%n минуту назад</numerusform><numerusform>%n минуты назад</numerusform><numerusform>%n минут назад</numerusform></translation>
+        <translation>
+            <numerusform>%n минуту назад</numerusform>
+            <numerusform>%n минуты назад</numerusform>
+            <numerusform>%n минут назад</numerusform>
+        </translation>
     </message>
     <message numerus="yes">
         <source>%n h ago</source>
-        <translation><numerusform>%n час назад</numerusform><numerusform>%n часа назад</numerusform><numerusform>%n часов назад</numerusform></translation>
+        <translation>
+            <numerusform>%n час назад</numerusform>
+            <numerusform>%n часа назад</numerusform>
+            <numerusform>%n часов назад</numerusform>
+        </translation>
     </message>
     <message numerus="yes">
         <source>%n d ago</source>
-        <translation><numerusform>%n день назад</numerusform><numerusform>%n дня назад</numerusform><numerusform>%n дней назад</numerusform></translation>
+        <translation>
+            <numerusform>%n день назад</numerusform>
+            <numerusform>%n дня назад</numerusform>
+            <numerusform>%n дней назад</numerusform>
+        </translation>
     </message>
     <message>
         <source>B</source>
@@ -161,7 +181,11 @@
     </message>
     <message numerus="yes">
         <source>%n packet(s) sent</source>
-        <translation><numerusform>отправлена %n посылка</numerusform><numerusform>отправлено %n посылки</numerusform><numerusform>отправлено %n посылок</numerusform></translation>
+        <translation>
+            <numerusform>отправлена %n посылка</numerusform>
+            <numerusform>отправлено %n посылки</numerusform>
+            <numerusform>отправлено %n посылок</numerusform>
+        </translation>
     </message>
     <message>
         <source>Stop</source>
@@ -357,41 +381,6 @@
     </message>
 </context>
 <context>
-    <name>spotty::MacroEditDialog</name>
-    <message>
-        <source>New macro</source>
-        <translation>Новый макрос</translation>
-    </message>
-    <message>
-        <source>Edit macro</source>
-        <translation>Изменить макрос</translation>
-    </message>
-    <message>
-        <source>Shown on the macro list</source>
-        <translation>Показывается в списке макросов</translation>
-    </message>
-    <message>
-        <source>Name</source>
-        <translation>Имя</translation>
-    </message>
-    <message>
-        <source>Data</source>
-        <translation>Данные</translation>
-    </message>
-    <message>
-        <source>Format</source>
-        <translation>Формат</translation>
-    </message>
-    <message>
-        <source>Termination</source>
-        <translation>Терминация</translation>
-    </message>
-    <message>
-        <source>Shortcut</source>
-        <translation>Сочетание клавиш</translation>
-    </message>
-</context>
-<context>
     <name>spotty::MacrosPanel</name>
     <message>
         <source>%1 ms</source>
@@ -418,24 +407,84 @@
         <translation>Удалить набор</translation>
     </message>
     <message>
+        <source>Command</source>
+        <translation>Команда</translation>
+    </message>
+    <message>
+        <source>Key</source>
+        <translation>Клавиша</translation>
+    </message>
+    <message>
         <source>Add macro</source>
         <translation>Добавить макрос</translation>
     </message>
     <message>
-        <source>Edit macro</source>
-        <translation>Изменить макрос</translation>
+        <source>Macro files (*.json)</source>
+        <translation>Файлы макросов (*.json)</translation>
+    </message>
+    <message>
+        <source>Could not read %1.</source>
+        <translation>Не удалось прочитать %1.</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n macro(s) imported</source>
+        <translation><numerusform>импортирован %n макрос</numerusform><numerusform>импортировано %n макроса</numerusform><numerusform>импортировано %n макросов</numerusform></translation>
+    </message>
+    <message>
+        <source>There is nothing to export.</source>
+        <translation>Экспортировать нечего.</translation>
+    </message>
+    <message>
+        <source>Could not write %1.</source>
+        <translation>Не удалось записать %1.</translation>
+    </message>
+    <message>
+        <source>Exported to %1</source>
+        <translation>Экспортировано в %1</translation>
+    </message>
+    <message>
+        <source>New macro</source>
+        <translation>Новый макрос</translation>
+    </message>
+    <message>
+        <source>Import macros...</source>
+        <translation>Импортировать...</translation>
+    </message>
+    <message>
+        <source>Export macros...</source>
+        <translation>Экспортировать...</translation>
+    </message>
+    <message>
+        <source>Duplicate</source>
+        <translation>Дублировать</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Удалить</translation>
+    </message>
+    <message>
+        <source>Format</source>
+        <translation>Формат</translation>
+    </message>
+    <message>
+        <source>Termination</source>
+        <translation>Терминация</translation>
     </message>
     <message>
         <source>Delete macro</source>
         <translation>Удалить макрос</translation>
     </message>
     <message>
-        <source>Repeat</source>
-        <translation>Повтор</translation>
+        <source>Export macros</source>
+        <translation>Экспорт макросов</translation>
     </message>
     <message>
-        <source>Start</source>
-        <translation>Пуск</translation>
+        <source>Import macros</source>
+        <translation>Импорт макросов</translation>
+    </message>
+    <message>
+        <source>Repeat</source>
+        <translation>Повтор</translation>
     </message>
     <message>
         <source>Name</source>
@@ -450,16 +499,30 @@
         <translation>Удалить набор «%1» вместе с файлом?</translation>
     </message>
     <message>
+        <source>Stop repeating</source>
+        <translation>Остановить повтор</translation>
+    </message>
+    <message>
+        <source>Start repeating</source>
+        <translation>Начать повтор</translation>
+    </message>
+    <message>
+        <source>%1 · %2
+Double-click to edit, right-click for options</source>
+        <translation>%1 · %2
+Двойной щелчок — правка, правая кнопка — действия</translation>
+    </message>
+    <message>
+        <source>Send now</source>
+        <translation>Отправить</translation>
+    </message>
+    <message>
         <source>The interface is not open.</source>
         <translation>Интерфейс не открыт.</translation>
     </message>
     <message>
         <source>Macro &quot;%1&quot;: %2</source>
         <translation>Макрос «%1»: %2</translation>
-    </message>
-    <message>
-        <source>Stop</source>
-        <translation>Стоп</translation>
     </message>
     <message>
         <source>actual: %1 ms</source>
@@ -614,7 +677,11 @@
     </message>
     <message numerus="yes">
         <source>  ·  %n error(s)</source>
-        <translation><numerusform>  ·  %n ошибка</numerusform><numerusform>  ·  %n ошибки</numerusform><numerusform>  ·  %n ошибок</numerusform></translation>
+        <translation>
+            <numerusform>  ·  %n ошибка</numerusform>
+            <numerusform>  ·  %n ошибки</numerusform>
+            <numerusform>  ·  %n ошибок</numerusform>
+        </translation>
     </message>
     <message>
         <source>Control lines: uppercase means asserted</source>
@@ -712,7 +779,11 @@
     </message>
     <message numerus="yes">
         <source>%n line(s)</source>
-        <translation><numerusform>%n строка</numerusform><numerusform>%n строки</numerusform><numerusform>%n строк</numerusform></translation>
+        <translation>
+            <numerusform>%n строка</numerusform>
+            <numerusform>%n строки</numerusform>
+            <numerusform>%n строк</numerusform>
+        </translation>
     </message>
     <message>
         <source>Double-click to change</source>

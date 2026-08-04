@@ -35,6 +35,7 @@ content-save plus minus pencil delete close check chevron-down chevron-up chevro
 chevron-right folder-open file-document-outline open-in-new send keyboard history filter
 filter-off palette translate format-font format-size theme-light-dark weather-night
 white-balance-sunny information-outline alert-outline timer-outline puzzle rename-box
+content-duplicate file-import file-export
 """.split()
 
 HEADER = Path(__file__).resolve().parent.parent / "src" / "ui" / "theme" / "MdiCodepoints.h"

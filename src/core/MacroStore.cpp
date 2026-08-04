@@ -13,6 +13,7 @@
 #include <QJsonObject>
 #include <QLoggingCategory>
 #include <QSaveFile>
+#include <QSet>
 
 namespace spotty {
 
@@ -43,7 +44,6 @@ bool isValidPresetName(const QString &name)
 QJsonObject macroToJson(const Macro &macro)
 {
     QJsonObject object;
-    object.insert(QStringLiteral("name"), macro.name);
     object.insert(QStringLiteral("payload"), macro.payload);
     object.insert(QStringLiteral("format"), int(macro.format));
     object.insert(QStringLiteral("termination"), int(macro.termination));
@@ -55,8 +55,14 @@ QJsonObject macroToJson(const Macro &macro)
 Macro macroFromJson(const QJsonObject &object)
 {
     Macro macro;
-    macro.name = object.value(QStringLiteral("name")).toString();
     macro.payload = object.value(QStringLiteral("payload")).toString();
+
+    // Наборы, записанные прежними версиями, содержали отдельное имя. Если команда пуста,
+    // а имя есть, то имя и было командой — иначе такой макрос молча превратился бы в
+    // пустую строку.
+    if (macro.payload.isEmpty())
+        macro.payload = object.value(QStringLiteral("name")).toString();
+
     macro.format = DataCodec::Format(
         object.value(QStringLiteral("format")).toInt(int(DataCodec::Format::Text)));
     macro.termination = DataCodec::Termination(
@@ -174,6 +180,103 @@ bool MacroStore::createPreset(const QString &name)
     m_currentPreset = name;
     m_macros.clear();
     return save();
+}
+
+QString MacroStore::suggestShortcut() const
+{
+    QSet<QString> taken;
+    for (const Macro &macro : m_macros) {
+        if (!macro.shortcut.isEmpty())
+            taken.insert(macro.shortcut);
+    }
+
+    // Функциональные клавиши — единственный ряд, который не отнимает сочетаний у самой
+    // программы и не требует модификатора. Дальше двенадцати не идём: назначать
+    // тринадцатому макросу «Ctrl+Shift+F1» программа не вправе.
+    for (int i = 1; i <= 12; ++i) {
+        const QString candidate = QStringLiteral("F%1").arg(i);
+        if (!taken.contains(candidate))
+            return candidate;
+    }
+    return {};
+}
+
+bool MacroStore::importFrom(const QString &filePath, int *added)
+{
+    if (added)
+        *added = 0;
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        qCWarning(lcMacros) << "cannot read" << filePath << file.errorString();
+        return false;
+    }
+
+    QJsonParseError error{};
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &error);
+    if (error.error != QJsonParseError::NoError) {
+        qCWarning(lcMacros) << "malformed JSON in" << filePath << error.errorString();
+        return false;
+    }
+
+    const QJsonArray array = document.isArray()
+                                 ? document.array()
+                                 : document.object().value(QStringLiteral("macros")).toArray();
+
+    QSet<QString> taken;
+    for (const Macro &macro : m_macros) {
+        if (!macro.shortcut.isEmpty())
+            taken.insert(macro.shortcut);
+    }
+
+    int count = 0;
+    for (const QJsonValue &value : array) {
+        if (!value.isObject())
+            continue;
+
+        Macro macro = macroFromJson(value.toObject());
+        if (macro.payload.isEmpty())
+            continue;
+
+        // Занятое сочетание снимаем: одно и то же нажатие не может отвечать за две разные
+        // команды, а молча перехватывать чужую хуже, чем оставить импортированную без
+        // клавиши.
+        if (!macro.shortcut.isEmpty() && taken.contains(macro.shortcut))
+            macro.shortcut.clear();
+        else if (!macro.shortcut.isEmpty())
+            taken.insert(macro.shortcut);
+
+        m_macros.append(macro);
+        ++count;
+    }
+
+    if (added)
+        *added = count;
+
+    return count > 0 || array.isEmpty();
+}
+
+bool MacroStore::exportTo(const QString &filePath) const
+{
+    QJsonArray array;
+    for (const Macro &macro : m_macros)
+        array.append(macroToJson(macro));
+
+    QJsonObject root;
+    root.insert(QStringLiteral("macros"), array);
+
+    QSaveFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qCWarning(lcMacros) << "cannot write" << filePath << file.errorString();
+        return false;
+    }
+
+    file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    if (!file.commit()) {
+        qCWarning(lcMacros) << "cannot commit" << filePath << file.errorString();
+        return false;
+    }
+    return true;
 }
 
 bool MacroStore::deletePreset(const QString &name)

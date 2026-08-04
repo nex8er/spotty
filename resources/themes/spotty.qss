@@ -162,13 +162,15 @@ QTableView {
 }
 
 QListView::item,
-QTreeView::item {
+QTreeView::item,
+QTableView::item {
     padding: 4px 6px;
     border: none;
 }
 
 QListView::item:selected,
-QTreeView::item:selected {
+QTreeView::item:selected,
+QTableView::item:selected {
     background: @selection;
     color: @text;
 }
