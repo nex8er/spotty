@@ -65,6 +65,16 @@ public:
      */
     void setChannelState(ChannelState state, const QString &detail = {});
 
+    /**
+     * \brief Показать индикатор ошибки, не меняя состояния канала.
+     *
+     * Для случаев вроде ошибки кадрирования на уже открытом порту: канал остаётся
+     * `Open`, само по себе это не смена состояния, но пользователь должен увидеть, что
+     * что-то пошло не так. Снимается следующим вызовом setChannelState().
+     * \param detail Текст ошибки; показывается во всплывающей подсказке.
+     */
+    void flagError(const QString &detail);
+
 Q_SIGNALS:
     /// \brief Пользователь выбрал другой интерфейс. Пустая строка — «не выбрано».
     void interfaceSelected(const QString &id);
@@ -98,13 +108,15 @@ private:
 
     const AppContext &m_context;
     QLabel *m_statusDot = nullptr;        ///< Цветной кружок состояния.
-    QLabel *m_statusText = nullptr;       ///< Подпись состояния.
     QComboBox *m_combo = nullptr;         ///< Выбор интерфейса.
     QToolButton *m_openButton = nullptr;  ///< Открыть или закрыть канал.
     QToolButton *m_settingsButton = nullptr; ///< Переход в настройки интерфейса.
 
     ChannelState m_state = ChannelState::Closed; ///< Отображаемое состояние.
     QString m_stateDetail;                ///< Пояснение к состоянию.
+
+    bool m_hasError = false;              ///< Индикатор временно показывает ошибку.
+    QString m_errorDetail;                ///< Текст ошибки для всплывающей подсказки.
 
     /// \brief Признак идущего перестроения — глушит обработчик смены пункта.
     bool m_rebuilding = false;

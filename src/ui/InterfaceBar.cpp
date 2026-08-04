@@ -68,11 +68,6 @@ InterfaceBar::InterfaceBar(const AppContext &context, QWidget *parent)
     m_statusDot = new QLabel(this);
     m_statusDot->setObjectName(QStringLiteral("statusDot"));
 
-    m_statusText = new QLabel(this);
-    // Фиксированная ширина: иначе список слева-направо дёргался бы при каждой смене
-    // состояния, потому что «Открыт» и «Недоступен» разной длины.
-    m_statusText->setMinimumWidth(90);
-
     m_combo = new QComboBox(this);
     m_combo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     m_combo->setMinimumWidth(360);
@@ -94,7 +89,6 @@ InterfaceBar::InterfaceBar(const AppContext &context, QWidget *parent)
     layout->setContentsMargins(8, 6, 8, 6);
     layout->setSpacing(8);
     layout->addWidget(m_statusDot);
-    layout->addWidget(m_statusText);
     layout->addWidget(m_combo, 1);
     layout->addWidget(m_openButton);
     layout->addWidget(m_settingsButton);
@@ -233,28 +227,60 @@ QString InterfaceBar::currentInterfaceId() const
 
 void InterfaceBar::setCurrentInterfaceId(const QString &id)
 {
+    // Восстановление при запуске — не решение пользователя, а memory программы.
+    // Без блокировки currentIndexChanged дошёл бы до interfaceSelected, и обработчик в
+    // MainWindow открыл бы канал в обход настройки autoOpenLastInterface. Состояние кнопок
+    // после этого выставляем вручную — как в rebuild().
     const int index = m_combo->findData(id);
+    const QSignalBlocker blocker(m_combo);
     m_combo->setCurrentIndex(index >= 0 ? index : 0);
+
+    const bool hasId = !currentInterfaceId().isEmpty();
+    m_settingsButton->setEnabled(hasId);
+    m_openButton->setEnabled(hasId);
 }
 
 void InterfaceBar::setChannelState(ChannelState state, const QString &detail)
 {
     m_state = state;
     m_stateDetail = detail;
+    // Новое состояние — сигнал, что прежняя ошибка уже неактуальна: канал либо
+    // переоткрылся, либо закрылся, либо сам перешёл в Error со своим отображением.
+    m_hasError = false;
     updateStatusIndicator();
     updateIcons();
+}
+
+void InterfaceBar::flagError(const QString &detail)
+{
+    m_hasError = true;
+    m_errorDetail = detail;
+    updateStatusIndicator();
 }
 
 void InterfaceBar::updateStatusIndicator()
 {
     const ThemeColors colors =
         m_context.theme ? m_context.theme->colors() : ThemeColors{};
-    const StatusLook look = lookFor(m_state, colors);
 
+    if (m_hasError) {
+        m_statusDot->setPixmap(MdiIcons::icon(mdi::AlertCircleOutline, colors.errorText,
+                                              kStatusGlyphSize)
+                                   .pixmap(kStatusGlyphSize));
+        m_statusDot->setToolTip(m_errorDetail);
+        return;
+    }
+
+    const StatusLook look = lookFor(m_state, colors);
     m_statusDot->setPixmap(
         MdiIcons::icon(look.glyph, look.color, kStatusGlyphSize).pixmap(kStatusGlyphSize));
-    m_statusText->setText(look.label);
-    m_statusText->setToolTip(m_stateDetail);
+
+    // Подписи «Открыт»/«Закрыт» рядом с кружком больше нет — без неё пояснение в
+    // подсказке осталось бы единственным способом узнать состояние, не открывая настройки.
+    QString tooltip = look.label;
+    if (!m_stateDetail.isEmpty())
+        tooltip += QStringLiteral(" — %1").arg(m_stateDetail);
+    m_statusDot->setToolTip(tooltip);
 }
 
 } // namespace spotty

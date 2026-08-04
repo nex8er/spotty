@@ -100,15 +100,16 @@ MainWindow::MainWindow(const AppContext &context, QWidget *parent)
         connect(m_context.theme, &ThemeManager::themeChanged, this, [this] { updateIcons(); });
     updateIcons();
 
-    // Интерфейс восстанавливается последним: обработчики выбора обращаются к сессии и к
-    // панелям, которые к этому моменту уже настроены.
+    // Список интерфейсов всегда стартует с «не выбрано»: выбор теперь сам открывает канал
+    // (обработчик interfaceSelected ниже), и показывать выбранным то, что на самом деле
+    // закрыто, было бы враньём в интерфейсе. Единственное исключение — включённое
+    // автооткрытие последнего интерфейса: тогда выбор и открытие происходят вместе.
     const QString interfaceId =
         m_context.settings->value(QLatin1String(kKeyInterface)).toString();
-    m_interfaceBar->setCurrentInterfaceId(interfaceId);
-    if (m_context.session && !interfaceId.isEmpty()) {
+    if (m_context.session && !interfaceId.isEmpty() && m_settings.autoOpenLastInterface) {
+        m_interfaceBar->setCurrentInterfaceId(interfaceId);
         m_context.session->setInterfaceId(interfaceId);
-        if (m_settings.autoOpenLastInterface)
-            m_context.session->open();
+        m_context.session->open();
     }
 }
 
@@ -193,8 +194,22 @@ void MainWindow::buildUi()
 
     connect(m_interfaceBar, &InterfaceBar::interfaceSelected, this, [this](const QString &id) {
         m_context.settings->setValue(QLatin1String(kKeyInterface), id);
-        if (m_context.session)
-            m_context.session->setInterfaceId(id);
+        if (!m_context.session)
+            return;
+
+        m_context.session->setInterfaceId(id);
+
+        // Выбор в выпадающем списке — уже осознанное решение пользователя: он назвал
+        // порт, с которым хочет работать, и второй клик по кнопке открытия был бы лишним
+        // повторением того же намерения. «Не выбрано» (пустая строка) сюда не подпадает —
+        // им закрывают канал, а не открывают ничего.
+        //
+        // Это не противоречит выключенному по умолчанию автооткрытию при запуске
+        // (session/autoOpen): там программа решает сама, без прямого действия человека
+        // прямо сейчас, и там DTR-сброс платы или перехват порта у другой программы был
+        // бы сюрпризом. Здесь выбор — сам по себе прямое действие.
+        if (!id.isEmpty())
+            m_context.session->open();
     });
 
     connect(m_interfaceBar, &InterfaceBar::toggleOpenRequested,
@@ -226,6 +241,7 @@ void MainWindow::buildUi()
                 this, &MainWindow::updateControlLines);
         connect(m_context.session, &Session::errorOccurred, this, [this](const QString &message) {
             statusBar()->showMessage(message, 8000);
+            m_interfaceBar->flagError(message);
         });
     }
 
