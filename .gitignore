@@ -24,7 +24,16 @@ qrc_*.cpp
 ui_*.h
 
 # IDE / OS
-.vscode/
+#
+# Профили сборки и отладки в репозитории: они часть рабочего процесса, и собирать их
+# заново на каждой машине бессмысленно. Личные настройки VS Code кладёт отдельно и сюда
+# не пишет.
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
+!.vscode/extensions.json
+
 .idea/
 *.user
 .DS_Store

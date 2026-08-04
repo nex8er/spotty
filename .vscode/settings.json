@@ -1,0 +1,49 @@
+{
+    // --- Оформление кода по соглашениям проекта ---------------------------------------
+    "editor.insertSpaces": true,
+    "editor.tabSize": 4,
+    "editor.detectIndentation": false,
+    "editor.rulers": [100],
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+    "files.encoding": "utf8",
+
+    // --- Разбор кода ------------------------------------------------------------------
+    //
+    // База берётся из compile_commands.json отладочной сборки: там настоящие флаги и
+    // пути к заголовкам Qt, поэтому переходы по коду и подсказки работают без ручного
+    // перечисления каталогов.
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build-debug/compile_commands.json",
+    "C_Cpp.default.cppStandard": "c++20",
+    "C_Cpp.default.intelliSenseMode": "macos-clang-arm64",
+
+    // CMake Tools не должен настраивать проект сам: сборкой управляют задачи из
+    // tasks.json, и вторая настройка в другом каталоге только запутывала бы.
+    "cmake.configureOnOpen": false,
+    "cmake.buildDirectory": "${workspaceFolder}/build-debug",
+    "cmake.configureArgs": [
+        "-DCMAKE_PREFIX_PATH=/opt/homebrew",
+        "-DSPOTTY_BUILD_TESTS=ON"
+    ],
+
+    // --- Соответствия типов файлов ----------------------------------------------------
+    "files.associations": {
+        "*.qss": "css",
+        "*.ts": "xml",
+        "*.qrc": "xml"
+    },
+
+    // --- Что прятать ------------------------------------------------------------------
+    //
+    // Каталоги сборки исключены из поиска: иначе поиск по «TerminalBuffer» находит
+    // порождённые moc-файлы и копии заголовков, и настоящий результат тонет.
+    "search.exclude": {
+        "**/build": true,
+        "**/build-*": true,
+        "**/_deps": true
+    },
+    "files.watcherExclude": {
+        "**/build/**": true,
+        "**/build-*/**": true
+    }
+}

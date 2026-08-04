@@ -1,0 +1,180 @@
+{
+    // Задачи сборки Spotty.
+    //
+    // Имена короткие: они же выводятся в строке состояния расширением actboy168.tasks,
+    // и длинная подпись съедала бы её целиком. Что делает задача, объясняет detail —
+    // он виден в списке Run Task и во всплывающей подсказке.
+    //
+    // Отладочная сборка живёт в отдельном каталоге build-debug, а не в build: у Debug и
+    // обычной сборки разные флаги, и переключение типа в одном каталоге каждый раз
+    // обесценивало бы весь кэш объектных файлов.
+    "version": "2.0.0",
+    "options": {
+        "env": {
+            // Путь к Qt из Homebrew. На Linux и Windows строку можно убрать: там Qt
+            // обычно находится сам.
+            "SPOTTY_PREFIX_PATH": "/opt/homebrew"
+        }
+    },
+    "tasks": [
+        {
+            "label": "cfg",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-S", "${workspaceFolder}",
+                "-B", "${workspaceFolder}/build-debug",
+                "-G", "Ninja",
+                "-DCMAKE_PREFIX_PATH=${env:SPOTTY_PREFIX_PATH}",
+                "-DCMAKE_BUILD_TYPE=Debug",
+                "-DSPOTTY_BUILD_TESTS=ON"
+            ],
+            "problemMatcher": [],
+            "detail": "Настроить отладочную сборку с тестами",
+            "options": {
+                // Скрыта из строки состояния: это зависимость сборки, а не то, что
+                // нажимают руками.
+                "statusbar": { "hide": true }
+            }
+        },
+        {
+            "label": "cfg:rel",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-S", "${workspaceFolder}",
+                "-B", "${workspaceFolder}/build",
+                "-G", "Ninja",
+                "-DCMAKE_PREFIX_PATH=${env:SPOTTY_PREFIX_PATH}",
+                "-DSPOTTY_BUILD_TESTS=ON"
+            ],
+            "problemMatcher": [],
+            "detail": "Настроить обычную сборку",
+            "options": {
+                "statusbar": { "hide": true }
+            }
+        },
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "cmake",
+            "args": ["--build", "${workspaceFolder}/build-debug"],
+            "group": { "kind": "build", "isDefault": true },
+            // Настройка запускается каждый раз: CMake сам понимает, что делать нечего,
+            // а забытый ненастроенный каталог после правки CMakeLists стоит дороже.
+            "dependsOn": "cfg",
+            "problemMatcher": ["$gcc"],
+            "detail": "Собрать отладочную конфигурацию",
+            "options": {
+                "statusbar": { "label": "$(tools) build" }
+            }
+        },
+        {
+            "label": "build:rel",
+            "type": "shell",
+            "command": "cmake",
+            "args": ["--build", "${workspaceFolder}/build"],
+            "dependsOn": "cfg:rel",
+            "problemMatcher": ["$gcc"],
+            "detail": "Собрать обычную конфигурацию",
+            "options": {
+                "statusbar": { "hide": true }
+            }
+        },
+        {
+            "label": "static",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cmake -S '${workspaceFolder}' -B '${workspaceFolder}/build-static' -G Ninja -DCMAKE_PREFIX_PATH=\"$SPOTTY_PREFIX_PATH\" -DSPOTTY_STATIC_PLUGINS=ON && cmake --build '${workspaceFolder}/build-static'"
+            ],
+            "problemMatcher": ["$gcc"],
+            // Вторая половина гибридной сборки. Ломается она молча — динамическая
+            // продолжает работать, — поэтому проверять её нужно осознанно.
+            "detail": "Собрать с вкомпилированными плагинами",
+            "options": {
+                "statusbar": { "label": "$(layers) static" }
+            }
+        },
+        {
+            "label": "test",
+            "type": "shell",
+            "command": "ctest",
+            "args": [
+                "--test-dir", "${workspaceFolder}/build-debug",
+                "--output-on-failure"
+            ],
+            "dependsOn": "build",
+            "group": { "kind": "test", "isDefault": true },
+            "problemMatcher": [],
+            "detail": "Прогнать все тесты",
+            "options": {
+                "statusbar": { "label": "$(beaker) test" }
+            }
+        },
+        {
+            "label": "cov",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cmake -S '${workspaceFolder}' -B '${workspaceFolder}/build-cov' -G Ninja -DCMAKE_PREFIX_PATH=\"$SPOTTY_PREFIX_PATH\" -DCMAKE_BUILD_TYPE=Debug -DSPOTTY_BUILD_TESTS=ON -DSPOTTY_ENABLE_COVERAGE=ON && cmake --build '${workspaceFolder}/build-cov' --target coverage"
+            ],
+            "problemMatcher": [],
+            "detail": "Прогнать тесты с измерением покрытия",
+            "options": {
+                "statusbar": { "label": "$(graph) cov" }
+            }
+        },
+        {
+            "label": "i18n",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cmake --build '${workspaceFolder}/build-debug' --target update_translations && python3 '${workspaceFolder}/tools/fill_ru_translations.py'"
+            ],
+            "dependsOn": "cfg",
+            "problemMatcher": [],
+            // Скрипт печатает список строк без перевода — единственный способ заметить,
+            // что в интерфейсе появился новый текст.
+            "detail": "lupdate и заполнение словаря переводов",
+            "options": {
+                "statusbar": { "label": "$(globe) i18n" }
+            }
+        },
+        {
+            "label": "dist",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cmake -S '${workspaceFolder}' -B '${workspaceFolder}/build-pkg' -G Ninja -DCMAKE_PREFIX_PATH=\"$SPOTTY_PREFIX_PATH\" -DSPOTTY_STATIC_PLUGINS=ON && cmake --build '${workspaceFolder}/build-pkg' --target spotty-package"
+            ],
+            "problemMatcher": [],
+            "detail": "Собрать распространяемый комплект",
+            "options": {
+                "statusbar": { "label": "$(package) dist" }
+            }
+        },
+        {
+            "label": "reset",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "rm -rf \"$HOME/Library/Preferences/Spotty/Spotty\" \"$HOME/.config/Spotty/Spotty\" && echo 'Настройки удалены'"
+            ],
+            "problemMatcher": [],
+            // Проверить поведение при первом запуске иначе невозможно: программа помнит
+            // слишком много.
+            "detail": "Удалить настройки Spotty",
+            "options": {
+                // Единственная задача с цветом: она удаляет данные, и её стоит отличать
+                // от остальных боковым зрением.
+                "statusbar": { "label": "$(trash) reset"}
+            }
+        }
+    ]
+}

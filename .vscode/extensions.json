@@ -1,0 +1,9 @@
+{
+    "recommendations": [
+        // Разбор кода C++ и отладчик, которым пользуются профили из launch.json.
+        "ms-vscode.cpptools",
+        // Подсветка и подсказки в CMakeLists.txt.
+        "ms-vscode.cmake-tools"
+    ],
+    "unwantedRecommendations": []
+}
