@@ -44,8 +44,6 @@ InterfaceRegistry::~InterfaceRegistry() = default;
 
 void InterfaceRegistry::start()
 {
-    loadPersisted();
-
     bool needsPolling = false;
     for (IInterfacePlugin *plugin : m_plugins->plugins()) {
         QObject *notifier = plugin->hotplugNotifier();
@@ -75,24 +73,16 @@ void InterfaceRegistry::start()
     refresh();
 }
 
-void InterfaceRegistry::loadPersisted()
+void InterfaceRegistry::restorePersisted(InterfaceEntry &entry, const QString &id) const
 {
-    const QVariantMap persisted = m_store->data();
-    for (auto it = persisted.constBegin(); it != persisted.constEnd(); ++it) {
-        const QVariantMap record = it.value().toMap();
+    const QVariant raw = m_store->data().value(id);
+    if (!raw.isValid())
+        return;
 
-        InterfaceEntry entry;
-        entry.descriptor.id = it.key();
-        entry.descriptor.pluginId = record.value(QStringLiteral("pluginId")).toString();
-        entry.descriptor.systemName = record.value(QStringLiteral("systemName")).toString();
-        entry.descriptor.description = record.value(QStringLiteral("description")).toString();
-        entry.alias = record.value(QStringLiteral("alias")).toString();
-        entry.settings = record.value(QStringLiteral("settings")).toMap();
-        // Присутствие определит первый же refresh(); из файла оно не восстанавливается.
-        entry.present = false;
-
-        m_entries.insert(entry.descriptor.id, entry);
-    }
+    const QVariantMap record = raw.toMap();
+    entry.alias = record.value(QStringLiteral("alias")).toString();
+    entry.hidden = record.value(QStringLiteral("hidden")).toBool();
+    entry.settings = record.value(QStringLiteral("settings")).toMap();
 }
 
 void InterfaceRegistry::refresh()
@@ -118,8 +108,15 @@ void InterfaceRegistry::refresh()
 
     // Появившиеся и уже присутствующие.
     for (auto it = seen.constBegin(); it != seen.constEnd(); ++it) {
+        // Устройство, впервые увиденное за этот запуск программы, стоит поискать в
+        // interfaces.json: если оно уже когда-то настраивалось, это тот самый момент,
+        // чтобы вернуть псевдоним и настройки, пока запись ещё не создана.
+        const bool isNewToSession = !m_entries.contains(it.key());
         InterfaceEntry &entry = m_entries[it.key()];
         const bool wasPresent = entry.present;
+
+        if (isNewToSession)
+            restorePersisted(entry, it.key());
 
         entry.descriptor = it.value();
         entry.present = true;
@@ -132,12 +129,16 @@ void InterfaceRegistry::refresh()
         }
     }
 
-    // Пропавшие.
+    // Пропавшие. Запись остаётся в m_entries до конца сеанса (см. entries()), но из
+    // interfaces.json убирается немедленно: недоступное устройство не должно копиться в
+    // файле год за годом, а на следующем запуске программы список и так начнётся заново
+    // с того, что подключено на самом деле.
     for (auto it = m_entries.begin(); it != m_entries.end(); ++it) {
         if (it->present && !seen.contains(it.key())) {
             it->present = false;
             it->discoveredAt = {};
             disappeared.append(it.key());
+            m_store->remove(it.key());
             dirty = true;
         }
     }
@@ -188,6 +189,17 @@ void InterfaceRegistry::setAlias(const QString &id, const QString &alias)
     Q_EMIT changed();
 }
 
+void InterfaceRegistry::setHidden(const QString &id, bool hidden)
+{
+    const auto it = m_entries.find(id);
+    if (it == m_entries.end() || it->hidden == hidden)
+        return;
+
+    it->hidden = hidden;
+    persist(id);
+    Q_EMIT changed();
+}
+
 QVariantMap InterfaceRegistry::settingsFor(const QString &id) const
 {
     const InterfaceEntry *entry = this->entry(id);
@@ -225,6 +237,7 @@ void InterfaceRegistry::persist(const QString &id) const
     record.insert(QStringLiteral("systemName"), entry->descriptor.systemName);
     record.insert(QStringLiteral("description"), entry->descriptor.description);
     record.insert(QStringLiteral("alias"), entry->alias);
+    record.insert(QStringLiteral("hidden"), entry->hidden);
     record.insert(QStringLiteral("settings"), entry->settings);
 
     m_store->setValue(id, record);

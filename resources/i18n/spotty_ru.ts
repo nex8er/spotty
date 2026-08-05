@@ -238,8 +238,15 @@
 <context>
     <name>spotty::InterfaceSettingsDialog</name>
     <message>
-        <source>Settings - %1</source>
-        <translation>Настройки — %1</translation>
+        <source>Interface settings</source>
+        <translation>Настройки интерфейса</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::InterfaceSettingsPanel</name>
+    <message>
+        <source>Device</source>
+        <translation>Устройство</translation>
     </message>
     <message>
         <source>Interface</source>
@@ -248,6 +255,18 @@
     <message>
         <source>Alias</source>
         <translation>Псевдоним</translation>
+    </message>
+    <message>
+        <source>Hide from the interface list</source>
+        <translation>Скрыть из списка интерфейсов</translation>
+    </message>
+    <message>
+        <source>Address</source>
+        <translation>Адрес</translation>
+    </message>
+    <message>
+        <source>VID:PID</source>
+        <translation>VID:PID</translation>
     </message>
     <message>
         <source>General</source>
@@ -407,14 +426,6 @@
         <translation>Удалить набор</translation>
     </message>
     <message>
-        <source>Command</source>
-        <translation>Команда</translation>
-    </message>
-    <message>
-        <source>Key</source>
-        <translation>Клавиша</translation>
-    </message>
-    <message>
         <source>Add macro</source>
         <translation>Добавить макрос</translation>
     </message>
@@ -428,7 +439,11 @@
     </message>
     <message numerus="yes">
         <source>%n macro(s) imported</source>
-        <translation><numerusform>импортирован %n макрос</numerusform><numerusform>импортировано %n макроса</numerusform><numerusform>импортировано %n макросов</numerusform></translation>
+        <translation>
+            <numerusform>импортирован %n макрос</numerusform>
+            <numerusform>импортировано %n макроса</numerusform>
+            <numerusform>импортировано %n макросов</numerusform>
+        </translation>
     </message>
     <message>
         <source>There is nothing to export.</source>
@@ -981,6 +996,10 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Shortcuts</source>
         <translation>Горячие клавиши</translation>
+    </message>
+    <message>
+        <source>Interfaces</source>
+        <translation>Интерфейсы</translation>
     </message>
     <message>
         <source>System</source>

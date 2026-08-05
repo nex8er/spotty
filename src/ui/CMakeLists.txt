@@ -33,6 +33,12 @@ qt_add_executable(spotty
     Formatting.h
     InterfaceBar.cpp
     InterfaceBar.h
+    InterfaceCombo.cpp
+    InterfaceCombo.h
+    InterfaceItemDelegate.cpp
+    InterfaceItemDelegate.h
+    InterfaceLabel.cpp
+    InterfaceLabel.h
     MainWindow.cpp
     MainWindow.h
     SendBar.cpp
@@ -41,6 +47,8 @@ qt_add_executable(spotty
     TerminalView.h
     dialogs/InterfaceSettingsDialog.cpp
     dialogs/InterfaceSettingsDialog.h
+    dialogs/InterfaceSettingsPanel.cpp
+    dialogs/InterfaceSettingsPanel.h
     dialogs/SettingsDialog.cpp
     dialogs/SettingsDialog.h
     panels/GeneratorPanel.cpp

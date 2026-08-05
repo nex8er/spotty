@@ -6,6 +6,9 @@
 
 #include "AppContext.h"
 #include "Formatting.h"
+#include "InterfaceCombo.h"
+#include "InterfaceItemDelegate.h"
+#include "InterfaceLabel.h"
 #include "theme/MdiIcons.h"
 #include "theme/ThemeManager.h"
 
@@ -13,11 +16,14 @@
 #include <PluginManager.h>
 #include <spotty/api/IInterfacePlugin.h>
 
-#include <QComboBox>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMap>
 #include <QSignalBlocker>
+#include <QStandardItemModel>
 #include <QToolButton>
+
+#include <algorithm>
 
 namespace spotty {
 
@@ -68,9 +74,12 @@ InterfaceBar::InterfaceBar(const AppContext &context, QWidget *parent)
     m_statusDot = new QLabel(this);
     m_statusDot->setObjectName(QStringLiteral("statusDot"));
 
-    m_combo = new QComboBox(this);
+    m_combo = new InterfaceCombo(this);
     m_combo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     m_combo->setMinimumWidth(360);
+    // Свой делегат: заголовки групп и раздельная отрисовка имени слева от служебных
+    // сведений справа — то, что один QComboBox::addItem() показать не может.
+    m_combo->setItemDelegate(new InterfaceItemDelegate(m_combo));
     // Колесо мыши над выпадающим списком по умолчанию переключает пункты, даже когда у
     // него нет фокуса. Для выбора порта это недопустимо: случайная прокрутка над окном
     // молча переключила бы активный интерфейс, закрыв текущий и открыв чужой.
@@ -147,23 +156,14 @@ void InterfaceBar::updateIcons()
     m_openButton->setToolTip(open ? tr("Close the interface") : tr("Open the interface"));
 }
 
-QString InterfaceBar::describe(const InterfaceEntry &entry) const
+QString InterfaceBar::secondaryText(const InterfaceEntry &entry) const
 {
     QStringList parts;
-    parts << entry.descriptor.systemName;
 
-    if (!entry.alias.isEmpty())
-        parts << entry.alias;
-
-    // Выжимку настроек составляет плагин: какие параметры существенны и как они читаются
-    // вместе — знание транспорта, ядру недоступное.
-    if (m_context.plugins) {
-        if (IInterfacePlugin *plugin = m_context.plugins->plugin(entry.descriptor.pluginId)) {
-            const QString summary = plugin->settingsSummary(entry.settings);
-            if (!summary.isEmpty())
-                parts << summary;
-        }
-    }
+    // Системный адрес есть смысл повторять справа, только если слева уже не он сам:
+    // без псевдонима и без описания от драйвера primaryText() и так показывает его.
+    if (!entry.alias.isEmpty() || !entry.descriptor.description.isEmpty())
+        parts << entry.descriptor.systemName;
 
     if (entry.present) {
         const QString since = Formatting::timeAgo(entry.discoveredAt);
@@ -174,6 +174,19 @@ QString InterfaceBar::describe(const InterfaceEntry &entry) const
     }
 
     return parts.join(QStringLiteral("  ·  "));
+}
+
+void InterfaceBar::addGroupHeader(const QString &label)
+{
+    m_combo->addItem(label);
+    const int index = m_combo->count() - 1;
+    m_combo->setItemData(index, true, InterfaceHeaderRole);
+
+    // Заголовок группы не выбирается ни щелчком, ни стрелками: он не устройство.
+    if (auto *model = qobject_cast<QStandardItemModel *>(m_combo->model())) {
+        if (QStandardItem *item = model->item(index))
+            item->setFlags(item->flags() & ~(Qt::ItemIsSelectable | Qt::ItemIsEnabled));
+    }
 }
 
 void InterfaceBar::rebuild()
@@ -191,25 +204,62 @@ void InterfaceBar::rebuild()
     m_combo->clear();
     m_combo->addItem(tr("Not selected"), QString());
 
-    const QList<InterfaceEntry> entries = m_context.registry->entries();
-    for (const InterfaceEntry &entry : entries) {
-        m_combo->addItem(describe(entry), entry.descriptor.id);
-        const int index = m_combo->count() - 1;
+    // Группируем по плагину-владельцу: однотипные устройства (все UART, все Loopback)
+    // держатся вместе, а не перемешиваются общей сортировкой по имени. entries() уже
+    // возвращает список отсортированным (присутствующие выше, дальше по алфавиту) —
+    // раскладка по группам ниже сохраняет этот порядок внутри каждой из них.
+    QMap<QString, QList<InterfaceEntry>> groups;
+    QMap<QString, QString> groupLabels;
+    for (const InterfaceEntry &entry : m_context.registry->entries()) {
+        // Скрытые пользователем устройства сюда не попадают — этим списком отдельно
+        // управляет раздел UART в настройках интерфейса; entries() отдаёт их специально
+        // для того списка, а не для этого.
+        if (entry.hidden)
+            continue;
 
-        // Во всплывающей подсказке — описание и поля extra: идентификаторы производителя,
-        // модели и серийный номер помогают различить два одинаковых переходника.
-        QStringList tooltip;
-        if (!entry.descriptor.description.isEmpty())
-            tooltip << entry.descriptor.description;
-        for (auto it = entry.descriptor.extra.constBegin();
-             it != entry.descriptor.extra.constEnd(); ++it) {
-            tooltip << QStringLiteral("%1: %2").arg(it.key(), it.value().toString());
+        const QString &pluginId = entry.descriptor.pluginId;
+        groups[pluginId].append(entry);
+
+        if (!groupLabels.contains(pluginId)) {
+            QString label = pluginId;
+            if (m_context.plugins) {
+                if (IInterfacePlugin *plugin = m_context.plugins->plugin(pluginId))
+                    label = plugin->displayName();
+            }
+            groupLabels.insert(pluginId, label);
         }
-        m_combo->setItemData(index, tooltip.join(u'\n'), Qt::ToolTipRole);
+    }
 
-        if (!entry.present && m_context.theme) {
-            m_combo->setItemData(index, m_context.theme->colors().textMuted,
-                                 Qt::ForegroundRole);
+    QStringList pluginIds = groups.keys();
+    std::sort(pluginIds.begin(), pluginIds.end(), [&groupLabels](const QString &a, const QString &b) {
+        return groupLabels.value(a).localeAwareCompare(groupLabels.value(b)) < 0;
+    });
+
+    for (const QString &pluginId : std::as_const(pluginIds)) {
+        addGroupHeader(groupLabels.value(pluginId));
+
+        for (const InterfaceEntry &entry : std::as_const(groups[pluginId])) {
+            m_combo->addItem(interfacePrimaryLabel(entry, m_context.plugins), entry.descriptor.id);
+            const int index = m_combo->count() - 1;
+
+            m_combo->setItemData(index, secondaryText(entry), InterfaceSecondaryTextRole);
+
+            // Во всплывающей подсказке — описание (если его уже не видно в самой подписи)
+            // и поля extra: идентификаторы производителя, модели и серийный номер помогают
+            // различить два одинаковых переходника.
+            QStringList tooltip;
+            if (!entry.alias.isEmpty() && !entry.descriptor.description.isEmpty())
+                tooltip << entry.descriptor.description;
+            for (auto it = entry.descriptor.extra.constBegin();
+                 it != entry.descriptor.extra.constEnd(); ++it) {
+                tooltip << QStringLiteral("%1: %2").arg(it.key(), it.value().toString());
+            }
+            m_combo->setItemData(index, tooltip.join(u'\n'), Qt::ToolTipRole);
+
+            if (!entry.present && m_context.theme) {
+                m_combo->setItemData(index, m_context.theme->colors().textMuted,
+                                     Qt::ForegroundRole);
+            }
         }
     }
 

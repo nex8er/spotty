@@ -8,6 +8,7 @@
 #include "InterfaceBar.h"
 #include "SendBar.h"
 #include "dialogs/InterfaceSettingsDialog.h"
+#include "dialogs/InterfaceSettingsPanel.h"
 #include "dialogs/SettingsDialog.h"
 #include "panels/GeneratorPanel.h"
 #include "panels/LoggingPanel.h"
@@ -21,7 +22,6 @@
 #include <Session.h>
 #include <settings/Paths.h>
 #include <settings/SettingsStore.h>
-#include <spotty/api/IInterfacePlugin.h>
 
 #include <QActionGroup>
 #include <QApplication>
@@ -398,6 +398,16 @@ QWidget *MainWindow::buildSidePanel()
     }
 
     railLayout->addStretch(1);
+
+    // Настройки — не панель, а действие, поэтому вне группы переключателей: растяжка
+    // отделяет её от них и прижимает к низу рейки.
+    m_settingsRailButton = new QToolButton(rail);
+    m_settingsRailButton->setAutoRaise(true);
+    m_settingsRailButton->setToolTip(tr("Settings"));
+    m_settingsRailButton->setIconSize(QSize(kPanelGlyphSize, kPanelGlyphSize));
+    railLayout->addWidget(m_settingsRailButton);
+    connect(m_settingsRailButton, &QToolButton::clicked, this, &MainWindow::showSettingsDialog);
+
     connect(group, &QButtonGroup::idClicked, m_panelStack, &QStackedWidget::setCurrentIndex);
 
     auto *layout = new QHBoxLayout(panel);
@@ -588,7 +598,14 @@ void MainWindow::applyShortcuts()
 
 void MainWindow::showSettingsDialog()
 {
-    SettingsDialog dialog(m_settings, m_terminal->ansiPalette(), this);
+    SettingsDialog dialog(m_settings, m_terminal->ansiPalette(), m_context.registry,
+                         m_context.plugins, this);
+    if (InterfaceSettingsPanel *panel = dialog.interfacePanel()) {
+        panel->selectInterface(m_context.session ? m_context.session->interfaceId() : QString());
+        connect(panel, &InterfaceSettingsPanel::settingsApplied,
+                this, &MainWindow::reloadSessionSettingsIfActive);
+    }
+
     if (dialog.exec() != QDialog::Accepted)
         return;
 
@@ -625,29 +642,22 @@ void MainWindow::toggleConnection()
 
 void MainWindow::showInterfaceSettings(const QString &interfaceId)
 {
-    if (interfaceId.isEmpty() || !m_context.registry || !m_context.plugins)
+    if (!m_context.registry || !m_context.plugins)
         return;
 
-    const InterfaceEntry *entry = m_context.registry->entry(interfaceId);
-    if (!entry)
-        return;
+    InterfaceSettingsDialog dialog(m_context.registry, m_context.plugins, interfaceId, this);
+    connect(dialog.panel(), &InterfaceSettingsPanel::settingsApplied,
+            this, &MainWindow::reloadSessionSettingsIfActive);
+    dialog.exec();
+}
 
-    IInterfacePlugin *plugin = m_context.plugins->plugin(entry->descriptor.pluginId);
-    if (!plugin)
-        return;
-
-    InterfaceSettingsDialog dialog(entry->descriptor.systemName, plugin->settingsSchema(),
-                                   m_context.registry->settingsFor(interfaceId),
-                                   entry->alias, this);
-    if (dialog.exec() != QDialog::Accepted)
-        return;
-
-    m_context.registry->setAlias(interfaceId, dialog.alias());
-    m_context.registry->setSettingsFor(interfaceId, dialog.values());
-
+void MainWindow::reloadSessionSettingsIfActive(const QString &interfaceId)
+{
     // Настройки применяются к уже открытому каналу: закрывать его ради смены скорости
-    // значило бы дёрнуть DTR и перезагрузить плату.
-    if (m_context.session)
+    // значило бы дёрнуть DTR и перезагрузить плату. Но только если это тот самый
+    // интерфейс — панель настроек умеет переключаться на любое известное устройство, а
+    // не только на открытое сейчас.
+    if (m_context.session && m_context.session->interfaceId() == interfaceId)
         m_context.session->reloadSettings();
 }
 
@@ -767,6 +777,7 @@ void MainWindow::updateIcons()
 {
     for (int i = 0; i < m_panelButtons.size() && i < int(std::size(kPanelGlyphs)); ++i)
         m_panelButtons.at(i)->setIcon(MdiIcons::icon(kPanelGlyphs[i], kPanelGlyphSize));
+    m_settingsRailButton->setIcon(MdiIcons::icon(mdi::Cog, kPanelGlyphSize));
 
     m_hexButton->setIcon(MdiIcons::icon(mdi::Hexadecimal, kToolGlyphSize));
     m_timestampButton->setIcon(MdiIcons::icon(mdi::ClockOutline, kToolGlyphSize));

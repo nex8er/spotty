@@ -104,8 +104,19 @@ private:
     /// \brief Открыть или закрыть канал в зависимости от текущего состояния.
     void toggleConnection();
 
-    /// \brief Показать диалог настроек интерфейса и применить результат.
+    /// \brief Показать настройки интерфейса с заранее выбранным устройством.
     void showInterfaceSettings(const QString &interfaceId);
+
+    /**
+     * \brief Перечитать настройки сессии, если только что применённые относились к её
+     *        интерфейсу.
+     * \param interfaceId Устройство, чьи настройки в реестре только что изменились.
+     *
+     * Подключается к spotty::InterfaceSettingsPanel::settingsApplied() из обоих мест, где
+     * панель встречается, — кнопки настроек рядом с выбором интерфейса и раздела
+     * «Интерфейсы» в общих настройках.
+     */
+    void reloadSessionSettingsIfActive(const QString &interfaceId);
 
     /// \brief Отразить новое состояние канала во всех элементах окна.
     void applyChannelState(ChannelState state, const QString &detail);
@@ -134,6 +145,7 @@ private:
     QSplitter *m_splitter = nullptr;
     QStackedWidget *m_panelStack = nullptr;
     QList<QToolButton *> m_panelButtons;
+    QToolButton *m_settingsRailButton = nullptr; ///< Открывает диалог настроек; внизу рейки.
 
     GeneratorPanel *m_generatorPanel = nullptr;
     LoggingPanel *m_loggingPanel = nullptr;

@@ -1,33 +1,27 @@
 /**
  * \file InterfaceSettingsDialog.h
- * \brief Диалог настроек интерфейса, построенный по схеме плагина.
+ * \brief Диалог настроек интерфейса — тонкая обёртка вокруг InterfaceSettingsPanel.
  */
 #pragma once
 
-#include <spotty/api/SettingsSchema.h>
-
 #include <QDialog>
-#include <QHash>
-#include <QVariantMap>
-
-class QLineEdit;
-class QWidget;
 
 namespace spotty {
 
+class InterfaceRegistry;
+class InterfaceSettingsPanel;
+class PluginManager;
+
 /**
  * \class InterfaceSettingsDialog
- * \brief Диалог настроек одного интерфейса.
+ * \brief Отдельное окно вокруг spotty::InterfaceSettingsPanel.
  *
- * \par Как он получается
+ * Вся логика — в панели; диалог лишь даёт ей модальное окно с кнопкой закрытия и
+ * выбирает устройство, ради которого его открыли. Тот же widget встраивается страницей в
+ * spotty::SettingsDialog — одна реализация настроек интерфейса, а не две.
  *
- * Виджеты строятся из spotty::SettingsSchema, которую вернул плагин. Плагин не пишет ни
- * строчки кода интерфейса: он объявляет, что у него настраивается, а как это выглядит —
- * забота ядра. Отсюда и требование «набор настроек зависит от плагина» выполняется само,
- * и Qt6::Widgets не попадает в зависимости SDK.
- *
- * Псевдоним интерфейса добавляется сверху отдельно: он принадлежит ядру, а не плагину, и
- * есть у любого транспорта.
+ * Правки применяются немедленно самой панелью, поэтому кнопки «Отмена» здесь нет: закрыть
+ * окно, отменив уже применённое, было бы нечем.
  */
 class InterfaceSettingsDialog : public QDialog
 {
@@ -36,31 +30,19 @@ class InterfaceSettingsDialog : public QDialog
 public:
     /**
      * \brief Конструктор.
-     * \param title Заголовок: обычно системное имя устройства.
-     * \param schema Схема настроек плагина-владельца.
-     * \param values Текущие значения, уже приведённые к схеме.
-     * \param alias Текущий псевдоним.
+     * \param registry Реестр интерфейсов; должен пережить диалог.
+     * \param plugins Менеджер плагинов; должен пережить диалог.
+     * \param initialId Устройство, которое нужно показать выбранным сразу.
+     * \param parent Родительский виджет.
      */
-    InterfaceSettingsDialog(const QString &title, const SettingsSchema &schema,
-                            const QVariantMap &values, const QString &alias,
-                            QWidget *parent = nullptr);
+    InterfaceSettingsDialog(InterfaceRegistry *registry, PluginManager *plugins,
+                            const QString &initialId, QWidget *parent = nullptr);
 
-    /// \brief Значения из полей диалога.
-    QVariantMap values() const;
-
-    /// \brief Введённый псевдоним.
-    QString alias() const;
+    /// \return Панель внутри диалога — чтобы подключиться к её settingsApplied().
+    InterfaceSettingsPanel *panel() const { return m_panel; }
 
 private:
-    /// \brief Создать редактор под одно поле схемы.
-    QWidget *createEditor(const SettingsField &field, const QVariant &value);
-
-    SettingsSchema m_schema;
-
-    /// \brief Редакторы по ключу поля — из них собираются значения.
-    QHash<QString, QWidget *> m_editors;
-
-    QLineEdit *m_alias = nullptr;
+    InterfaceSettingsPanel *m_panel = nullptr;
 };
 
 } // namespace spotty

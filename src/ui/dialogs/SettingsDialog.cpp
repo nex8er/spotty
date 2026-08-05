@@ -4,6 +4,8 @@
  */
 #include "SettingsDialog.h"
 
+#include "InterfaceSettingsPanel.h"
+
 #include <terminal/DataCodec.h>
 #include <terminal/Packetizer.h>
 
@@ -97,6 +99,7 @@ QList<ShortcutAction> SettingsDialog::shortcutActions()
 }
 
 SettingsDialog::SettingsDialog(const AppSettings &settings, const QStringList &ansiPalette,
+                               InterfaceRegistry *registry, PluginManager *plugins,
                                QWidget *parent)
     : QDialog(parent)
     , m_initial(settings)
@@ -108,7 +111,7 @@ SettingsDialog::SettingsDialog(const AppSettings &settings, const QStringList &a
     m_categories = new QListWidget(this);
     m_categories->setMaximumWidth(180);
     m_categories->addItems({tr("General"), tr("Terminal"), tr("Send"), tr("Logging"),
-                            tr("Data"), tr("Shortcuts")});
+                            tr("Data"), tr("Interfaces"), tr("Shortcuts")});
 
     m_pages = new QStackedWidget(this);
     m_pages->addWidget(buildGeneralPage());
@@ -116,6 +119,7 @@ SettingsDialog::SettingsDialog(const AppSettings &settings, const QStringList &a
     m_pages->addWidget(buildSendPage());
     m_pages->addWidget(buildLoggingPage());
     m_pages->addWidget(buildDataPage());
+    m_pages->addWidget(buildInterfacesPage(registry, plugins));
     m_pages->addWidget(buildShortcutsPage());
 
     connect(m_categories, &QListWidget::currentRowChanged,
@@ -428,6 +432,14 @@ QWidget *SettingsDialog::buildDataPage()
 
     layout->addStretch(1);
     return page;
+}
+
+QWidget *SettingsDialog::buildInterfacesPage(InterfaceRegistry *registry, PluginManager *plugins)
+{
+    // Тот же widget, что открывает кнопка настроек рядом с выбором интерфейса — раздел
+    // здесь не переизобретает его, а лишь даёт второй вход в то же самое.
+    m_interfacePanel = new InterfaceSettingsPanel(registry, plugins, this);
+    return m_interfacePanel;
 }
 
 QWidget *SettingsDialog::buildShortcutsPage()

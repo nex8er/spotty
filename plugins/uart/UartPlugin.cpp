@@ -56,11 +56,10 @@ QList<InterfaceDescriptor> UartPlugin::enumerate() const
         descriptor.id = buildStableId(info);
         descriptor.systemName = info.portName();
         descriptor.description = info.description();
+        descriptor.serialNumber = info.serialNumber();
 
         if (!info.manufacturer().isEmpty())
             descriptor.extra.insert(QStringLiteral("manufacturer"), info.manufacturer());
-        if (!info.serialNumber().isEmpty())
-            descriptor.extra.insert(QStringLiteral("serialNumber"), info.serialNumber());
         if (info.hasVendorIdentifier()) {
             descriptor.extra.insert(
                 QStringLiteral("vendorId"),

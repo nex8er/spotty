@@ -36,8 +36,12 @@ QString sanitize(const QString &text)
 
 LogWriter::LogWriter(QObject *parent)
     : QObject(parent)
-    , m_directory(Paths::defaultLogDir())
 {
+    // Каталог по умолчанию не резолвим здесь: Paths::defaultLogDir() на macOS трогает
+    // Documents и поднимает системный запрос доступа даже тогда, когда владелец вот-вот
+    // задаст свой каталог через setDirectory(). Ту же развилку «пусто — значит умолчание»
+    // уже делает AppSettings::effectiveLogDirectory(), вызывающий setDirectory() сразу
+    // после конструктора; здесь достаточно оставить путь пустым до этого момента.
 }
 
 LogWriter::~LogWriter()

@@ -21,6 +21,10 @@ class QToolButton;
 
 namespace spotty {
 
+class InterfaceRegistry;
+class InterfaceSettingsPanel;
+class PluginManager;
+
 /**
  * \struct ShortcutAction
  * \brief Действие приложения, которому можно назначить сочетание клавиш.
@@ -58,8 +62,12 @@ public:
      * \param settings Текущие настройки.
      * \param ansiPalette Действующие шестнадцать цветов ANSI — показываются, когда
      *        пользователь своих ещё не задал.
+     * \param registry Реестр интерфейсов для раздела «Интерфейсы»; `nullptr` — раздел не
+     *        строится (например, в тестах, где реестра нет).
+     * \param plugins Менеджер плагинов; действует та же оговорка, что и для \p registry.
      */
     SettingsDialog(const AppSettings &settings, const QStringList &ansiPalette,
+                   InterfaceRegistry *registry = nullptr, PluginManager *plugins = nullptr,
                    QWidget *parent = nullptr);
 
     /// \brief Настройки с внесёнными правками.
@@ -67,6 +75,12 @@ public:
 
     /// \return `true`, если изменение требует перезапуска приложения.
     bool requiresRestart() const;
+
+    /**
+     * \return Панель раздела «Интерфейсы», чтобы подключиться к её settingsApplied(), либо
+     *         `nullptr`, если раздел не строился (реестр не был передан конструктору).
+     */
+    InterfaceSettingsPanel *interfacePanel() const { return m_interfacePanel; }
 
     /// \brief Список действий, которым можно назначать сочетания клавиш.
     static QList<ShortcutAction> shortcutActions();
@@ -78,6 +92,7 @@ private:
     QWidget *buildLoggingPage();
     QWidget *buildDataPage();
     QWidget *buildShortcutsPage();
+    QWidget *buildInterfacesPage(InterfaceRegistry *registry, PluginManager *plugins);
 
     /// \brief Обновить доступность полей, зависящих от других полей.
     void updateEnabledState();
@@ -86,6 +101,9 @@ private:
 
     QListWidget *m_categories = nullptr;
     QStackedWidget *m_pages = nullptr;
+
+    /// \brief Панель раздела «Интерфейсы»; nullptr, если раздел не строился.
+    InterfaceSettingsPanel *m_interfacePanel = nullptr;
 
     // Общие
     QComboBox *m_language = nullptr;
