@@ -363,6 +363,78 @@ TEST(InterfaceRegistry, HiddenFlagDoesNotSurviveWhenDeviceGoesAbsent)
     EXPECT_FALSE(store.contains(QStringLiteral("fake:a")));
 }
 
+TEST(InterfaceRegistry, HiddenByDefaultAppliesOnFirstSighting)
+{
+    Fixture fixture;
+    fixture.plugin.devices = {
+        FakeInterfacePlugin::makeDevice(QStringLiteral("a"), QStringLiteral("dev-a"),
+                                        /*hiddenByDefault=*/true),
+        FakeInterfacePlugin::makeDevice(QStringLiteral("b"), QStringLiteral("dev-b"),
+                                        /*hiddenByDefault=*/false),
+    };
+    fixture.registry.refresh();
+
+    EXPECT_TRUE(fixture.registry.entry(QStringLiteral("fake:a"))->hidden);
+    EXPECT_FALSE(fixture.registry.entry(QStringLiteral("fake:b"))->hidden);
+}
+
+TEST(InterfaceRegistry, HiddenByDefaultIsIgnoredOnceUserHasDecided)
+{
+    // Подсказка плагина — только для первой встречи. Если пользователь уже явно показал
+    // устройство, повторное «хочу скрыть по умолчанию» от плагина не должно его прятать
+    // обратно при следующем refresh() в том же сеансе.
+    Fixture fixture;
+    const auto device = FakeInterfacePlugin::makeDevice(QStringLiteral("a"),
+                                                        QStringLiteral("dev-a"),
+                                                        /*hiddenByDefault=*/true);
+    fixture.plugin.devices = {device};
+    fixture.registry.refresh();
+    ASSERT_TRUE(fixture.registry.entry(QStringLiteral("fake:a"))->hidden);
+
+    fixture.registry.setHidden(QStringLiteral("fake:a"), false);
+
+    fixture.registry.refresh();
+    EXPECT_FALSE(fixture.registry.entry(QStringLiteral("fake:a"))->hidden);
+}
+
+TEST(InterfaceRegistry, HiddenByDefaultIsIgnoredWhenAlreadyPersisted)
+{
+    // Запись, восстановленная из interfaces.json (устройство уже когда-то встречалось и
+    // было явно показано), не должна снова прятаться из-за hiddenByDefault дескриптора —
+    // isNewToSession для неё ложно.
+    TempDir dir;
+    const QString path = dir.filePath(QStringLiteral("interfaces.json"));
+    const auto device = FakeInterfacePlugin::makeDevice(QStringLiteral("a"),
+                                                        QStringLiteral("dev-a"),
+                                                        /*hiddenByDefault=*/true);
+
+    {
+        PluginManager plugins;
+        FakeInterfacePlugin plugin;
+        plugin.devices = {device};
+        ASSERT_TRUE(plugins.addPlugin(&plugin));
+
+        SettingsStore store(path);
+        store.load();
+        InterfaceRegistry registry(&plugins, &store);
+        registry.refresh();
+        registry.setHidden(QStringLiteral("fake:a"), false);
+        ASSERT_TRUE(store.save());
+    }
+
+    PluginManager plugins;
+    FakeInterfacePlugin plugin;
+    plugin.devices = {device};
+    ASSERT_TRUE(plugins.addPlugin(&plugin));
+
+    SettingsStore store(path);
+    ASSERT_TRUE(store.load());
+    InterfaceRegistry registry(&plugins, &store);
+    registry.start();
+
+    EXPECT_FALSE(registry.entry(QStringLiteral("fake:a"))->hidden);
+}
+
 TEST(InterfaceRegistry, SettingsAreNormalisedAgainstSchema)
 {
     Fixture fixture;

@@ -9,3 +9,7 @@ add_subdirectory(loopback)
 if(Qt6SerialPort_FOUND)
     add_subdirectory(uart)
 endif()
+
+# J-Link RTT собирается всегда: libjlinkarm грузится в рантайме, а не на этапе сборки, и
+# её отсутствие плагин переживает так же, как UART переживает отсутствие Qt6::SerialPort.
+add_subdirectory(jlinkrtt)

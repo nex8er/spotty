@@ -115,10 +115,16 @@ void InterfaceRegistry::refresh()
         InterfaceEntry &entry = m_entries[it.key()];
         const bool wasPresent = entry.present;
 
-        if (isNewToSession)
-            restorePersisted(entry, it.key());
-
         entry.descriptor = it.value();
+
+        if (isNewToSession) {
+            // Подсказка плагина о скрытии по умолчанию действует только тогда, когда
+            // устройство вообще ни разу не сохранялось: у уже сохранённого решение
+            // пользователя (ниже, через restorePersisted()) всегда главнее.
+            entry.hidden = entry.descriptor.hiddenByDefault;
+            restorePersisted(entry, it.key());
+        }
+
         entry.present = true;
 
         if (!wasPresent) {

@@ -158,12 +158,14 @@ public:
     FakeChannel *lastChannel = nullptr;
 
     /// \brief Собрать дескриптор с заданным идентификатором.
-    static InterfaceDescriptor makeDevice(const QString &id, const QString &systemName)
+    static InterfaceDescriptor makeDevice(const QString &id, const QString &systemName,
+                                          bool hiddenByDefault = false)
     {
         InterfaceDescriptor descriptor;
         descriptor.id = QStringLiteral("fake:") + id;
         descriptor.systemName = systemName;
         descriptor.description = QStringLiteral("Fake device");
+        descriptor.hiddenByDefault = hiddenByDefault;
         return descriptor;
     }
 };

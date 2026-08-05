@@ -274,6 +274,80 @@
     </message>
 </context>
 <context>
+    <name>spotty::JlinkRttChannel</name>
+    <message>
+        <source>Could not open J-Link S/N %1: %2</source>
+        <translation>Не удалось открыть J-Link S/N %1: %2</translation>
+    </message>
+    <message>
+        <source>Could not connect to the target: %1</source>
+        <translation>Не удалось подключиться к таргету: %1</translation>
+    </message>
+    <message>
+        <source>Could not start RTT: %1</source>
+        <translation>Не удалось запустить RTT: %1</translation>
+    </message>
+    <message>
+        <source>RTT%1</source>
+        <translation>RTT%1</translation>
+    </message>
+    <message>
+        <source>RTT control block not found on the target yet — check that RTT is initialised in firmware and the target is running.</source>
+        <translation>Управляющий блок RTT ещё не найден на таргете — проверьте, что RTT инициализирован в прошивке и таргет запущен.</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::JlinkRttPlugin</name>
+    <message>
+        <source>J-Link</source>
+        <translation>J-Link</translation>
+    </message>
+    <message>
+        <source>Connection</source>
+        <translation>Подключение</translation>
+    </message>
+    <message>
+        <source>Target interface</source>
+        <translation>Целевой интерфейс</translation>
+    </message>
+    <message>
+        <source>SWD</source>
+        <translation>SWD</translation>
+    </message>
+    <message>
+        <source>JTAG</source>
+        <translation>JTAG</translation>
+    </message>
+    <message>
+        <source>Speed</source>
+        <translation>Скорость</translation>
+    </message>
+    <message>
+        <source>kHz</source>
+        <translation>кГц</translation>
+    </message>
+    <message>
+        <source>Target device</source>
+        <translation>Целевое устройство</translation>
+    </message>
+    <message>
+        <source>Exact SEGGER device name, e.g. &quot;NRF52832_XXAA&quot;. Required to connect. JLinkDevices.xml was not found, so there are no suggestions — install SEGGER J-Link software for autocomplete.</source>
+        <translation>Точное имя устройства SEGGER, например «NRF52832_XXAA». Обязательно для подключения. JLinkDevices.xml не найден, подсказок не будет — установите SEGGER J-Link software для автодополнения.</translation>
+    </message>
+    <message>
+        <source>Exact SEGGER device name, e.g. &quot;NRF52832_XXAA&quot; — start typing to search. Required to connect.</source>
+        <translation>Точное имя устройства SEGGER, например «NRF52832_XXAA» — начните вводить для поиска. Обязательно для подключения.</translation>
+    </message>
+    <message>
+        <source>%1 %2 kHz</source>
+        <translation>%1 %2 кГц</translation>
+    </message>
+    <message>
+        <source>J-Link RTT</source>
+        <translation>J-Link RTT</translation>
+    </message>
+</context>
+<context>
     <name>spotty::LogWriter</name>
     <message>
         <source>Cannot create the log directory: %1</source>

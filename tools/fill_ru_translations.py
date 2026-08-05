@@ -340,6 +340,36 @@ TRANSLATIONS = {
     "Virtual echo channel": "Виртуальный канал-эхо",
     "Virtual data source": "Виртуальный источник данных",
 
+    # --- J-Link RTT ---
+    "J-Link RTT": "J-Link RTT",
+    "J-Link": "J-Link",
+    "RTT%1": "RTT%1",
+    "Connection": "Подключение",
+    "Target interface": "Целевой интерфейс",
+    "SWD": "SWD",
+    "JTAG": "JTAG",
+    "Speed": "Скорость",
+    "kHz": "кГц",
+    "Target device": "Целевое устройство",
+    "Exact SEGGER device name, e.g. \"NRF52832_XXAA\" — start typing to search. Required "
+    "to connect.":
+        "Точное имя устройства SEGGER, например «NRF52832_XXAA» — начните вводить для "
+        "поиска. Обязательно для подключения.",
+    "Exact SEGGER device name, e.g. \"NRF52832_XXAA\". Required to connect. JLinkDevices.xml "
+    "was not found, so there are no suggestions — install SEGGER J-Link software for "
+    "autocomplete.":
+        "Точное имя устройства SEGGER, например «NRF52832_XXAA». Обязательно для "
+        "подключения. JLinkDevices.xml не найден, подсказок не будет — установите SEGGER "
+        "J-Link software для автодополнения.",
+    "%1 %2 kHz": "%1 %2 кГц",
+    "Could not open J-Link S/N %1: %2": "Не удалось открыть J-Link S/N %1: %2",
+    "Could not connect to the target: %1": "Не удалось подключиться к таргету: %1",
+    "Could not start RTT: %1": "Не удалось запустить RTT: %1",
+    "RTT control block not found on the target yet — check that RTT is initialised in "
+    "firmware and the target is running.":
+        "Управляющий блок RTT ещё не найден на таргете — проверьте, что RTT "
+        "инициализирован в прошивке и таргет запущен.",
+
     # --- Сообщения сессии ---
     "--- %1 opened ---": "--- %1 открыт ---",
     "--- closed ---": "--- закрыт ---",
