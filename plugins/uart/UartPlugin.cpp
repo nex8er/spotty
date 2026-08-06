@@ -108,7 +108,6 @@ SettingsSchema UartPlugin::settingsSchema() const
         // Перечисление принципиально неполно: устройства используют и нестандартные
         // скорости, а драйверы их часто позволяют.
         .editable = true,
-        .suffix = tr("bps"),
     });
 
     schema.add(SettingsField{

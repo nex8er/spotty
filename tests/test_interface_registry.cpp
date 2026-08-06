@@ -279,6 +279,61 @@ TEST(InterfaceRegistry, AbsentDeviceIsNotPersistedAcrossRestart)
     EXPECT_EQ(registry.entry(QStringLiteral("fake:a")), nullptr);
 }
 
+TEST(InterfaceRegistry, ResetAllClearsAliasHiddenAndSettingsButKeepsTheDevice)
+{
+    TempDir dir;
+    const QString path = dir.filePath(QStringLiteral("interfaces.json"));
+    // Второе устройство скрыто по умолчанию плагином — resetAll() должен вернуть его
+    // именно к этому умолчанию, а не к "видимо", как у первого.
+    const auto visible = FakeInterfacePlugin::makeDevice(QStringLiteral("a"),
+                                                          QStringLiteral("dev-a"));
+    const auto hiddenByDefault = FakeInterfacePlugin::makeDevice(
+        QStringLiteral("b"), QStringLiteral("dev-b"), /*hiddenByDefault=*/true);
+
+    PluginManager plugins;
+    FakeInterfacePlugin plugin;
+    plugin.devices = {visible, hiddenByDefault};
+    ASSERT_TRUE(plugins.addPlugin(&plugin));
+
+    SettingsStore store(path);
+    store.load();
+    InterfaceRegistry registry(&plugins, &store);
+    registry.refresh();
+
+    registry.setAlias(QStringLiteral("fake:a"), QStringLiteral("Board 1"));
+    registry.setHidden(QStringLiteral("fake:a"), true);
+    registry.setSettingsFor(QStringLiteral("fake:a"), {{QStringLiteral("speed"), 57600}});
+    // "b" пришёл скрытым по умолчанию — пользователь явно вернул его в список.
+    registry.setHidden(QStringLiteral("fake:b"), false);
+    ASSERT_TRUE(store.save());
+
+    int changedCount = 0;
+    QObject::connect(&registry, &InterfaceRegistry::changed, [&] { ++changedCount; });
+
+    registry.resetAll();
+    ASSERT_TRUE(store.save());
+
+    EXPECT_GE(changedCount, 1);
+
+    const InterfaceEntry *a = registry.entry(QStringLiteral("fake:a"));
+    ASSERT_NE(a, nullptr);
+    EXPECT_TRUE(a->alias.isEmpty());
+    EXPECT_FALSE(a->hidden);
+    EXPECT_TRUE(a->settings.isEmpty());
+    // Присутствующее устройство не должно исчезать из списка — сброс стирает только
+    // пользовательские правки, а не сам факт, что оно подключено.
+    EXPECT_TRUE(a->present);
+
+    const InterfaceEntry *b = registry.entry(QStringLiteral("fake:b"));
+    ASSERT_NE(b, nullptr);
+    EXPECT_TRUE(b->hidden);
+
+    // interfaces.json должен опустеть немедленно, а не только после следующего save().
+    SettingsStore reloaded(path);
+    ASSERT_TRUE(reloaded.load());
+    EXPECT_TRUE(reloaded.data().isEmpty());
+}
+
 TEST(InterfaceRegistry, HiddenFlagIsStoredAndListed)
 {
     Fixture fixture;

@@ -232,6 +232,18 @@ void InterfaceRegistry::setSettingsFor(const QString &id, const QVariantMap &set
     Q_EMIT changed();
 }
 
+void InterfaceRegistry::resetAll()
+{
+    for (auto it = m_entries.begin(); it != m_entries.end(); ++it) {
+        it->alias.clear();
+        it->hidden = it->descriptor.hiddenByDefault;
+        it->settings.clear();
+    }
+
+    m_store->clear();
+    Q_EMIT changed();
+}
+
 void InterfaceRegistry::persist(const QString &id) const
 {
     const InterfaceEntry *entry = this->entry(id);

@@ -50,6 +50,20 @@ namespace {
 constexpr int kPanelGlyphSize = 20;
 constexpr int kToolGlyphSize = 18;
 
+/**
+ * \brief Ширины полей строки состояния (RX/TX, скорость, ошибки), в знаках моноширинного
+ *        шрифта.
+ *
+ * Значение каждого поля дополняется пробелами до этой ширины, поэтому смена «340 B» на
+ * «1.2 KiB» не сдвигает то, что стоит правее, — вплоть до #kStatsReservedWidth.
+ */
+constexpr int kStatsValueWidth = 10;   // "9999.9 GiB"
+constexpr int kStatsRateWidth = 12;    // "9999.9 GiB/s"
+constexpr int kStatsErrorsWidth = 13;  // "9999 error(s)"
+
+/// \brief Пустой резерв в конце строки состояния под будущий индикатор.
+constexpr int kStatsReservedWidth = 12;
+
 // Состояние окна, а не пользовательские настройки: сюда spotty::AppSettings не лезет.
 constexpr auto kKeyGeometry = "window/geometry";
 // Ключ сменился вместе с раскладкой: панель переехала налево, и сохранённые прежде
@@ -186,6 +200,9 @@ void MainWindow::buildUi()
     setCentralWidget(m_splitter);
 
     m_statsLabel = new QLabel(this);
+    // Моноширинный шрифт — иначе выравнивание пробелами в updateStatistics() ничего не
+    // даёт: у пропорционального шрифта одинаковое число символов занимает разную ширину.
+    m_statsLabel->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     m_linesLabel = new QLabel(this);
     statusBar()->addPermanentWidget(m_linesLabel);
     statusBar()->addPermanentWidget(m_statsLabel);
@@ -612,6 +629,8 @@ void MainWindow::showSettingsDialog()
         connect(panel, &InterfaceSettingsPanel::settingsApplied,
                 this, &MainWindow::reloadSessionSettingsIfActive);
     }
+    connect(&dialog, &SettingsDialog::resetToDefaultsRequested,
+            this, &MainWindow::resetToDefaults);
 
     if (dialog.exec() != QDialog::Accepted)
         return;
@@ -634,6 +653,46 @@ void MainWindow::showSettingsDialog()
                                  tr("The language and single-instance settings take effect "
                                     "after Spotty is restarted."));
     }
+}
+
+void MainWindow::resetToDefaults()
+{
+    // Открытый канал держит настройки, которые вот-вот исчезнут из-под него, и выбирает
+    // устройство, чей псевдоним и alias вот-вот пропадут — закрыть и снять выбор нужно
+    // раньше, чем реестр забудет, чем он был.
+    if (m_context.session) {
+        m_context.session->close();
+        m_context.session->setInterfaceId(QString());
+    }
+    m_interfaceBar->setCurrentInterfaceId(QString());
+
+    if (m_context.registry)
+        m_context.registry->resetAll();
+
+    if (m_context.history) {
+        m_context.history->clear();
+        m_context.history->save();
+    }
+
+    m_settings = AppSettings{};
+    if (m_context.settings) {
+        // Вся settings.json, а не только известные ключи AppSettings: геометрия окна,
+        // положение сплиттера и прочее состояние UI живут в том же файле и «сброс к
+        // умолчаниям» касается их точно так же.
+        m_context.settings->clear();
+        m_context.settings->save();
+    }
+
+    if (m_context.theme) {
+        m_context.theme->setTheme(
+            ThemeManager::themeFromString(m_settings.theme, m_context.theme->theme()));
+    }
+
+    applySettings();
+    applyShortcuts();
+
+    statusBar()->showMessage(
+        tr("Settings, interfaces and history have been reset to defaults."), 8000);
 }
 
 void MainWindow::toggleConnection()
@@ -696,14 +755,29 @@ void MainWindow::updateStatistics()
     }
 
     const Session::Statistics stats = m_context.session->statistics();
-    QString text = tr("RX %1  TX %2")
-                       .arg(Formatting::byteCount(stats.bytesReceived),
-                            Formatting::byteCount(stats.bytesSent));
 
-    if (stats.receiveRateBps > 0.5)
-        text += tr("  ·  %1/s").arg(Formatting::byteCount(qint64(stats.receiveRateBps)));
-    if (stats.errorCount > 0)
-        text += tr("  ·  %n error(s)", nullptr, int(stats.errorCount));
+    // Каждое поле дополнено пробелами до фиксированной ширины (см. kStatsValueWidth и
+    // соседние константы): без этого RX/TX/скорость меняют ширину на каждое обновление и
+    // сдвигают всё, что справа, при каждом тике.
+    QString text = tr("RX %1  TX %2")
+                       .arg(Formatting::byteCount(stats.bytesReceived)
+                                .rightJustified(kStatsValueWidth),
+                            Formatting::byteCount(stats.bytesSent)
+                                .rightJustified(kStatsValueWidth));
+
+    const QString rate = stats.receiveRateBps > 0.5
+                             ? tr("%1/s").arg(Formatting::byteCount(qint64(stats.receiveRateBps)))
+                             : QString();
+    text += tr("  ·  %1").arg(rate.rightJustified(kStatsRateWidth));
+
+    const QString errors = stats.errorCount > 0
+                               ? tr("%n error(s)", nullptr, int(stats.errorCount))
+                               : QString();
+    text += tr("  ·  %1").arg(errors.leftJustified(kStatsErrorsWidth));
+
+    // Резерв под будущий индикатор строки состояния — держит место заранее, чтобы его
+    // появление не сдвинуло уже показанные значения.
+    text += QString(kStatsReservedWidth, u' ');
 
     m_statsLabel->setText(text);
 }

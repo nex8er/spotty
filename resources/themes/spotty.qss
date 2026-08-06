@@ -128,9 +128,17 @@ QAbstractScrollArea {
 }
 
 QLineEdit,
-QComboBox,
 QSpinBox {
     padding: 4px 6px;
+}
+
+QComboBox {
+    /* Своя, увеличенная справа величина, а не общая с QLineEdit/QSpinBox: без запаса под
+       стрелку и явных subcontrol-origin/position у ::drop-down ниже внутренний QLineEdit
+       редактируемого списка растягивается на всю ширину виджета, включая область стрелки.
+       Клик по стрелке в таком случае просто ставит курсор в текст — список не открывается
+       вовсе. */
+    padding: 4px 22px 4px 6px;
 }
 
 QLineEdit:focus,
@@ -146,10 +154,11 @@ QWidget[fieldInvalid="true"] {
     border: 1px solid @errorText;
 }
 
-QComboBox::drop-down {
-    border: none;
-    width: 18px;
-}
+/* Никакого ::drop-down здесь намеренно: любое собственное правило для этого подэлемента —
+   хоть просто border/width — заставляет QStyleSheetStyle перестать рисовать родную стрелку
+   Fusion вовсе, и на тёмной теме кнопка выпадения становится незрячей чёрным по чёрному.
+   Резерва места в padding-right у QComboBox выше достаточно, чтобы клик по этой области не
+   попадал в текстовое поле — родная отрисовка и раскладка кнопки остаются на Fusion. */
 
 QComboBox QAbstractItemView {
     background: @base;
@@ -219,13 +228,13 @@ QMenu::separator {
 /* --- Полосы прокрутки: тонкие, без стрелок и оформления дорожки -------------------- */
 
 QScrollBar:vertical {
-    background: transparent;
+    background: @base;
     width: 10px;
     margin: 0;
 }
 
 QScrollBar:horizontal {
-    background: transparent;
+    background:  @base;
     height: 10px;
     margin: 0;
 }

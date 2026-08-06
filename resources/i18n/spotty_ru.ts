@@ -753,6 +753,18 @@ Double-click to edit, right-click for options</source>
         <translation>&lt;b&gt;Spotty %1&lt;/b&gt;&lt;br&gt;Модульный терминал-монитор портов.&lt;br&gt;&lt;br&gt;Настройки: %2</translation>
     </message>
     <message>
+        <source>%1/s</source>
+        <translation>%1/с</translation>
+    </message>
+    <message>
+        <source>  ·  %1</source>
+        <translation>  ·  %1</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n error(s)</source>
+        <translation><numerusform>%n ошибка</numerusform><numerusform>%n ошибки</numerusform><numerusform>%n ошибок</numerusform></translation>
+    </message>
+    <message>
         <source>Settings</source>
         <translation>Настройки</translation>
     </message>
@@ -761,20 +773,12 @@ Double-click to edit, right-click for options</source>
         <translation>Язык и режим единственного экземпляра вступят в силу после перезапуска Spotty.</translation>
     </message>
     <message>
-        <source>RX %1  TX %2</source>
-        <translation>Принято %1  Отправлено %2</translation>
+        <source>Settings, interfaces and history have been reset to defaults.</source>
+        <translation>Настройки, интерфейсы и история сброшены к умолчаниям.</translation>
     </message>
     <message>
-        <source>  ·  %1/s</source>
-        <translation>  ·  %1/с</translation>
-    </message>
-    <message numerus="yes">
-        <source>  ·  %n error(s)</source>
-        <translation>
-            <numerusform>  ·  %n ошибка</numerusform>
-            <numerusform>  ·  %n ошибки</numerusform>
-            <numerusform>  ·  %n ошибок</numerusform>
-        </translation>
+        <source>RX %1  TX %2</source>
+        <translation>Принято %1  Отправлено %2</translation>
     </message>
     <message>
         <source>Control lines: uppercase means asserted</source>
@@ -1120,6 +1124,30 @@ Double-click to edit, right-click for options</source>
         <translation>Повторный запуск покажет уже открытое окно вместо второго.</translation>
     </message>
     <message>
+        <source>Reset</source>
+        <translation>Сброс</translation>
+    </message>
+    <message>
+        <source>Erases all settings, remembered interfaces and the send history. Cannot be undone.</source>
+        <translation>Стирает все настройки, запомненные интерфейсы и историю отправки. Действие необратимо.</translation>
+    </message>
+    <message>
+        <source>Reset everything to defaults…</source>
+        <translation>Сбросить всё к умолчаниям…</translation>
+    </message>
+    <message>
+        <source>Reset to defaults</source>
+        <translation>Сброс к умолчаниям</translation>
+    </message>
+    <message>
+        <source>This erases all settings, remembered interfaces and the send history, and cannot be undone.
+
+Continue?</source>
+        <translation>Это сотрёт все настройки, запомненные интерфейсы и историю отправки — действие необратимо.
+
+Продолжить?</translation>
+    </message>
+    <message>
         <source>Font</source>
         <translation>Шрифт</translation>
     </message>
@@ -1327,10 +1355,6 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Baud rate</source>
         <translation>Скорость</translation>
-    </message>
-    <message>
-        <source>bps</source>
-        <translation>бод</translation>
     </message>
     <message>
         <source>Data bits</source>

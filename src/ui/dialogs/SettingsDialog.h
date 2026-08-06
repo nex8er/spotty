@@ -85,6 +85,16 @@ public:
     /// \brief Список действий, которым можно назначать сочетания клавиш.
     static QList<ShortcutAction> shortcutActions();
 
+Q_SIGNALS:
+    /**
+     * \brief Пользователь подтвердил полный сброс приложения к умолчаниям.
+     *
+     * В отличие от settings() — действует немедленно, а не после Ok. Диалог сам себя
+     * закрывает (reject()) сразу вслед за сигналом: MainWindow — единственный, кто
+     * владеет и реестром интерфейсов, и историей отправки, поэтому выполняет сброс сам.
+     */
+    void resetToDefaultsRequested();
+
 private:
     QWidget *buildGeneralPage();
     QWidget *buildTerminalPage();

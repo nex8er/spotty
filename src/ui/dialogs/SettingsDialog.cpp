@@ -22,6 +22,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QStackedWidget>
@@ -187,6 +188,38 @@ QWidget *SettingsDialog::buildGeneralPage()
     layout->addWidget(m_singleInstance);
 
     layout->addStretch(1);
+
+    // Внизу страницы и в собственной рамке: действие необратимо и не должно попасться под
+    // руку рядом с обычными переключателями.
+    auto *resetBox = new QGroupBox(tr("Reset"), page);
+    auto *resetLayout = new QVBoxLayout(resetBox);
+
+    auto *resetHint = new QLabel(
+        tr("Erases all settings, remembered interfaces and the send history. Cannot be undone."),
+        resetBox);
+    resetHint->setObjectName(QStringLiteral("hintLabel"));
+    resetHint->setWordWrap(true);
+    resetLayout->addWidget(resetHint);
+
+    auto *resetButton = new QPushButton(tr("Reset everything to defaults…"), resetBox);
+    connect(resetButton, &QPushButton::clicked, this, [this] {
+        const auto answer = QMessageBox::warning(
+            this, tr("Reset to defaults"),
+            tr("This erases all settings, remembered interfaces and the send history, and "
+               "cannot be undone.\n\nContinue?"),
+            QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
+        if (answer != QMessageBox::Yes)
+            return;
+
+        // Сброс применяется немедленно, в обход обычной модели «правим копию, отдаём по
+        // Ok»: интерфейсы и история не принадлежат диалогу, откатить их из Cancel всё равно
+        // нечем, а после подтверждения в этом окне уже нечего редактировать.
+        Q_EMIT resetToDefaultsRequested();
+        reject();
+    });
+    resetLayout->addWidget(resetButton);
+
+    layout->addWidget(resetBox);
     return page;
 }
 

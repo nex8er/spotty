@@ -140,6 +140,16 @@ void SettingsStore::remove(const QString &key)
     scheduleSave();
 }
 
+void SettingsStore::clear()
+{
+    if (m_data.isEmpty())
+        return;
+
+    m_data.clear();
+    Q_EMIT valueChanged(QString(), {});
+    scheduleSave();
+}
+
 QVariantMap SettingsStore::group(const QString &key) const
 {
     return value(key).toMap();

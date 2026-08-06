@@ -100,7 +100,8 @@ TRANSLATIONS = {
     "Control lines: uppercase means asserted":
         "Линии управления: заглавные — линия поднята",
     "RX %1  TX %2": "Принято %1  Отправлено %2",
-    "  ·  %1/s": "  ·  %1/с",
+    "%1/s": "%1/с",
+    "  ·  %1": "  ·  %1",
 
     # --- Терминал ---
     "Show data as a hexadecimal dump": "Показать данные шестнадцатеричным дампом",
@@ -300,6 +301,18 @@ TRANSLATIONS = {
         "Повторный запуск покажет уже открытое окно вместо второго.",
     "The language and single-instance settings take effect after Spotty is restarted.":
         "Язык и режим единственного экземпляра вступят в силу после перезапуска Spotty.",
+    "Reset": "Сброс",
+    "Erases all settings, remembered interfaces and the send history. Cannot be undone.":
+        "Стирает все настройки, запомненные интерфейсы и историю отправки. Действие "
+        "необратимо.",
+    "Reset everything to defaults…": "Сбросить всё к умолчаниям…",
+    "Reset to defaults": "Сброс к умолчаниям",
+    "This erases all settings, remembered interfaces and the send history, and cannot be "
+    "undone.\n\nContinue?":
+        "Это сотрёт все настройки, запомненные интерфейсы и историю отправки — действие "
+        "необратимо.\n\nПродолжить?",
+    "Settings, interfaces and history have been reset to defaults.":
+        "Настройки, интерфейсы и история сброшены к умолчаниям.",
     "<b>Spotty %1</b><br>Modular terminal port monitor.<br><br>Configuration: %2":
         "<b>Spotty %1</b><br>Модульный терминал-монитор портов.<br><br>Настройки: %2",
 
@@ -325,7 +338,6 @@ TRANSLATIONS = {
         "не перезагружало устройство.",
     "Invalid baud rate.": "Недопустимая скорость.",
     "The port does not support %1 baud.": "Порт не поддерживает скорость %1.",
-    "bps": "бод",
 
     # --- Loopback ---
     "Loopback": "Петля",

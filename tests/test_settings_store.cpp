@@ -104,6 +104,39 @@ TEST(SettingsStore, RemoveDeletesKey)
     EXPECT_FALSE(store.contains(QStringLiteral("a/b")));
 }
 
+TEST(SettingsStore, ClearRemovesEverythingAndPersists)
+{
+    TempDir dir;
+    const QString path = dir.filePath(QStringLiteral("settings.json"));
+
+    SettingsStore store(path);
+    store.setValue(QStringLiteral("a/b"), 1);
+    store.setValue(QStringLiteral("c"), QStringLiteral("x"));
+    ASSERT_TRUE(store.save());
+
+    store.clear();
+    ASSERT_TRUE(store.save());
+
+    EXPECT_TRUE(store.data().isEmpty());
+
+    SettingsStore reloaded(path);
+    ASSERT_TRUE(reloaded.load());
+    EXPECT_TRUE(reloaded.data().isEmpty());
+}
+
+TEST(SettingsStore, ClearOnEmptyStoreEmitsNothing)
+{
+    TempDir dir;
+    SettingsStore store(dir.filePath(QStringLiteral("settings.json")));
+
+    int changes = 0;
+    QObject::connect(&store, &SettingsStore::valueChanged, [&] { ++changes; });
+
+    store.clear();
+
+    EXPECT_EQ(changes, 0);
+}
+
 TEST(SettingsStore, GroupReadAndWrite)
 {
     TempDir dir;

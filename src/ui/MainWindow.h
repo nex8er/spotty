@@ -93,6 +93,15 @@ private:
     /// \brief Показать диалог настроек и применить результат.
     void showSettingsDialog();
 
+    /**
+     * \brief Стереть настройки, реестр интерфейсов и историю отправки, вернуть умолчания.
+     *
+     * Подключается к SettingsDialog::resetToDefaultsRequested() — тому окну не принадлежат
+     * ни реестр интерфейсов, ни история отправки, поэтому сам сброс делает MainWindow,
+     * владеющий m_context целиком.
+     */
+    void resetToDefaults();
+
     /// \brief Восстановить геометрию окна и положение разделителя.
     void restoreWindowState();
 
