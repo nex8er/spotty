@@ -11,6 +11,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QVariantMap>
 
 class QThread;
@@ -129,6 +130,18 @@ Q_SIGNALS:
 
     /// \brief Ошибка, которую стоит показать пользователю.
     void errorOccurred(const QString &message);
+
+    /**
+     * \brief Открытие не начиналось: обязательное поле настроек интерфейса пусто.
+     * \param interfaceId Устройство, которое пытались открыть.
+     * \param missingFieldKeys Ключи полей схемы (SettingsField::key), которые нужно
+     *        заполнить — обычно один, но плагин может объявить обязательными несколько.
+     *
+     * Отдельный сигнал, а не просто errorOccurred(): здесь есть что показать, кроме
+     * текста, — открыть настройки интерфейса и подсветить нужное поле, а не только вывести
+     * сообщение об ошибке в никуда.
+     */
+    void requiredSettingsMissing(const QString &interfaceId, const QStringList &missingFieldKeys);
 
     /**
      * \brief Данные прошли через сессию — сырые, до пакетизации и разбора.

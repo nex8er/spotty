@@ -66,6 +66,18 @@ public:
     /// \brief Выбрать интерфейс в списке. Неизвестный или пустой идентификатор — первый пункт.
     void selectInterface(const QString &id);
 
+    /**
+     * \brief Подсветить обязательные поля текущего устройства как ошибочные.
+     * \param fieldKeys Ключи полей схемы (SettingsField::key). Устройство, к которому они
+     *        относятся, — то, что уже выбрано в панели (см. selectInterface()); вызывающая
+     *        сторона выбирает устройство первым.
+     *
+     * Подсветка держится, пока showEntry() не переключит панель на другое устройство или
+     * пользователь не заполнит поле — commitSchemaValues() снимает флаг с полей, у которых
+     * появилось непустое значение.
+     */
+    void flagInvalidFields(const QStringList &fieldKeys);
+
 Q_SIGNALS:
     /**
      * \brief Настройки устройства только что записаны в реестр.
@@ -89,8 +101,21 @@ private:
     /// \brief Создать редактор под одно поле схемы.
     QWidget *createEditor(const SettingsField &field, const QVariant &value);
 
+    /**
+     * \brief Редактор для поля Choice со списком, слишком большим для обычного выпадения.
+     *
+     * QComboBox с тысячами addItem() заметно тормозит при открытии, а бесконечная
+     * прокрутка по алфавиту всё равно бесполезна человеку. Вместо этого — поле ввода с
+     * живым поиском: подсказка ограничена несколькими совпадениями и уточняется по мере
+     * набора текста.
+     */
+    QWidget *createLiveSearchEditor(const SettingsField &field, const QVariant &value);
+
     /// \brief Собрать значения всех редакторов схемы и записать их в реестр.
     void commitSchemaValues();
+
+    /// \brief Перенести #m_invalidFields на редакторы: свойство `fieldInvalid` + перекраска.
+    void applyInvalidFieldStyling();
 
     InterfaceRegistry *m_registry;
     PluginManager *m_plugins;
@@ -111,6 +136,15 @@ private:
     /// \brief Идёт перестроение полей — гасит обработчики, чтобы не писать в реестр то,
     ///        что сам же из него прочитал.
     bool m_populating = false;
+
+    /**
+     * \brief Ключи полей текущего устройства, подсвеченных как ошибочные.
+     *
+     * Привязаны к устройству, а не абсолютны: showEntry() очищает список при переключении
+     * на другое устройство — чужая подсветка не должна пережить смену выбора в списке.
+     */
+    QStringList m_invalidFields;
+    QString m_invalidFieldsForId; ///< Устройство, к которому относится #m_invalidFields.
 };
 
 } // namespace spotty

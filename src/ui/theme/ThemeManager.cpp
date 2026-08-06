@@ -113,6 +113,7 @@ QString resolveStylesheet(QString sheet, const ThemeColors &c)
         {QStringLiteral("@accent"), c.accent},
         {QStringLiteral("@accentText"), c.accentText},
         {QStringLiteral("@selection"), c.selection},
+        {QStringLiteral("@errorText"), c.errorText},
     };
 
     // Сначала длинные: подстановка @text раньше @textMuted превратила бы второй в

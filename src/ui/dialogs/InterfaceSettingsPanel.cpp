@@ -12,6 +12,7 @@
 
 #include <QCheckBox>
 #include <QComboBox>
+#include <QCompleter>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -20,6 +21,8 @@
 #include <QLineEdit>
 #include <QSignalBlocker>
 #include <QSpinBox>
+#include <QStringListModel>
+#include <QStyle>
 #include <QVBoxLayout>
 
 #include <climits>
@@ -76,13 +79,20 @@ InterfaceSettingsPanel::InterfaceSettingsPanel(InterfaceRegistry *registry,
     connect(m_alias, &QLineEdit::editingFinished, this, [this] {
         if (m_populating || m_currentId.isEmpty() || !m_registry)
             return;
+        // m_populating гасит и обработчик своего же сигнала (см. rebuildList()): без него
+        // registry->changed(), поднятый этой самой записью, синхронно перестроил бы список
+        // и удалил бы поля прямо из-под ещё выполняющегося обработчика.
+        m_populating = true;
         m_registry->setAlias(m_currentId, m_alias->text().trimmed());
+        m_populating = false;
     });
 
     connect(m_hidden, &QCheckBox::toggled, this, [this](bool checked) {
         if (m_populating || m_currentId.isEmpty() || !m_registry)
             return;
+        m_populating = true;
         m_registry->setHidden(m_currentId, checked);
+        m_populating = false;
     });
 
     // Список устройств обновляется вместе с реестром: появление, пропажа и правки,
@@ -96,7 +106,11 @@ InterfaceSettingsPanel::InterfaceSettingsPanel(InterfaceRegistry *registry,
 
 void InterfaceSettingsPanel::rebuildList()
 {
-    if (!m_registry)
+    // Своя же правка (псевдоним, скрытие, поле схемы) поднимает registry->changed()
+    // синхронно, прямо из обработчика, который эту правку внёс. Без этой проверки
+    // rebuildList() тут же перестраивал бы список и удалял виджет, чей обработчик ещё не
+    // вернул управление, — use-after-free в тот же момент, что и падение.
+    if (!m_registry || m_populating)
         return;
 
     const QString previous =
@@ -123,10 +137,34 @@ void InterfaceSettingsPanel::selectInterface(const QString &id)
         m_deviceCombo->setCurrentIndex(index);
 }
 
+void InterfaceSettingsPanel::flagInvalidFields(const QStringList &fieldKeys)
+{
+    m_invalidFields = fieldKeys;
+    m_invalidFieldsForId = m_currentId;
+    applyInvalidFieldStyling();
+}
+
+void InterfaceSettingsPanel::applyInvalidFieldStyling()
+{
+    for (auto it = m_editors.constBegin(); it != m_editors.constEnd(); ++it) {
+        QWidget *editor = it.value();
+        editor->setProperty("fieldInvalid", m_invalidFields.contains(it.key()));
+        // setProperty() сам по себе не перекрашивает — стиль читает динамические свойства
+        // только при полировке, unpolish()+polish() заставляет её случиться немедленно.
+        editor->style()->unpolish(editor);
+        editor->style()->polish(editor);
+    }
+}
+
 void InterfaceSettingsPanel::showEntry(const QString &id)
 {
     m_currentId = id;
     m_populating = true;
+
+    // Подсветка привязана к устройству (см. #m_invalidFieldsForId) — переключение на любое
+    // другое обнуляет её, иначе чужая ошибка осталась бы гореть на новом наборе полей.
+    if (id != m_invalidFieldsForId)
+        m_invalidFields.clear();
 
     const InterfaceEntry *entry = (m_registry && !id.isEmpty()) ? m_registry->entry(id) : nullptr;
 
@@ -204,6 +242,10 @@ void InterfaceSettingsPanel::showEntry(const QString &id)
         m_currentSchema = SettingsSchema{};
     }
 
+    // Редакторы только что пересозданы — старое свойство fieldInvalid на них не сохранилось
+    // (это новые виджеты), даже если m_invalidFields осталась той же (то же устройство).
+    applyInvalidFieldStyling();
+
     m_populating = false;
 }
 
@@ -211,8 +253,19 @@ void InterfaceSettingsPanel::clearSchemaEditors()
 {
     m_editors.clear();
 
+    // deleteLater(), а не delete: m_populating обрывает обычный путь, которым эта правка
+    // могла бы дойти до собственного же виджета, но второй слой защиты дешев, а цена ошибки
+    // — новый use-after-free, если однажды появится ещё один путь коммита, забывший про
+    // m_populating. hide() — отдельно и обязательно: takeAt() убирает виджет из учёта
+    // layout'а немедленно, но сам виджет остаётся видимым (просто больше не позиционируется)
+    // до отложенного удаления, и старые группы полей на миг накладываются на новые, которые
+    // showEntry() тут же добавляет следом, — ровно то же самое use-after-free по духу, только
+    // на экране, а не в памяти.
     while (QLayoutItem *item = m_schemaLayout->takeAt(0)) {
-        delete item->widget();
+        if (QWidget *widget = item->widget()) {
+            widget->hide();
+            widget->deleteLater();
+        }
         delete item;
     }
 }
@@ -221,16 +274,26 @@ QWidget *InterfaceSettingsPanel::createEditor(const SettingsField &field, const 
 {
     switch (field.type) {
     case SettingsField::Choice: {
+        // Список масштаба «база устройств J-Link» (тысячи пунктов) не годится ни в
+        // addItem() (заметно тормозит открытие), ни целиком в выпадение — обычным полям
+        // вроде скорости UART (десяток пунктов) он не грозит, поэтому порог не мешает им.
+        constexpr int kLiveSearchThreshold = 20;
+        if (field.editable && field.options.size() > kLiveSearchThreshold)
+            return createLiveSearchEditor(field, value);
+
         auto *combo = new QComboBox(this);
         for (const SettingsOption &option : field.options)
             combo->addItem(option.label, option.value);
 
         if (field.editable) {
             // Редактируемый список нужен там, где перечисление принципиально неполно:
-            // нестандартная скорость UART, произвольный номер порта.
+            // нестандартная скорость UART, произвольное имя целевого чипа J-Link. Валидатор
+            // годится только числовым полям — строковый (имя устройства) с ним не пропустил
+            // бы ни одной буквы.
             combo->setEditable(true);
             combo->setInsertPolicy(QComboBox::NoInsert);
-            combo->setValidator(new QIntValidator(1, 100'000'000, combo));
+            if (field.defaultValue.typeId() == QMetaType::Int)
+                combo->setValidator(new QIntValidator(1, 100'000'000, combo));
         }
 
         const int index = combo->findData(value);
@@ -286,6 +349,58 @@ QWidget *InterfaceSettingsPanel::createEditor(const SettingsField &field, const 
     return edit;
 }
 
+QWidget *InterfaceSettingsPanel::createLiveSearchEditor(const SettingsField &field,
+                                                        const QVariant &value)
+{
+    constexpr int kMaxSuggestions = 10;
+
+    auto *combo = new QComboBox(this);
+    combo->setEditable(true);
+    combo->setInsertPolicy(QComboBox::NoInsert);
+    combo->setEditText(value.toString());
+
+    // Полный список — здесь, а не в самом QComboBox: тысячи QComboBox::addItem() заметно
+    // тормозят открытие списка и не нужны — то, что выбрали, и так берётся из текста поля
+    // (см. commitSchemaValues(): currentData() у пустой модели невалиден, в ход идёт
+    // currentText()), а не из модели комбобокса.
+    QStringList allNames;
+    allNames.reserve(field.options.size());
+    for (const SettingsOption &option : field.options)
+        allNames.append(option.label);
+
+    auto *suggestionModel = new QStringListModel(combo);
+    auto *completer = new QCompleter(suggestionModel, combo);
+    completer->setCaseSensitivity(Qt::CaseInsensitive);
+    // Подсказки ниже уже отфильтрованы и ограничены сами — просить QCompleter фильтровать
+    // их ещё раз его правилом (только по префиксу) незачем и спрятало бы совпадение по
+    // подстроке не с самого начала имени.
+    completer->setCompletionMode(QCompleter::UnfilteredPopupCompletion);
+    combo->setCompleter(completer);
+
+    connect(combo->lineEdit(), &QLineEdit::textEdited, combo,
+           [allNames, suggestionModel, completer](const QString &text) {
+        QStringList matches;
+        if (!text.isEmpty()) {
+            for (const QString &name : allNames) {
+                if (name.contains(text, Qt::CaseInsensitive)) {
+                    matches.append(name);
+                    if (matches.size() == kMaxSuggestions)
+                        break;
+                }
+            }
+        }
+        suggestionModel->setStringList(matches);
+        completer->complete();
+    });
+
+    connect(combo, &QComboBox::editTextChanged, this, [this] {
+        if (!m_populating)
+            commitSchemaValues();
+    });
+
+    return combo;
+}
+
 void InterfaceSettingsPanel::commitSchemaValues()
 {
     if (m_currentId.isEmpty() || !m_registry)
@@ -320,7 +435,20 @@ void InterfaceSettingsPanel::commitSchemaValues()
         }
     }
 
+    m_populating = true;
     m_registry->setSettingsFor(m_currentId, result);
+    m_populating = false;
+
+    if (!m_invalidFields.isEmpty()) {
+        // Пользователь заполняет поле сам, не через flagInvalidFields() — снимаем подсветку
+        // сразу, как только есть что показать, не дожидаясь повторной попытки открыть канал.
+        for (auto it = result.constBegin(); it != result.constEnd(); ++it) {
+            if (!it.value().toString().trimmed().isEmpty())
+                m_invalidFields.removeAll(it.key());
+        }
+        applyInvalidFieldStyling();
+    }
+
     Q_EMIT settingsApplied(m_currentId);
 }
 

@@ -161,6 +161,8 @@ TRANSLATIONS = {
     "Focus send bar": "Фокус в строку отправки",
     "The interface is not open.": "Интерфейс не открыт.",
     "No interface selected.": "Интерфейс не выбран.",
+    "Fill in the required settings to open this interface.":
+        "Заполните обязательные настройки, чтобы открыть этот интерфейс.",
 
     # --- Кодирование данных ---
     "Not valid Base64.": "Некорректная запись Base64.",
@@ -355,12 +357,12 @@ TRANSLATIONS = {
     "to connect.":
         "Точное имя устройства SEGGER, например «NRF52832_XXAA» — начните вводить для "
         "поиска. Обязательно для подключения.",
-    "Exact SEGGER device name, e.g. \"NRF52832_XXAA\". Required to connect. JLinkDevices.xml "
-    "was not found, so there are no suggestions — install SEGGER J-Link software for "
-    "autocomplete.":
+    "Exact SEGGER device name, e.g. \"NRF52832_XXAA\". Required to connect. The J-Link "
+    "device database was not found, so there are no suggestions — install SEGGER J-Link "
+    "software for autocomplete.":
         "Точное имя устройства SEGGER, например «NRF52832_XXAA». Обязательно для "
-        "подключения. JLinkDevices.xml не найден, подсказок не будет — установите SEGGER "
-        "J-Link software для автодополнения.",
+        "подключения. База устройств J-Link не найдена, подсказок не будет — установите "
+        "SEGGER J-Link software для автодополнения.",
     "%1 %2 kHz": "%1 %2 кГц",
     "Could not open J-Link S/N %1: %2": "Не удалось открыть J-Link S/N %1: %2",
     "Could not connect to the target: %1": "Не удалось подключиться к таргету: %1",

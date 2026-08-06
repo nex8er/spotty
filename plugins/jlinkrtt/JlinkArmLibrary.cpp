@@ -63,6 +63,42 @@ struct RawRttStatus
 };
 #pragma pack(pop)
 
+/**
+ * \brief Раскладка `JLINK_DEVICE_INFO` — один чип из встроенной базы устройств.
+ *
+ * \warning Обычное (невыровненное вручную) выравнивание — здесь это важно, в отличие от
+ *          структур выше. Те посчитаны и намеренно собраны в pack(1): в них после каждого
+ *          quint32-поля идёт другое поле кратного 4 размера, и упаковка совпадает с
+ *          естественной сама по себе. Здесь же между quint32-полями и 8-байтовыми
+ *          указателями (sName, Manufacturer) естественное выравнивание вставляет отступы;
+ *          жёсткая pack(1) сдвигает sName с offset 8 на offset 4, и вместо указателя
+ *          читаются чужие 4 байта — гарантированный EXC_BAD_ACCESS при разыменовании.
+ *          Ровно так уже падало: отдельная тестовая программа (dlopen()/dlsym() в обход
+ *          Spotty, без pack) с этой же раскладкой работала правильно — результат для
+ *          STM32F407VE/STM32F407ZG/GD32F450VG сошёлся с паспортными данными (адрес и
+ *          размер флеша и RAM, производитель) побайтово, — а после того, как структуру по
+ *          инерции завели в общий pack(1)-блок вместе с остальными, первый же вызов
+ *          обрушил приложение.
+ *
+ * SizeOfStruct — версионирующее поле: вызывающая сторона обязана заполнить его перед
+ * вызовом, это соглашение SEGGER для расширяемых структур, а не произвольный отступ.
+ */
+struct RawDeviceInfo
+{
+    quint32 SizeOfStruct;
+    const char *sName;
+    quint32 CoreId;
+    quint32 FlashAddr;
+    quint32 RAMAddr;
+    qint32 EndianMode;
+    quint32 FlashSize;
+    quint32 RAMSize;
+    const char *Manufacturer;
+    // Хвост структуры библиотеке не нужен — поля дальше SEGGER мог добавить в более новых
+    // версиях, резерв ниже страхует от чтения/записи за пределы того, что мы объявили.
+    quint32 reserved[32];
+};
+
 using JlinkLogFunc = void (*)(const char *line);
 
 using FnEmuGetList = int (*)(int hostIfs, RawEmuConnectInfo *info, int maxInfos);
@@ -76,6 +112,7 @@ using FnExecCommand = int (*)(const char *cmd, char *result, int maxResultLen);
 using FnRttControl = int (*)(int cmd, void *data);
 using FnRttRead = int (*)(int bufferIndex, char *buffer, int bufferSize);
 using FnRttWrite = int (*)(int bufferIndex, const char *buffer, int numBytes);
+using FnDeviceGetInfo = int (*)(int index, RawDeviceInfo *info);
 
 } // namespace
 
@@ -141,6 +178,7 @@ bool JlinkArmLibrary::load()
     m_fnRttControl = resolve("JLINK_RTTERMINAL_Control");
     m_fnRttRead = resolve("JLINK_RTTERMINAL_Read");
     m_fnRttWrite = resolve("JLINK_RTTERMINAL_Write");
+    m_fnDeviceGetInfo = resolve("JLINK_DEVICE_GetInfo");
 
     if (!ok) {
         qCWarning(lcJlinkArm) << "libjlinkarm loaded but is missing expected symbols - "
@@ -151,6 +189,35 @@ bool JlinkArmLibrary::load()
 
     m_loaded = true;
     return true;
+}
+
+QList<JlinkArmLibrary::DeviceInfo> JlinkArmLibrary::knownDevices()
+{
+    QMutexLocker locker(&m_mutex);
+    if (!load() || !m_fnDeviceGetInfo)
+        return {};
+
+    const auto deviceGetInfo = reinterpret_cast<FnDeviceGetInfo>(m_fnDeviceGetInfo);
+
+    QList<DeviceInfo> result;
+    // Список плотный и начинается с индекса 0 — библиотека возвращает ненулевой код (не 0)
+    // сразу за последним чипом, без разрывов внутри. Верхняя граница цикла — просто щит от
+    // бесконечного перебора, если в будущей версии библиотеки это окажется не так; на
+    // V7.54d список кончается на индексе 9081 из ~50000 проверенных.
+    constexpr int kMaxIndex = 50000;
+    for (int i = 0; i < kMaxIndex; ++i) {
+        RawDeviceInfo raw{};
+        raw.SizeOfStruct = sizeof(raw);
+        if (deviceGetInfo(i, &raw) != 0 || !raw.sName || !*raw.sName)
+            break;
+
+        DeviceInfo info;
+        info.name = QString::fromLatin1(raw.sName);
+        if (raw.Manufacturer)
+            info.manufacturer = QString::fromLatin1(raw.Manufacturer);
+        result.append(info);
+    }
+    return result;
 }
 
 QList<JlinkArmLibrary::ProbeInfo> JlinkArmLibrary::enumerateProbes()

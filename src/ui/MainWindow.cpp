@@ -214,8 +214,9 @@ void MainWindow::buildUi()
 
     connect(m_interfaceBar, &InterfaceBar::toggleOpenRequested,
             this, &MainWindow::toggleConnection);
-    connect(m_interfaceBar, &InterfaceBar::settingsRequested,
-            this, &MainWindow::showInterfaceSettings);
+    connect(m_interfaceBar, &InterfaceBar::settingsRequested, this, [this](const QString &id) {
+        showInterfaceSettings(id);
+    });
 
     connect(m_sendBar, &SendBar::sendRequested, this, [this](const QByteArray &data) {
         if (m_context.session)
@@ -242,6 +243,12 @@ void MainWindow::buildUi()
         connect(m_context.session, &Session::errorOccurred, this, [this](const QString &message) {
             statusBar()->showMessage(message, 8000);
             m_interfaceBar->flagError(message);
+        });
+        connect(m_context.session, &Session::requiredSettingsMissing, this,
+                [this](const QString &interfaceId, const QStringList &missingFieldKeys) {
+            statusBar()->showMessage(
+                tr("Fill in the required settings to open this interface."), 8000);
+            showInterfaceSettings(interfaceId, missingFieldKeys);
         });
     }
 
@@ -640,7 +647,7 @@ void MainWindow::toggleConnection()
         m_context.session->open();
 }
 
-void MainWindow::showInterfaceSettings(const QString &interfaceId)
+void MainWindow::showInterfaceSettings(const QString &interfaceId, const QStringList &invalidFields)
 {
     if (!m_context.registry || !m_context.plugins)
         return;
@@ -648,6 +655,8 @@ void MainWindow::showInterfaceSettings(const QString &interfaceId)
     InterfaceSettingsDialog dialog(m_context.registry, m_context.plugins, interfaceId, this);
     connect(dialog.panel(), &InterfaceSettingsPanel::settingsApplied,
             this, &MainWindow::reloadSessionSettingsIfActive);
+    if (!invalidFields.isEmpty())
+        dialog.panel()->flagInvalidFields(invalidFields);
     dialog.exec();
 }
 

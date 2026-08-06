@@ -13,6 +13,7 @@
 
 #include <QHash>
 #include <QMainWindow>
+#include <QStringList>
 
 class QAction;
 class QLabel;
@@ -104,8 +105,15 @@ private:
     /// \brief Открыть или закрыть канал в зависимости от текущего состояния.
     void toggleConnection();
 
-    /// \brief Показать настройки интерфейса с заранее выбранным устройством.
-    void showInterfaceSettings(const QString &interfaceId);
+    /**
+     * \brief Показать настройки интерфейса с заранее выбранным устройством.
+     * \param interfaceId Устройство, которое нужно выбрать в списке.
+     * \param invalidFields Ключи полей схемы, которые нужно подсветить как ошибочные
+     *        (см. spotty::InterfaceSettingsPanel::flagInvalidFields()) — приходят из
+     *        Session::requiredSettingsMissing(), когда пришли не сразу после клика по
+     *        кнопке настроек, а после неудачной попытки открыть канал.
+     */
+    void showInterfaceSettings(const QString &interfaceId, const QStringList &invalidFields = {});
 
     /**
      * \brief Перечитать настройки сессии, если только что применённые относились к её

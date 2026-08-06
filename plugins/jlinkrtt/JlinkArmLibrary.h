@@ -54,6 +54,26 @@ public:
     /// \brief Целевой интерфейс отладки.
     enum TargetInterface { Swd, Jtag };
 
+    /// \struct DeviceInfo
+    /// \brief Один чип из встроенной в libjlinkarm базы поддерживаемых устройств.
+    struct DeviceInfo
+    {
+        QString name;         ///< Точное имя для `ExecCommand("device = ...")`.
+        QString manufacturer; ///< Производитель, как его знает сама библиотека.
+    };
+
+    /**
+     * \brief Все устройства из встроенной базы libjlinkarm.
+     * \return Пустой список, если библиотека не найдена.
+     *
+     * Не то же самое, что JLinkDevices.xml рядом с библиотекой: тот — усечённый список
+     * ради загрузчиков флеша, а полная база (тысячи чипов, включая почти любой
+     * распространённый STM32 или GD32) вкомпилирована в саму libjlinkarm и читается только
+     * через JLINK_DEVICE_GetInfo(). Результат не кэшируется здесь — кэш и сортировка
+     * (нужны они только для автодополнения) — забота вызывающей стороны.
+     */
+    QList<DeviceInfo> knownDevices();
+
     /**
      * \brief Найти зонды J-Link, подключённые по USB.
      * \return Пустой список, если библиотека не найдена или зондов нет — не ошибка.
@@ -148,6 +168,7 @@ private:
     QFunctionPointer m_fnRttControl = nullptr;
     QFunctionPointer m_fnRttRead = nullptr;
     QFunctionPointer m_fnRttWrite = nullptr;
+    QFunctionPointer m_fnDeviceGetInfo = nullptr;
 };
 
 } // namespace spotty

@@ -230,6 +230,19 @@ void Session::open()
         return;
     }
 
+    const QVariantMap settings = m_registry->settingsFor(m_interfaceId);
+
+    // Обязательные поля проверяются до создания канала, а не после неудачной попытки: без
+    // этого, скажем, J-Link RTT без имени целевого чипа честно пытался бы подключиться и
+    // получал бы малопонятную ошибку от стороннего SDK вместо простого «заполните поле».
+    if (IInterfacePlugin *plugin = m_plugins->plugin(entry->descriptor.pluginId)) {
+        const QStringList missing = plugin->settingsSchema().missingRequiredFields(settings);
+        if (!missing.isEmpty()) {
+            Q_EMIT requiredSettingsMissing(m_interfaceId, missing);
+            return;
+        }
+    }
+
     destroyWorker();
     if (!createWorker())
         return;
@@ -239,7 +252,6 @@ void Session::open()
     m_bytesAtLastTick = m_buffer.bytesReceived();
     m_rateTimer->start();
 
-    const QVariantMap settings = m_registry->settingsFor(m_interfaceId);
     QMetaObject::invokeMethod(m_worker, "open", Qt::QueuedConnection,
                               Q_ARG(QVariantMap, settings));
 

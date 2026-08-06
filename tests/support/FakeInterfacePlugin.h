@@ -128,6 +128,7 @@ public:
             .group = QStringLiteral("Port"),
             .type = SettingsField::Text,
             .defaultValue = QStringLiteral("8N1"),
+            .required = requireMode,
         });
         return schema;
     }
@@ -150,6 +151,9 @@ public:
 
     /// \brief Заставить следующий созданный канал отказать при открытии.
     bool failNextOpen = false;
+
+    /// \brief Сделать поле "mode" обязательным (SettingsField::required) для теста Session.
+    bool requireMode = false;
 
     /// \brief Список устройств, которые «видит» плагин. Меняется прямо из теста.
     QList<InterfaceDescriptor> devices;

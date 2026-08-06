@@ -79,6 +79,19 @@ struct SettingsField
      */
     bool editable = false;
 
+    /**
+     * \brief Открывать канал нельзя, пока это поле пусто.
+     *
+     * Проверяется как строковое представление значения — «пусто» одинаково понятно для
+     * #Text, #Choice и не нужно для #Toggle (у флажка нет пустого состояния) и обычно не
+     * нужно для #Integer (число в границах #minimum/#maximum и так не бывает «никаким»).
+     * Ядро отказывается открывать канал, если хоть одно обязательное поле пусто —
+     * spotty::Session::open() тогда не пытается создать канал вовсе, а сообщает об этом
+     * отдельным сигналом, чтобы UI мог не просто показать ошибку, а сразу открыть
+     * настройки и подсветить нужное поле.
+     */
+    bool required = false;
+
     int minimum = 0; ///< Нижняя граница для #Integer.
     int maximum = 0; ///< Верхняя граница для #Integer.
 
@@ -229,6 +242,27 @@ public:
         for (const SettingsField &field : m_fields) {
             const auto it = values.constFind(field.key);
             result.insert(field.key, it != values.constEnd() ? *it : field.defaultValue);
+        }
+        return result;
+    }
+
+    /**
+     * \brief Ключи обязательных полей (SettingsField::required), которые сейчас пусты.
+     * \param values Настройки, обычно уже нормализованные (см. normalized()).
+     * \return Пустой список — можно открывать канал.
+     *
+     * \see spotty::Session::open(), которая отказывается создавать канал, пока список
+     *      не пуст, и сообщает об этом через Session::requiredSettingsMissing() вместо
+     *      попытки открыть заведомо нерабочее соединение.
+     */
+    QStringList missingRequiredFields(const QVariantMap &values) const
+    {
+        QStringList result;
+        for (const SettingsField &field : m_fields) {
+            if (!field.required)
+                continue;
+            if (values.value(field.key, field.defaultValue).toString().trimmed().isEmpty())
+                result.append(field.key);
         }
         return result;
     }

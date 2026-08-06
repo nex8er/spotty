@@ -331,8 +331,8 @@
         <translation>Целевое устройство</translation>
     </message>
     <message>
-        <source>Exact SEGGER device name, e.g. &quot;NRF52832_XXAA&quot;. Required to connect. JLinkDevices.xml was not found, so there are no suggestions — install SEGGER J-Link software for autocomplete.</source>
-        <translation>Точное имя устройства SEGGER, например «NRF52832_XXAA». Обязательно для подключения. JLinkDevices.xml не найден, подсказок не будет — установите SEGGER J-Link software для автодополнения.</translation>
+        <source>Exact SEGGER device name, e.g. &quot;NRF52832_XXAA&quot;. Required to connect. The J-Link device database was not found, so there are no suggestions — install SEGGER J-Link software for autocomplete.</source>
+        <translation>Точное имя устройства SEGGER, например «NRF52832_XXAA». Обязательно для подключения. База устройств J-Link не найдена, подсказок не будет — установите SEGGER J-Link software для автодополнения.</translation>
     </message>
     <message>
         <source>Exact SEGGER device name, e.g. &quot;NRF52832_XXAA&quot; — start typing to search. Required to connect.</source>
@@ -639,6 +639,10 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Back to live output</source>
         <translation>К живому выводу</translation>
+    </message>
+    <message>
+        <source>Fill in the required settings to open this interface.</source>
+        <translation>Заполните обязательные настройки, чтобы открыть этот интерфейс.</translation>
     </message>
     <message>
         <source>Show data as a hexadecimal dump</source>

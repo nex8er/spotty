@@ -139,6 +139,13 @@ QSpinBox:focus {
     border-color: @accent;
 }
 
+/* Обязательное поле схемы плагина пусто (см. SettingsField::required). Специфичность
+   селектора равна QComboBox:focus и т.п. — правило намеренно идёт после них по файлу,
+   чтобы красная рамка не пропадала, пока пользователь стоит в самом этом поле. */
+QWidget[fieldInvalid="true"] {
+    border: 1px solid @errorText;
+}
+
 QComboBox::drop-down {
     border: none;
     width: 18px;

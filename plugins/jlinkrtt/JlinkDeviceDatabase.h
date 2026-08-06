@@ -1,6 +1,6 @@
 /**
  * \file JlinkDeviceDatabase.h
- * \brief Список имён целевых устройств из JLinkDevices.xml для автодополнения.
+ * \brief Кэш имён целевых устройств из встроенной базы libjlinkarm для автодополнения.
  */
 #pragma once
 
@@ -12,10 +12,12 @@ namespace spotty {
  * \class JlinkDeviceDatabase
  * \brief Имена чипов, которые понимает `ExecCommand("device = ...")` J-Link software.
  *
- * JLinkDevices.xml — часть того же стороннего J-Link software, что и libjlinkarm (см.
- * spotty::JlinkArmLibrary), и по тем же причинам не читается на этапе сборки: файл
- * читается лениво, при первом обращении, а не найден — значит, поле «Target device»
- * останется обычным полем ввода без подсказок, а не сломает плагин.
+ * Источник — spotty::JlinkArmLibrary::knownDevices(), то есть сама libjlinkarm, а не
+ * JLinkDevices.xml рядом с ней: тот — усечённый список ради загрузчиков флеша (не находил
+ * ни STM32F407, ни GD32F450), тогда как встроенная база — тысячи чипов, вкомпилированных
+ * в саму библиотеку. Этот класс — только кэш результата (сортировка, снятие повторов):
+ * без него пришлось бы заново перебирать ~9000 записей при каждом открытии диалога
+ * настроек.
  */
 class JlinkDeviceDatabase
 {
@@ -23,8 +25,8 @@ public:
     /// \return Единственный экземпляр на процесс.
     static JlinkDeviceDatabase &instance();
 
-    /// \return Имена устройств из атрибута `Name` в JLinkDevices.xml, по алфавиту, без
-    ///         повторов. Пустой список, если файл не найден или не разобрался.
+    /// \return Имена устройств по алфавиту, без повторов. Пустой список, если
+    ///         libjlinkarm не найдена.
     const QStringList &deviceNames();
 
 private:

@@ -133,6 +133,38 @@ TEST(Session, ChannelReceivesNormalisedSettings)
               QStringLiteral("8N1"));
 }
 
+TEST(Session, MissingRequiredSettingBlocksOpenWithoutTouchingTheChannel)
+{
+    Fixture fixture;
+    fixture.plugin.requireMode = true;
+    // "mode" присутствует в сохранённых настройках, но пуст — это именно то, что реестр
+    // отдал бы после normalized(), если пользователь стёр значение поля в UI.
+    fixture.registry.setSettingsFor(kDeviceId, {{QStringLiteral("mode"), QString()}});
+
+    QStringList missingIds;
+    QList<QStringList> missingFields;
+    QObject::connect(&fixture.session, &Session::requiredSettingsMissing,
+                     [&](const QString &id, const QStringList &fields) {
+        missingIds.append(id);
+        missingFields.append(fields);
+    });
+
+    fixture.session.setInterfaceId(kDeviceId);
+    fixture.session.open();
+
+    ASSERT_EQ(missingIds.size(), 1);
+    EXPECT_EQ(missingIds.first(), kDeviceId);
+    ASSERT_EQ(missingFields.first().size(), 1);
+    EXPECT_EQ(missingFields.first().first(), QStringLiteral("mode"));
+
+    // Открытие не должно было даже попытаться создать канал — обязательное поле пусто,
+    // значит попытка connect() (аналог JLINK_Connect() у настоящего плагина) заведомо
+    // напрасна и не должна происходить вовсе.
+    EXPECT_EQ(fixture.plugin.lastChannel, nullptr);
+    EXPECT_EQ(fixture.session.state(), ChannelState::Closed);
+    EXPECT_FALSE(fixture.session.isActive());
+}
+
 TEST(Session, FailedOpenReportsErrorAndState)
 {
     Fixture fixture;

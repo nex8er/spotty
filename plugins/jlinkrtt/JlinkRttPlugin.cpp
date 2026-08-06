@@ -98,10 +98,11 @@ SettingsSchema JlinkRttPlugin::settingsSchema() const
         .defaultValue = QString(),
         .options = deviceOptions,
         .editable = true,
+        .required = true,
         .hint = deviceOptions.isEmpty()
                    ? tr("Exact SEGGER device name, e.g. \"NRF52832_XXAA\". Required to "
-                        "connect. JLinkDevices.xml was not found, so there are no "
-                        "suggestions — install SEGGER J-Link software for autocomplete.")
+                        "connect. The J-Link device database was not found, so there are "
+                        "no suggestions — install SEGGER J-Link software for autocomplete.")
                    : tr("Exact SEGGER device name, e.g. \"NRF52832_XXAA\" — start typing to "
                         "search. Required to connect."),
     });
