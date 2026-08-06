@@ -753,6 +753,26 @@ Double-click to edit, right-click for options</source>
         <translation>&lt;b&gt;Spotty %1&lt;/b&gt;&lt;br&gt;Модульный терминал-монитор портов.&lt;br&gt;&lt;br&gt;Настройки: %2</translation>
     </message>
     <message>
+        <source>This log file is empty</source>
+        <translation>Этот файл лога пуст</translation>
+    </message>
+    <message>
+        <source>Interface is open — waiting for data</source>
+        <translation>Интерфейс открыт — ожидание данных</translation>
+    </message>
+    <message>
+        <source>Opening the interface…</source>
+        <translation>Открытие интерфейса…</translation>
+    </message>
+    <message>
+        <source>The interface could not be opened</source>
+        <translation>Интерфейс открыть не удалось</translation>
+    </message>
+    <message>
+        <source>Choose an interface above to see its output here</source>
+        <translation>Выберите интерфейс наверху, чтобы увидеть здесь его вывод</translation>
+    </message>
+    <message>
         <source>%1/s</source>
         <translation>%1/с</translation>
     </message>
@@ -762,7 +782,11 @@ Double-click to edit, right-click for options</source>
     </message>
     <message numerus="yes">
         <source>%n error(s)</source>
-        <translation><numerusform>%n ошибка</numerusform><numerusform>%n ошибки</numerusform><numerusform>%n ошибок</numerusform></translation>
+        <translation>
+            <numerusform>%n ошибка</numerusform>
+            <numerusform>%n ошибки</numerusform>
+            <numerusform>%n ошибок</numerusform>
+        </translation>
     </message>
     <message>
         <source>Settings</source>
@@ -1314,6 +1338,10 @@ Continue?</source>
 </context>
 <context>
     <name>spotty::TerminalView</name>
+    <message>
+        <source>No lines match the filter</source>
+        <translation>Ни одна строка не подходит под фильтр</translation>
+    </message>
     <message>
         <source>Copy</source>
         <translation>Копировать</translation>

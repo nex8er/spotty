@@ -155,6 +155,19 @@ public:
     /// \brief Число строк, подходящих под образец поиска.
     int matchCount() const;
 
+    /**
+     * \brief Что показать вместо пустого поля вывода.
+     * \param text Одна короткая фраза; пустая строка убирает подсказку.
+     *
+     * Пустой чёрный прямоугольник во всё окно не отвечает ни на один вопрос: ждать ли
+     * данных, выбран ли интерфейс, не сломалось ли что-нибудь. Ответ знает не терминал, а
+     * владелец сессии, поэтому текст приходит извне, а не выводится здесь из состояния.
+     *
+     * \note Собственная подсказка «фильтр ничего не оставил» этот текст перекрывает: она
+     *       относится к тому же пустому месту, но объясняет его точнее.
+     */
+    void setPlaceholderText(const QString &text);
+
     /// \brief Перейти к следующему совпадению и выделить его.
     void findNext();
 
@@ -189,6 +202,13 @@ protected:
     bool viewportEvent(QEvent *event) override;
 
 private:
+    /**
+     * \brief Нарисовать подсказку на месте пустого вывода.
+     * \param painter Художник по области просмотра.
+     * \param colors Цвета текущей темы.
+     */
+    void drawPlaceholder(QPainter &painter, const ThemeColors &colors) const;
+
     /**
      * \struct Position
      * \brief Положение внутри содержимого: строка, ряд в строке, столбец.
@@ -305,6 +325,9 @@ private:
     QRegularExpression m_searchRegex;
     bool m_searchActive = false;
     bool m_filterEnabled = false;
+
+    /// \brief Подсказка на месте пустого вывода; см. setPlaceholderText().
+    QString m_placeholder;
 
     /// \brief Индекс текущего совпадения в m_visible; -1, если переход ещё не делался.
     int m_currentMatch = -1;

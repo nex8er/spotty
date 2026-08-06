@@ -66,9 +66,19 @@ qt_add_executable(spotty
     theme/MdiCodepoints.h
     theme/MdiIcons.cpp
     theme/MdiIcons.h
+    theme/PlatformChrome.h
+    theme/PlatformChrome.cpp
     theme/ThemeManager.cpp
     theme/ThemeManager.h
 )
+
+# Оформление рамки окна средствами системы: цвет заголовка задаётся не через QSS, а
+# системным вызовом, и на macOS для него нужен Objective-C. Реализация для Windows и для
+# систем без такой возможности лежит в PlatformChrome.cpp, для macOS — здесь.
+if(APPLE)
+    target_sources(spotty PRIVATE theme/PlatformChrome_mac.mm)
+    target_link_libraries(spotty PRIVATE "-framework AppKit")
+endif()
 
 # Пути ресурсов складываются из PREFIX и пути файла относительно BASE, поэтому шрифт
 # доступен как ":/fonts/materialdesignicons-webfont.ttf", а тема — как
@@ -78,6 +88,16 @@ qt_add_resources(spotty "spotty-resources"
     BASE "${CMAKE_SOURCE_DIR}/resources"
     FILES
         "${CMAKE_SOURCE_DIR}/resources/fonts/materialdesignicons-webfont.ttf"
+        # Галочка флажка. Отдельным файлом, а не глифом из шрифта значков: подставить
+        # изображение в ::indicator можно только через url(), а нарисовать глиф шрифтом
+        # таблица стилей не умеет.
+        "${CMAKE_SOURCE_DIR}/resources/icons/check.svg"
+        # Стрелки списка и счётчика — по той же причине: подставить их в ::down-arrow
+        # можно только через url().
+        "${CMAKE_SOURCE_DIR}/resources/icons/chevron-down.svg"
+        "${CMAKE_SOURCE_DIR}/resources/icons/chevron-up.svg"
+        "${CMAKE_SOURCE_DIR}/resources/icons/chevron-down-muted.svg"
+        "${CMAKE_SOURCE_DIR}/resources/icons/chevron-up-muted.svg"
         "${CMAKE_SOURCE_DIR}/resources/themes/spotty.qss"
 )
 

@@ -138,6 +138,15 @@ private:
     /// \brief Отразить новое состояние канала во всех элементах окна.
     void applyChannelState(ChannelState state, const QString &detail);
 
+    /**
+     * \brief Обновить подсказку на месте пустого вывода терминала.
+     * \param state Состояние канала.
+     *
+     * Живёт здесь, а не в TerminalView: сам терминал знает только, что строк нет, а
+     * почему их нет — вопрос к сессии и к тому, не открыт ли сейчас файл лога.
+     */
+    void updatePlaceholder(ChannelState state);
+
     void updateStatistics();
     void updateControlLines(const QVariantMap &lines);
 

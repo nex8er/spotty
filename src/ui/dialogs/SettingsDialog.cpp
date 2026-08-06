@@ -110,7 +110,16 @@ SettingsDialog::SettingsDialog(const AppSettings &settings, const QStringList &a
     resize(720, 560);
 
     m_categories = new QListWidget(this);
+    // Список разделов оформляется отдельно от прочих списков (правило #settingsCategories
+    // в QSS): это навигация, а не редактируемые данные, и выглядеть она должна как
+    // боковое меню, а не как таблица.
+    m_categories->setObjectName(QStringLiteral("settingsCategories"));
     m_categories->setMaximumWidth(180);
+    // Названия разделов не переносятся, и самое длинное из них при переводе легко
+    // перерастает ширину списка. Полоса прокрутки под ним ничего не даёт — прокручивать
+    // приходится, чтобы дочитать название, — а место в списке занимает.
+    m_categories->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_categories->setTextElideMode(Qt::ElideRight);
     m_categories->addItems({tr("General"), tr("Terminal"), tr("Send"), tr("Logging"),
                             tr("Data"), tr("Interfaces"), tr("Shortcuts")});
 

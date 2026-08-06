@@ -165,6 +165,15 @@ TRANSLATIONS = {
     "Fill in the required settings to open this interface.":
         "Заполните обязательные настройки, чтобы открыть этот интерфейс.",
 
+    # --- Подсказки на месте пустого вывода терминала ---
+    "Choose an interface above to see its output here":
+        "Выберите интерфейс наверху, чтобы увидеть здесь его вывод",
+    "Interface is open — waiting for data": "Интерфейс открыт — ожидание данных",
+    "Opening the interface…": "Открытие интерфейса…",
+    "The interface could not be opened": "Интерфейс открыть не удалось",
+    "This log file is empty": "Этот файл лога пуст",
+    "No lines match the filter": "Ни одна строка не подходит под фильтр",
+
     # --- Кодирование данных ---
     "Not valid Base64.": "Некорректная запись Base64.",
     '"%1" is not a hexadecimal digit.': '«%1» не шестнадцатеричная цифра.',

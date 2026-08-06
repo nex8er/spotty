@@ -1,20 +1,24 @@
 /* Таблица стилей Spotty.
  *
- * Плейсхолдеры вида @имя подставляет ThemeManager из структуры ThemeColors, поэтому одни и
- * те же значения управляют и этой таблицей, и собственной отрисовкой терминала.
- * Записывать цвет числом здесь нельзя: он немедленно разойдётся с тем, чем рисует себя
- * терминал.
+ * Плейсхолдеры вида @имя подставляет ThemeManager из структур ThemeColors и ThemeMetrics,
+ * поэтому одни и те же значения управляют и этой таблицей, и собственной отрисовкой
+ * терминала, и раскладкой окна. Записывать здесь цвет или размер числом нельзя: они
+ * немедленно разойдутся с тем, чем рисует себя терминал, и с тем, что считает раскладка.
  *
- * Оформление намеренно плоское и монохромное: ни градиентов, ни скруглённой обводки,
- * единственный акцентный цвет — только для фокуса и выделения. Структура выражается
- * линиями толщиной в пиксель, а не рамками.
+ * Размеры приходят уже с единицей измерения (@radius — это «4px», @fontSmall — «9pt»),
+ * потому что зависят от системы: Windows и macOS расходятся в кегле системного шрифта,
+ * скруглении и высоте элементов. Одно значение на обе выглядело бы чужим на одной из них.
+ *
+ * Оформление намеренно плоское и монохромное: ни градиентов, ни теней. Структура
+ * выражается линиями толщиной в пиксель, а не рамками. Акцентный цвет применяется скупо и
+ * только в трёх ролях: фокус клавиатуры, выделение и единственная главная кнопка экрана.
+ *
+ * Кегль основного текста здесь не задан намеренно: его ставит ThemeManager системным
+ * шрифтом через QApplication::setFont(). Зашитый сюда font-size переопределил бы его и
+ * заодно отменил бы системную настройку размера текста — то есть сломал бы доступность.
  *
  * Список допустимых плейсхолдеров задан в ThemeManager::resolveStylesheet(); незнакомый
  * @имя вызывает предупреждение при запуске. */
-
-QWidget {
-    font-size: 13px;
-}
 
 QMainWindow,
 QDialog {
@@ -30,7 +34,7 @@ QDialog {
 #card {
     background: @panel;
     border: 1px solid @border;
-    border-radius: 4px;
+    border-radius: @cardRadius;
 }
 
 /* Полосы кнопок внутри карточек: фон свой не нужен, его даёт карточка. Отделяются
@@ -49,8 +53,8 @@ QDialog {
 #terminalView {
     background: @base;
     border: none;
-    border-bottom-left-radius: 4px;
-    border-bottom-right-radius: 4px;
+    border-bottom-left-radius: @cardRadius;
+    border-bottom-right-radius: @cardRadius;
 }
 
 #sidePanel {
@@ -58,36 +62,78 @@ QDialog {
     border-right: 1px solid @border;
 }
 
+/* Рейка значков панелей: отделена от содержимого панели линией, а не отступом — иначе при
+   узкой панели рейка и содержимое читаются как один столбец кнопок. */
+#panelRail {
+    background: @panel;
+    border-right: 1px solid @border;
+}
+
 #panelTitle {
+    font-size: @fontTitle;
     font-weight: 600;
-    padding: 6px 8px;
+    padding: 2px 2px 4px 2px;
 }
 
 #statusDot {
     padding: 0 4px;
 }
 
-#hintLabel {
-    color: @textMuted;
+/* Разделитель групп кнопок внутри полосы инструментов. */
+#toolSeparator {
+    background: @border;
+    border: none;
+    margin: 3px 0;
 }
 
-/* --- Элементы управления ---------------------------------------------------------- */
+/* Подпись второго плана: подсказка под полем, путь к файлу, число совпадений. Меньше и
+   приглушённее основного текста — но не ниже 4.5:1 к фону, см. ThemeManager. */
+#hintLabel {
+    color: @textMuted;
+    font-size: @fontSmall;
+}
+
+/* Ошибка ввода рядом с полем отправки. Цвет здесь не единственный признак: рядом с полем
+   стоит сам текст ошибки, а поле сохраняет введённое. */
+#errorLabel {
+    color: @errorText;
+    font-size: @fontSmall;
+}
+
+/* --- Кнопки ----------------------------------------------------------------------- */
 
 QToolButton {
     background: transparent;
     border: 1px solid transparent;
-    border-radius: 3px;
+    border-radius: @radius;
     padding: 4px;
+    /* Наименьшая цель нажатия по WCAG 2.2 — 24x24 для всей кнопки. Указанные здесь 20 —
+       размер содержимого: отступ 4 px с каждой стороны и рамка прибавляются к нему, и
+       кнопка выходит 30x30. Кнопки со значком 16 px (поиск, макросы) без этого правила
+       оказывались мельче предела. */
+    min-width: 20px;
+    min-height: 20px;
 }
 
 QToolButton:hover {
-    background: @base;
+    background: @hover;
     border-color: @border;
 }
 
-QToolButton:pressed,
+QToolButton:pressed {
+    background: @pressed;
+}
+
 QToolButton:checked {
     background: @selection;
+    border-color: @accent;
+}
+
+/* Фокус клавиатуры. Fusion рисует его сам, но только пока кнопку не оформили этой
+   таблицей: собственный фон и рамка отменяют штатную отрисовку целиком, вместе с
+   прямоугольником фокуса. Без правила ниже интерфейс становится непроходимым с
+   клавиатуры — видно, что фокус куда-то ушёл, но не видно куда. */
+QToolButton:focus {
     border-color: @accent;
 }
 
@@ -98,53 +144,128 @@ QToolButton::menu-indicator {
 QPushButton {
     background: @panel;
     border: 1px solid @border;
-    border-radius: 3px;
-    padding: 5px 14px;
+    border-radius: @radius;
+    padding: @padV @padH;
+    min-height: @controlHeight;
+    min-width: @buttonMinWidth;
 }
 
 QPushButton:hover {
-    border-color: @accent;
+    background: @hover;
+    border-color: @textMuted;
 }
 
 QPushButton:pressed {
-    background: @selection;
+    background: @pressed;
+}
+
+QPushButton:focus {
+    border-color: @accent;
 }
 
 QPushButton:disabled {
     color: @textMuted;
+    background: @panel;
     border-color: @border;
 }
 
+/* Главное действие экрана: «Send» в полосе отправки, «OK» в диалогах. Залито акцентом —
+   единственное место, где акцент выступает фоном.
+ *
+ * Это отступление от общей монохромности сделано осознанно: в полосе отправки рядом стоят
+ * поле, два списка и кнопка, и без выделения главного действия глаз ищет его заново каждый
+ * раз. Заливка — самый дешёвый способ ответить на вопрос «что тут нажимают», и обе системы
+ * оформляют кнопку по умолчанию именно так.
+ *
+ * Цвет заливки — @accentSolid, а не @accent: на @accent белая подпись не проходит по
+ * контрасту. */
+QPushButton:default {
+    background: @accentSolid;
+    color: @accentText;
+    border-color: @accentSolid;
+}
+
+QPushButton:default:hover {
+    background: @accentSolidHover;
+    border-color: @accentSolidHover;
+}
+
+QPushButton:default:pressed {
+    background: @accentSolidPressed;
+    border-color: @accentSolidPressed;
+}
+
+/* Недоступная главная кнопка возвращается к виду обычной: залитая акцентом, но
+   не нажимаемая, она обещает действие, которого сейчас нет. */
+QPushButton:default:disabled {
+    background: @panel;
+    color: @textMuted;
+    border-color: @border;
+}
+
+/* --- Поля ввода ------------------------------------------------------------------- */
+
+/* Контур поля — @borderControl, а не @border: это граница самого элемента, и она обязана
+   давать к фону не меньше 3:1 (WCAG 2.2, 1.4.11). Разделительные линии окна остаются
+   незаметными, см. ThemeColors::controlBorder. */
 QLineEdit,
 QComboBox,
 QSpinBox,
 QPlainTextEdit,
+QKeySequenceEdit,
 QAbstractScrollArea {
     background: @base;
-    border: 1px solid @border;
-    border-radius: 3px;
+    border: 1px solid @borderControl;
+    border-radius: @radius;
     selection-background-color: @selection;
     selection-color: @text;
 }
 
 QLineEdit,
+QKeySequenceEdit {
+    padding: @padV 6px;
+    min-height: @controlHeight;
+}
+
+/* Справа — запас под стрелки, как у QComboBox: без него длинное значение уезжает под
+   кнопки увеличения и уменьшения, и последняя цифра оказывается наполовину закрыта. */
 QSpinBox {
-    padding: 4px 6px;
+    padding: @padV 18px @padV 6px;
+    min-height: @controlHeight;
 }
 
 QComboBox {
-    /* Своя, увеличенная справа величина, а не общая с QLineEdit/QSpinBox: без запаса под
-       стрелку и явных subcontrol-origin/position у ::drop-down ниже внутренний QLineEdit
+    /* Своя, увеличенная справа величина, а не общая с QLineEdit: без запаса под стрелку и
+       явных subcontrol-origin/position у ::drop-down ниже внутренний QLineEdit
        редактируемого списка растягивается на всю ширину виджета, включая область стрелки.
        Клик по стрелке в таком случае просто ставит курсор в текст — список не открывается
        вовсе. */
-    padding: 4px 22px 4px 6px;
+    padding: @padV 24px @padV 6px;
+    min-height: @controlHeight;
+}
+
+/* Отклик на наведение. Отдельно от :focus и с явным «не в фокусе»: иначе курсор,
+   проходящий над полем, гасил бы акцентную рамку поля, в котором сейчас курсор ввода. */
+QLineEdit:hover:!focus,
+QComboBox:hover:!focus,
+QSpinBox:hover:!focus {
+    border-color: @textMuted;
 }
 
 QLineEdit:focus,
 QComboBox:focus,
-QSpinBox:focus {
+QSpinBox:focus,
+QKeySequenceEdit:focus,
+QPlainTextEdit:focus {
     border-color: @accent;
+}
+
+QLineEdit:disabled,
+QComboBox:disabled,
+QSpinBox:disabled {
+    background: @panel;
+    color: @textMuted;
+    border-color: @border;
 }
 
 /* Обязательное поле схемы плагина пусто (см. SettingsField::required). Специфичность
@@ -154,17 +275,167 @@ QWidget[fieldInvalid="true"] {
     border: 1px solid @errorText;
 }
 
-/* Никакого ::drop-down здесь намеренно: любое собственное правило для этого подэлемента —
-   хоть просто border/width — заставляет QStyleSheetStyle перестать рисовать родную стрелку
-   Fusion вовсе, и на тёмной теме кнопка выпадения становится незрячей чёрным по чёрному.
-   Резерва места в padding-right у QComboBox выше достаточно, чтобы клик по этой области не
-   попадал в текстовое поле — родная отрисовка и раскладка кнопки остаются на Fusion. */
+/* --- Кнопки списка и счётчика ------------------------------------------------------
+ *
+ * Отрисовку этих подэлементов приходится брать на себя целиком. Оставить их Fusion нельзя:
+ * он рисует их своей палитрой поверх нашего фона, и получается вклеенная кнопка с чужим
+ * оттенком и разделительной чертой, а стрелки счётчика на тёмной теме не появляются вовсе —
+ * остаются две пустые рамки.
+ *
+ * Взяв подэлемент, изображение стрелки обязан дать сам: собственный фон отменяет родную
+ * отрисовку вместе со стрелкой. Отсюда chevron-down.svg и chevron-up.svg — один нейтрально
+ * серый цвет на обе темы, см. комментарий в самом файле. */
 
-QComboBox QAbstractItemView {
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 22px;
+    border: none;
+    background: transparent;
+}
+
+QComboBox::down-arrow {
+    image: url(:/icons/chevron-down.svg);
+    width: 10px;
+    height: 10px;
+}
+
+/* Список открыт — стрелка сдвигается на пиксель вниз. Единственная обратная связь у
+   кнопки, у которой нет ни фона, ни рамки. */
+QComboBox::down-arrow:on {
+    top: 1px;
+}
+
+/* Кнопки счётчика делят поле пополам по вертикали. Высота приходит из ThemeMetrics: она
+ * зависит от высоты самого поля, а та у каждой системы своя.
+ *
+ * `subcontrol-origin: padding`, а не `border`: от начала координат зависит, куда попадёт
+ * подсветка при наведении. Отсчёт от рамки включает её саму в прямоугольник кнопки, и
+ * заливка ложится **поверх** рамки, закрашивая её и скруглённый угол — под курсором
+ * появляется приклеенный к краю прямоугольник вместо подсвеченной кнопки. Отсчёт от
+ * padding держит заливку строго внутри рамки.
+ *
+ * Ширина совпадает с правым отступом самого QSpinBox: две кнопки ровно занимают место,
+ * которое там для них и отведено. */
+QSpinBox::up-button,
+QSpinBox::down-button {
+    subcontrol-origin: padding;
+    width: 20px;
+    height: @spinButton;
+    border: none;
+    background: transparent;
+}
+
+/* Скругление внешних углов повторяет скругление поля: прямой угол заливки внутри
+   скруглённого угла рамки оставляет заметный уголок фона. */
+QSpinBox::up-button {
+    subcontrol-position: top right;
+    border-top-right-radius: @radius;
+}
+
+QSpinBox::down-button {
+    subcontrol-position: bottom right;
+    border-bottom-right-radius: @radius;
+}
+
+QSpinBox::up-button:hover,
+QSpinBox::down-button:hover {
+    background: @hover;
+}
+
+QSpinBox::up-button:pressed,
+QSpinBox::down-button:pressed {
+    background: @pressed;
+}
+
+QSpinBox::up-arrow {
+    image: url(:/icons/chevron-up.svg);
+    width: 9px;
+    height: 9px;
+}
+
+QSpinBox::down-arrow {
+    image: url(:/icons/chevron-down.svg);
+    width: 9px;
+    height: 9px;
+}
+
+/* Значение упёрлось в предел диапазона: `off` — состояние кнопки, которой больше некуда
+   нажимать. Без него счётчик молча перестаёт отзываться и выглядит сломанным. */
+QSpinBox::up-arrow:off,
+QSpinBox::up-arrow:disabled {
+    image: url(:/icons/chevron-up-muted.svg);
+}
+
+QSpinBox::down-arrow:off,
+QSpinBox::down-arrow:disabled {
+    image: url(:/icons/chevron-down-muted.svg);
+}
+
+QComboBox::down-arrow:disabled {
+    image: url(:/icons/chevron-down-muted.svg);
+}
+
+/* Флажок: увеличенная строка и промежуток до подписи. Нажимается вся строка целиком,
+   поэтому её высота и есть цель нажатия. */
+QCheckBox,
+QRadioButton {
+    spacing: 8px;
+    min-height: 22px;
+}
+
+QCheckBox:disabled,
+QRadioButton:disabled {
+    color: @textMuted;
+}
+
+/* Квадратик флажка — единственное исключение из правила «подэлементы отдаём Fusion».
+ *
+ * Fusion выводит цвет его обводки из QPalette::Window, затемняя её. На тёмной теме окно и
+ * без того почти чёрное, затемнять там нечего, и квадратик оказывается невидимым: снятый
+ * флажок неотличим от пустого места, а поставленный выглядит галочкой, висящей в воздухе.
+ * Палитрой это не лечится — цвет считается от фона окна, а не берётся из роли.
+ *
+ * Раз уж отрисовка перехвачена, галочку приходится подставлять изображением: собственный
+ * фон подэлемента отменяет родную целиком, вместе с самой галочкой. */
+QCheckBox::indicator,
+QAbstractItemView::indicator,
+QGroupBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid @borderControl;
+    border-radius: 3px;
     background: @base;
-    border: 1px solid @border;
-    selection-background-color: @selection;
-    outline: none;
+}
+
+QCheckBox::indicator:hover,
+QAbstractItemView::indicator:hover,
+QGroupBox::indicator:hover {
+    border-color: @accent;
+}
+
+/* Состояние передано не только цветом: залитый квадратик отличается от пустого ещё и
+   галочкой. Требование WCAG «не полагаться на цвет» выполняется даже в чёрно-белом виде. */
+QCheckBox::indicator:checked,
+QAbstractItemView::indicator:checked,
+QGroupBox::indicator:checked {
+    background: @accentSolid;
+    border-color: @accentSolid;
+    image: url(:/icons/check.svg);
+}
+
+QCheckBox::indicator:disabled,
+QAbstractItemView::indicator:disabled,
+QGroupBox::indicator:disabled {
+    background: @panel;
+    border-color: @border;
+}
+
+QCheckBox::indicator:checked:disabled,
+QAbstractItemView::indicator:checked:disabled,
+QGroupBox::indicator:checked:disabled {
+    background: @border;
+    border-color: @border;
 }
 
 /* --- Списки и меню ---------------------------------------------------------------- */
@@ -174,6 +445,7 @@ QTreeView,
 QTableView {
     background: @base;
     border: 1px solid @border;
+    border-radius: @radius;
     outline: none;
 }
 
@@ -184,11 +456,109 @@ QTableView::item {
     border: none;
 }
 
+QListView::item:hover,
+QTreeView::item:hover {
+    background: @hover;
+}
+
 QListView::item:selected,
 QTreeView::item:selected,
 QTableView::item:selected {
     background: @selection;
     color: @text;
+}
+
+QListView:focus,
+QTreeView:focus,
+QTableView:focus {
+    border-color: @accent;
+}
+
+/* Содержимое ячейки таблицы: редактор, открывающийся по двойному щелчку, и кнопка,
+ * вставленная через setCellWidget().
+ *
+ * Общие правила для полей и кнопок им не подходят: наименьшая высота и отступы, уместные
+ * в диалоге, делают редактор выше строки таблицы. Qt не сжимает редактор до размера
+ * ячейки — он растягивает **строку**, и при вводе текста таблица дёргается, а соседние
+ * строки уезжают. Наименьшие размеры здесь снимаются, отступы уменьшаются до тех, что
+ * совпадают с отступом самой ячейки, а скругление убирается: редактор должен точно
+ * совпасть с прямоугольником ячейки, а не лежать в ней вторым слоем. */
+QAbstractItemView QLineEdit,
+QAbstractItemView QComboBox,
+QAbstractItemView QSpinBox,
+QAbstractItemView QKeySequenceEdit,
+QAbstractItemView QPlainTextEdit {
+    min-height: 0;
+    min-width: 0;
+    padding: 0 4px;
+    margin: 0;
+    border-radius: 0;
+    border: 1px solid @accent;
+}
+
+QAbstractItemView QComboBox {
+    padding: 0 22px 0 4px;
+}
+
+QAbstractItemView QSpinBox {
+    padding: 0 20px 0 4px;
+}
+
+QAbstractItemView QToolButton {
+    min-width: 0;
+    min-height: 0;
+    padding: 2px;
+}
+
+/* Заголовок таблицы — подпись, а не элемент управления: тот же приглушённый вид, что у
+   #hintLabel, и линия вместо рамки. */
+QHeaderView::section {
+    background: @panel;
+    color: @textMuted;
+    border: none;
+    border-bottom: 1px solid @border;
+    border-right: 1px solid @border;
+    padding: 4px 6px;
+    font-size: @fontSmall;
+}
+
+QHeaderView::section:last {
+    border-right: none;
+}
+
+/* Список разделов в диалоге настроек. Обе системы оформляют такой список одинаково —
+   выделение скруглённой плашкой без рамки вокруг всего списка. */
+#settingsCategories {
+    background: @panel;
+    border: 1px solid @border;
+    border-radius: @radius;
+    padding: 4px;
+}
+
+#settingsCategories::item {
+    padding: 6px 10px;
+    border-radius: @radius;
+}
+
+/* Раскрытый список.
+ *
+ * Без рамки и без фона намеренно: и то и другое рисует окно-контейнер, до которого
+ * таблица стилей не достаёт, — этим занимается ThemeManager::applyComboPopupLook(), там же
+ * объяснено почему. Рамка здесь была бы второй, вложенной в первую, и лежала бы с отступом
+ * в несколько пикселей от края окна. */
+QComboBox QAbstractItemView {
+    background: @base;
+    border: none;
+    border-radius: 0;
+    selection-background-color: @selection;
+    selection-color: @text;
+    outline: none;
+}
+
+/* Раскрытый список всегда в фокусе — акцентная рамка из общего правила для списков
+   превратила бы это в постоянное состояние. */
+QComboBox QAbstractItemView:focus {
+    border: none;
 }
 
 QMenuBar {
@@ -219,6 +589,10 @@ QMenu::item:selected {
     background: @selection;
 }
 
+QMenu::item:disabled {
+    color: @textMuted;
+}
+
 QMenu::separator {
     height: 1px;
     background: @border;
@@ -227,24 +601,27 @@ QMenu::separator {
 
 /* --- Полосы прокрутки: тонкие, без стрелок и оформления дорожки -------------------- */
 
+/* Дорожка прозрачна намеренно: полоса лежит поверх терминала и поверх панели, и любой
+   собственный фон был бы правильным ровно на одной из этих поверхностей. */
 QScrollBar:vertical {
-    background: @base;
-    width: 10px;
+    background: transparent;
+    width: @scrollBar;
     margin: 0;
 }
 
 QScrollBar:horizontal {
-    background:  @base;
-    height: 10px;
+    background: transparent;
+    height: @scrollBar;
     margin: 0;
 }
 
 QScrollBar::handle:vertical,
 QScrollBar::handle:horizontal {
     background: @border;
-    border-radius: 5px;
-    min-height: 24px;
-    min-width: 24px;
+    border-radius: 4px;
+    margin: 2px;
+    min-height: 28px;
+    min-width: 28px;
 }
 
 QScrollBar::handle:hover {
@@ -263,16 +640,19 @@ QScrollBar::sub-page {
 
 /* --- Разделители ------------------------------------------------------------------ */
 
+/* Захват шире рисуемой линии: ширину задаёт QSplitter::setHandleWidth() из ThemeMetrics,
+   а видимую границу даёт рамка соседней панели. Собственной линии у захвата нет —
+   вторая, вплотную к первой, читалась бы как утолщение. */
 QSplitter::handle {
-    background: @border;
+    background: transparent;
 }
 
-QSplitter::handle:horizontal {
-    width: 1px;
+QSplitter::handle:hover {
+    background: @hover;
 }
 
-QSplitter::handle:vertical {
-    height: 1px;
+QSplitter::handle:pressed {
+    background: @selection;
 }
 
 QStatusBar {
@@ -289,12 +669,13 @@ QToolTip {
     background: @panel;
     color: @text;
     border: 1px solid @border;
+    border-radius: @radius;
     padding: 4px 6px;
 }
 
 QGroupBox {
     border: 1px solid @border;
-    border-radius: 3px;
+    border-radius: @radius;
     margin-top: 10px;
     padding-top: 8px;
 }
@@ -304,4 +685,5 @@ QGroupBox::title {
     left: 8px;
     padding: 0 4px;
     color: @textMuted;
+    font-size: @fontSmall;
 }

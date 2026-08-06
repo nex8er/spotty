@@ -179,10 +179,16 @@ void MainWindow::buildUi()
     terminalLayout->addWidget(m_terminal, 1);
 
     // --- Правая колонка: интерфейс, терминал, отправка --------------------------------
+    //
+    // Поля и промежутки берутся из ThemeMetrics, а не задаются числом: macOS расставляет
+    // блоки просторнее Windows, и одно значение на обе системы выглядит тесно на одной из
+    // них.
+    const ThemeMetrics &metrics = ThemeManager::metrics();
+
     auto *rightColumn = new QWidget(this);
     auto *rightLayout = new QVBoxLayout(rightColumn);
-    rightLayout->setContentsMargins(6, 6, 6, 6);
-    rightLayout->setSpacing(6);
+    rightLayout->setContentsMargins(metrics.gap, metrics.gap, metrics.gap, metrics.gap);
+    rightLayout->setSpacing(metrics.gap);
     rightLayout->addWidget(makeCard(m_interfaceBar));
     rightLayout->addWidget(makeCard(terminalBlock), 1);
     rightLayout->addWidget(makeCard(m_sendBar));
@@ -196,6 +202,9 @@ void MainWindow::buildUi()
     // Панель должна полностью схлопываться: при работе с длинными строками терминалу
     // нужна вся ширина окна.
     m_splitter->setChildrenCollapsible(true);
+    // Захват шире рисуемой линии. Прежний однопиксельный разделитель поймать курсором
+    // почти невозможно: промах не делает ничего, и разделитель выглядит неработающим.
+    m_splitter->setHandleWidth(metrics.splitterHandle);
 
     setCentralWidget(m_splitter);
 
@@ -368,13 +377,26 @@ QWidget *MainWindow::buildTerminalToolbar()
     connect(m_followButton, &QToolButton::toggled,
             m_terminal, &TerminalView::setFollowTail);
 
+    // Разделитель, а не просто промежуток: слева переключатели того, как показан вывод,
+    // справа действия над ним. Промежутка в 8 px для этого мало — рядом с промежутком в
+    // 2 px между кнопками он читается как случайный, и все пять кнопок выглядят одной
+    // группой.
+    //
+    // Обычный QFrame::VLine здесь не годится: он рисуется палитрой стиля, а не цветом
+    // темы, и на тёмной теме получается вдавленная двухцветная канавка вместо линии.
+    auto *separator = new QFrame(bar);
+    separator->setObjectName(QStringLiteral("toolSeparator"));
+    separator->setFixedWidth(1);
+
     auto *layout = new QHBoxLayout(bar);
     layout->setContentsMargins(8, 3, 8, 3);
     layout->setSpacing(2);
     layout->addWidget(m_hexButton);
     layout->addWidget(m_timestampButton);
     layout->addWidget(m_directionButton);
-    layout->addSpacing(8);
+    layout->addSpacing(6);
+    layout->addWidget(separator);
+    layout->addSpacing(6);
     layout->addWidget(m_clearButton);
     layout->addWidget(m_followButton);
     layout->addStretch(1);
@@ -391,6 +413,9 @@ QWidget *MainWindow::buildSidePanel()
     // Вертикальная рейка значков вместо полосы вкладок: она читается при любой ширине
     // панели и не вносит в оформление лишних рамок.
     auto *rail = new QWidget(panel);
+    // Линия между рейкой и содержимым панели (правило #panelRail в QSS): без неё при
+    // узкой панели столбец значков и её содержимое сливаются в один столбец кнопок.
+    rail->setObjectName(QStringLiteral("panelRail"));
     auto *railLayout = new QVBoxLayout(rail);
     railLayout->setContentsMargins(4, 6, 4, 6);
     railLayout->setSpacing(4);
@@ -735,6 +760,7 @@ void MainWindow::applyChannelState(ChannelState state, const QString &detail)
 
     m_interfaceBar->setChannelState(state, detail);
     m_sendBar->setSendEnabled(open);
+    updatePlaceholder(state);
 
     if (m_macrosPanel)
         m_macrosPanel->setSendEnabled(open);
@@ -745,6 +771,34 @@ void MainWindow::applyChannelState(ChannelState state, const QString &detail)
 
     if (open)
         m_sendBar->focusInput();
+}
+
+void MainWindow::updatePlaceholder(ChannelState state)
+{
+    // Просмотр записанного лога — своё, отдельное состояние: интерфейс там ни при чём, а
+    // подпись «выберите интерфейс» под открытым файлом сбивала бы с толку.
+    if (m_logViewBar && m_logViewBar->isVisible()) {
+        m_terminal->setPlaceholderText(tr("This log file is empty"));
+        return;
+    }
+
+    switch (state) {
+    case ChannelState::Open:
+        m_terminal->setPlaceholderText(tr("Interface is open — waiting for data"));
+        break;
+    case ChannelState::Opening:
+        m_terminal->setPlaceholderText(tr("Opening the interface…"));
+        break;
+    case ChannelState::Error:
+    case ChannelState::Unavailable:
+        // Причина уже сказана в строке состояния и в подсказке кружка; повторять её здесь
+        // значило бы сказать одно и то же трижды. Здесь — что делать дальше.
+        m_terminal->setPlaceholderText(tr("The interface could not be opened"));
+        break;
+    case ChannelState::Closed:
+        m_terminal->setPlaceholderText(tr("Choose an interface above to see its output here"));
+        break;
+    }
 }
 
 void MainWindow::updateStatistics()
@@ -833,6 +887,7 @@ void MainWindow::showLogFile(const QString &filePath)
     m_logViewLabel->setText(tr("Viewing log: %1").arg(QFileInfo(filePath).fileName()));
     m_logViewLabel->setToolTip(filePath);
     m_logViewBar->show();
+    updatePlaceholder(m_context.session ? m_context.session->state() : ChannelState::Closed);
 }
 
 void MainWindow::returnToLiveView()
@@ -842,6 +897,7 @@ void MainWindow::returnToLiveView()
 
     m_terminal->setBuffer(m_context.session->buffer());
     m_logViewBar->hide();
+    updatePlaceholder(m_context.session->state());
 
     if (m_logBuffer)
         m_logBuffer->clear();

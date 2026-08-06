@@ -627,6 +627,32 @@ void TerminalView::onCleared()
     viewport()->update();
 }
 
+void TerminalView::setPlaceholderText(const QString &text)
+{
+    if (m_placeholder == text)
+        return;
+    m_placeholder = text;
+    if (!m_buffer || m_visible.empty())
+        viewport()->update();
+}
+
+void TerminalView::drawPlaceholder(QPainter &painter, const ThemeColors &colors) const
+{
+    // Фильтр, скрывший всё до последней строки, объясняется точнее общей подсказки: данные
+    // есть, их просто не видно, и снять это одним щелчком там же, откуда включили.
+    const bool hiddenByFilter =
+        m_filterEnabled && m_buffer && m_buffer->lineCount() > 0;
+    const QString text = hiddenByFilter ? tr("No lines match the filter") : m_placeholder;
+    if (text.isEmpty())
+        return;
+
+    // Шрифт интерфейса, а не терминала: это подпись программы, а не пришедшие данные, и
+    // моноширинный набор выдал бы её за строку вывода.
+    painter.setFont(font());
+    painter.setPen(colors.textMuted);
+    painter.drawText(viewport()->rect(), Qt::AlignCenter, text);
+}
+
 void TerminalView::paintEvent(QPaintEvent *event)
 {
     QPainter painter(viewport());
@@ -635,8 +661,10 @@ void TerminalView::paintEvent(QPaintEvent *event)
     const ThemeColors colors = m_theme ? m_theme->colors() : ThemeColors{};
     painter.fillRect(event->rect(), colors.base);
 
-    if (!m_buffer || m_visible.empty())
+    if (!m_buffer || m_visible.empty()) {
+        drawPlaceholder(painter, colors);
         return;
+    }
 
     const int visibleRows = viewport()->height() / m_lineHeight + 2;
     const int gutter = gutterWidth();
