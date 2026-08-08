@@ -338,29 +338,24 @@ QWidget *MainWindow::buildTerminalToolbar()
     connect(m_followButton, &QToolButton::toggled,
             m_terminal, &TerminalView::setFollowTail);
 
-    // Разделитель, а не просто промежуток: слева переключатели того, как показан вывод,
-    // справа действия над ним. Промежутка в 8 px для этого мало — рядом с промежутком в
-    // 2 px между кнопками он читается как случайный, и все пять кнопок выглядят одной
-    // группой.
+    // Две группы, разведённые растяжкой по краям полосы: слева переключатели того, **как**
+    // показан вывод, справа действия **над** выводом. Прежде они стояли рядом и делились
+    // рисованной линией — при пустой правой половине полосы это выглядело так, будто
+    // кнопки просто не поместились. Растяжка разделяет их надёжнее любой линии
+    // (гештальт-принцип близости) и заодно ставит частые действия к тому краю, куда рука
+    // тянется за полосой прокрутки.
     //
-    // Обычный QFrame::VLine здесь не годится: он рисуется палитрой стиля, а не цветом
-    // темы, и на тёмной теме получается вдавленная двухцветная канавка вместо линии.
-    auto *separator = new QFrame(bar);
-    separator->setObjectName(QStringLiteral("toolSeparator"));
-    separator->setFixedWidth(1);
-
+    // «Очистить» — крайняя справа, как и просил владелец. Она единственная здесь
+    // необратима, и место в углу отделяет её от переключателей, которые жмут не глядя.
     auto *layout = new QHBoxLayout(bar);
     layout->setContentsMargins(8, 3, 8, 3);
     layout->setSpacing(2);
     layout->addWidget(m_hexButton);
     layout->addWidget(m_timestampButton);
     layout->addWidget(m_directionButton);
-    layout->addSpacing(6);
-    layout->addWidget(separator);
-    layout->addSpacing(6);
-    layout->addWidget(m_clearButton);
-    layout->addWidget(m_followButton);
     layout->addStretch(1);
+    layout->addWidget(m_followButton);
+    layout->addWidget(m_clearButton);
 
     return bar;
 }
