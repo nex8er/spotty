@@ -46,7 +46,10 @@ SendBar::SendBar(HistoryStore *history, QWidget *parent)
 
     m_input = new QLineEdit(this);
     m_input->setPlaceholderText(tr("Data to send"));
-    m_input->setClearButtonEnabled(true);
+    // Кнопки очистки здесь нет намеренно. Строка отправки опустошается сама после
+    // каждой отправки, а до неё содержимое стирается тем же движением, каким набирается,
+    // — Ctrl+A и любая клавиша. Крестик занимал место у правого края поля, куда уезжает
+    // курсор при длинной команде, и убирал ровно то, что человек только что набрал.
     // Фильтр нужен потому, что Tab и стрелки до keyPressEvent поля не доходят: Tab
     // перехватывает механизм перехода по фокусу, а стрелки обрабатывает сам QLineEdit.
     m_input->installEventFilter(this);
