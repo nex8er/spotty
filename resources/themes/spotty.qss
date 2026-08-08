@@ -647,15 +647,22 @@ QScrollBar:horizontal {
 
 QScrollBar::handle:vertical,
 QScrollBar::handle:horizontal {
-    background: @border;
+    background: @scrollHandle;
     border-radius: 4px;
     margin: 2px;
-    min-height: 28px;
-    min-width: 28px;
+    /* Наименьшая длина ползунка. В буфере на сотни тысяч строк доля видимого стремится к
+       нулю, и без предела ползунок вырождается в пару пикселей, за которые невозможно
+       взяться. Тридцать шесть — примерно полтора пальца на трекпаде. */
+    min-height: 36px;
+    min-width: 36px;
 }
 
 QScrollBar::handle:hover {
-    background: @textMuted;
+    background: @scrollHandleHover;
+}
+
+QScrollBar::handle:pressed {
+    background: @scrollHandleHover;
 }
 
 QScrollBar::add-line,

@@ -338,6 +338,18 @@ private:
     ViewMode m_viewMode = ViewMode::Text;
     bool m_showTimestamps = false;
     bool m_showLineNumbers = false;
+
+    /**
+     * \brief Наибольшая встреченная ширина содержимого, знакомест.
+     *
+     * Диапазон горизонтальной полосы только растёт: измеренный по видимому окну он менялся
+     * бы при каждой прокрутке, полоса мигала бы, и текст прыгал бы по вертикали на её
+     * высоту. Сбрасывается вместе с буфером.
+     */
+    int m_widestColumnsSeen = 0;
+
+    /// \brief Непотраченные пиксели прокрутки трекпада; см. wheelEvent().
+    int m_wheelRemainder = 0;
     bool m_relativeTimestamps = false;
     QString m_timestampFormat = QStringLiteral("HH:mm:ss.zzz");
     bool m_showDirection = true;

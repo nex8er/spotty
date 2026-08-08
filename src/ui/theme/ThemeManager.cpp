@@ -207,6 +207,12 @@ QString resolveStylesheet(QString sheet, const ThemeColors &c, const ThemeMetric
 {
     const auto px = [](int value) { return QStringLiteral("%1px").arg(value); };
     const auto pt = [](int value) { return QStringLiteral("%1pt").arg(value); };
+    // Полупрозрачность задаётся только так: QColor::name() отдаёт «#rrggbb» без альфы,
+    // а «#aarrggbb» разборщик QSS не понимает.
+    const auto rgba = [](const QColor &c, int alpha) {
+        return QStringLiteral("rgba(%1, %2, %3, %4)")
+            .arg(c.red()).arg(c.green()).arg(c.blue()).arg(alpha);
+    };
 
     QList<QPair<QString, QString>> substitutions = {
         {QStringLiteral("@window"), c.window.name(QColor::HexRgb)},
@@ -226,6 +232,12 @@ QString resolveStylesheet(QString sheet, const ThemeColors &c, const ThemeMetric
         {QStringLiteral("@pressed"), c.pressed.name(QColor::HexRgb)},
         {QStringLiteral("@errorText"), c.errorText.name(QColor::HexRgb)},
         {QStringLiteral("@okText"), c.okText.name(QColor::HexRgb)},
+
+        // Ползунок полосы прокрутки полупрозрачен: он лежит поверх вывода, и сплошная
+        // плашка закрывала бы последние знаки длинных строк. Под курсором становится
+        // заметнее — это единственный намёк, что за него можно взяться.
+        {QStringLiteral("@scrollHandleHover"), rgba(c.textMuted, 210)},
+        {QStringLiteral("@scrollHandle"), rgba(c.textMuted, 105)},
 
         {QStringLiteral("@radius"), px(m.radius)},
         {QStringLiteral("@cardRadius"), px(m.cardRadius)},

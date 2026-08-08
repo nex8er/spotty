@@ -153,6 +153,21 @@ void TerminalView::wheelEvent(QWheelEvent *event)
     // кегль в терминалах и редакторах. Проверять раскладку не нужно: модификатор
     // приходит уже разобранным.
     if (!event->modifiers().testFlag(Qt::ControlModifier)) {
+        // Трекпад и «умные» мыши сообщают прокрутку в пикселях, а не щелчками колеса.
+        // Штатная обработка переводит их в целые строки и теряет остаток, отчего плавное
+        // движение пальцем идёт рывками по три строки. Копим остаток сами.
+        const int pixels = event->pixelDelta().y();
+        if (pixels != 0 && m_lineHeight > 0) {
+            m_wheelRemainder += pixels;
+            const int lines = m_wheelRemainder / m_lineHeight;
+            if (lines != 0) {
+                m_wheelRemainder -= lines * m_lineHeight;
+                verticalScrollBar()->setValue(verticalScrollBar()->value() - lines);
+            }
+            event->accept();
+            return;
+        }
+
         QAbstractScrollArea::wheelEvent(event);
         return;
     }
@@ -582,7 +597,21 @@ void TerminalView::updateScrollBars()
         }
     }
 
-    const int contentWidth = kLeftMargin + gutterWidth() + widestColumns * m_charWidth;
+    // Ширина только растёт, пока буфер не очистили.
+    //
+    // Без этого горизонтальная полоса дёргалась: измеренная по видимому окну ширина
+    // меняется при каждой прокрутке и при каждой новой строке, полоса то появлялась, то
+    // исчезала, viewport на её высоту то сжимался, то разжимался — и весь текст прыгал по
+    // вертикали. Причём тем сильнее, чем быстрее шли данные, то есть ровно тогда, когда
+    // за выводом и следят.
+    //
+    // Плата — полоса остаётся широкой после того, как единственная длинная строка уехала
+    // за край буфера. Предсказуемая раскладка этого стоит: диапазон сбрасывается при
+    // очистке, и другого способа получить дрожание нет.
+    m_widestColumnsSeen = qMax(m_widestColumnsSeen, widestColumns);
+
+    const int contentWidth =
+        kLeftMargin + gutterWidth() + m_widestColumnsSeen * m_charWidth;
     horizontalScrollBar()->setRange(0, qMax(0, contentWidth - viewport()->width()));
     horizontalScrollBar()->setPageStep(viewport()->width());
 }
@@ -697,6 +726,10 @@ void TerminalView::onTrimmed(qint64 newFirstLineNumber)
 
 void TerminalView::onCleared()
 {
+    // Вместе с содержимым сбрасывается и запомненная ширина: иначе полоса прокрутки
+    // осталась бы от строк, которых уже нет.
+    m_widestColumnsSeen = 0;
+    m_wheelRemainder = 0;
     m_visible.clear();
     m_totalRows = 0;
     m_currentMatch = -1;
