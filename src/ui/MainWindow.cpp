@@ -13,6 +13,7 @@
 #include "OverlayLayer.h"
 #include "PanelHostImpl.h"
 #include "PanelPluginRegistry.h"
+#include "theme/EmbeddedFonts.h"
 #include "theme/MdiIcons.h"
 
 #include <HistoryStore.h>
@@ -604,9 +605,18 @@ void MainWindow::applySettings()
 {
     // Единственное место, где настройка превращается в действие. Добавление новой — одна
     // строка здесь и одна в структуре AppSettings.
-    QFont font = m_settings.fontFamily.isEmpty()
-                     ? QFontDatabase::systemFont(QFontDatabase::FixedFont)
-                     : QFont(m_settings.fontFamily);
+    // Пустое значение означает «шрифт по умолчанию», и по умолчанию теперь встроенный:
+    // одинаковая картинка вывода на всех трёх системах и глифы Nerd Font, которых нет ни
+    // в одном системном моноширинном. Системный остаётся запасным путём — если ресурс не
+    // загрузился, терминал должен работать, просто выглядеть иначе.
+    QFont font;
+    if (!m_settings.fontFamily.isEmpty()) {
+        font = QFont(m_settings.fontFamily);
+    } else if (const QString embedded = EmbeddedFonts::monospaceFamily(); !embedded.isEmpty()) {
+        font = QFont(embedded);
+    } else {
+        font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    }
     if (m_settings.fontSize > 0)
         font.setPointSize(m_settings.fontSize);
     m_terminal->setTerminalFont(font);

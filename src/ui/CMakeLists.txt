@@ -59,6 +59,8 @@ qt_add_executable(spotty
     dialogs/SettingsDialog.h
     theme/AnsiPalette.cpp
     theme/AnsiPalette.h
+    theme/EmbeddedFonts.cpp
+    theme/EmbeddedFonts.h
     theme/MdiIcons.cpp
     theme/MdiIcons.h
     theme/PlatformChrome.h
@@ -83,6 +85,13 @@ qt_add_resources(spotty "spotty-resources"
     BASE "${CMAKE_SOURCE_DIR}/resources"
     FILES
         "${CMAKE_SOURCE_DIR}/resources/fonts/materialdesignicons-webfont.ttf"
+        # Моноширинный шрифт терминала. Встроен, а не взят системным: Menlo, Consolas и
+        # то, что окажется в Linux, дают три разные картинки одного вывода, а глифов Nerd
+        # Font нет ни в одном из них — вывод прошивки с рамками превращается в частокол
+        # пустых прямоугольников. Начертание Mono выбрано ради отсутствия лигатур: в
+        # HEX-дампе склейка `!=` в один знак ломает подсчёт столбцов.
+        "${CMAKE_SOURCE_DIR}/resources/fonts/FiraCodeNerdFontMono-Regular.ttf"
+        "${CMAKE_SOURCE_DIR}/resources/fonts/FiraCodeNerdFontMono-Bold.ttf"
         # Галочка флажка. Отдельным файлом, а не глифом из шрифта значков: подставить
         # изображение в ::indicator можно только через url(), а нарисовать глиф шрифтом
         # таблица стилей не умеет.

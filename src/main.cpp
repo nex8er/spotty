@@ -5,6 +5,7 @@
 #include "ui/AppContext.h"
 #include "ui/MainWindow.h"
 #include "ui/PanelPluginRegistry.h"
+#include "ui/theme/EmbeddedFonts.h"
 #include "ui/theme/MdiIcons.h"
 #include "ui/theme/ThemeManager.h"
 
@@ -123,7 +124,8 @@ void migrateLegacyPluginSettings(spotty::SettingsStore &store)
  *    завершился, не построив интерфейс впустую.
  * 6. Переводы — до создания виджетов: строки берутся при их построении.
  * 7. Оформление — тоже до виджетов, иначе окно моргнёт стилем по умолчанию.
- * 8. Шрифт значков — до построения окна, иначе кнопки останутся пустыми.
+ * 8. Шрифты — до построения окна: без шрифта значков кнопки останутся пустыми, а
+ *    терминал успеет посчитать метрики системным шрифтом вместо встроенного.
  * 9. Плагины — до реестров, которые разбирают их роли.
  * 10. Реестр панелей — вторая фаза загрузки; после неё PluginManager::finishLoading()
  *     заносит в отчёт всё, чью роль не признал никто.
@@ -175,6 +177,7 @@ int main(int argc, char *argv[])
     theme.setTheme(spotty::ThemeManager::themeFromString(appSettings.theme));
 
     spotty::MdiIcons::initialize();
+    spotty::EmbeddedFonts::initialize();
 
     spotty::PluginManager plugins;
     plugins.load();
