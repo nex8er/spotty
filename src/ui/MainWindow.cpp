@@ -324,6 +324,7 @@ QWidget *MainWindow::buildTerminalToolbar()
     // настройка жила только в диалоге, хотя выключают её как раз по ходу работы — когда
     // устройство отвечает на каждую команду и собственные посылки удваивают вывод.
     m_echoButton = makeButton(tr("Echo sent data into the terminal"), true);
+    m_lineNumberButton = makeButton(tr("Show line numbers"), true);
     m_clearButton = makeButton(tr("Clear the terminal"), false);
     m_followButton = makeButton(tr("Follow output"), true);
     m_followButton->setChecked(true);
@@ -350,6 +351,20 @@ QWidget *MainWindow::buildTerminalToolbar()
         m_settings.localEcho = enabled;
         m_settings.save(*m_context.settings);
     });
+    connect(m_lineNumberButton, &QToolButton::toggled, this, [this](bool show) {
+        m_terminal->setShowLineNumbers(show);
+        m_settings.showLineNumbers = show;
+        m_settings.save(*m_context.settings);
+    });
+    // Пункт того же назначения есть в контекстном меню терминала. Кнопка обязана
+    // отразить переключение оттуда, иначе она показывала бы одно, а терминал делал
+    // другое. Сигналы кнопки при этом глушим: иначе она вернула бы значение обратно.
+    connect(m_terminal, &TerminalView::showLineNumbersChanged, this, [this](bool show) {
+        const QSignalBlocker blocker(m_lineNumberButton);
+        m_lineNumberButton->setChecked(show);
+        m_settings.showLineNumbers = show;
+        m_settings.save(*m_context.settings);
+    });
     connect(m_clearButton, &QToolButton::clicked, this, [this] {
         if (m_context.session)
             m_context.session->buffer()->clear();
@@ -373,6 +388,7 @@ QWidget *MainWindow::buildTerminalToolbar()
     layout->addWidget(m_timestampButton);
     layout->addWidget(m_directionButton);
     layout->addWidget(m_echoButton);
+    layout->addWidget(m_lineNumberButton);
     layout->addStretch(1);
     layout->addWidget(m_followButton);
     layout->addWidget(m_clearButton);
@@ -632,6 +648,7 @@ void MainWindow::applySettings()
     m_terminal->setRelativeTimestamps(m_settings.relativeTimestamps);
     m_terminal->setTimestampFormat(m_settings.timestampFormat);
     m_terminal->setShowDirection(m_settings.showDirection);
+    m_terminal->setShowLineNumbers(m_settings.showLineNumbers);
     m_terminal->setHexBytesPerRow(m_settings.hexBytesPerRow);
     m_terminal->setAnsiPalette(m_settings.ansiPalette);
     m_terminal->setViewMode(m_settings.viewMode == QLatin1String("hex")
@@ -644,10 +661,12 @@ void MainWindow::applySettings()
     const QSignalBlocker timestampBlocker(m_timestampButton);
     const QSignalBlocker directionBlocker(m_directionButton);
     const QSignalBlocker echoBlocker(m_echoButton);
+    const QSignalBlocker numbersBlocker(m_lineNumberButton);
     m_hexButton->setChecked(m_settings.viewMode == QLatin1String("hex"));
     m_timestampButton->setChecked(m_settings.showTimestamps);
     m_directionButton->setChecked(m_settings.showDirection);
     m_echoButton->setChecked(m_settings.localEcho);
+    m_lineNumberButton->setChecked(m_settings.showLineNumbers);
 
     if (m_context.session) {
         m_context.session->buffer()->setMaxLines(m_settings.maxLines);
@@ -1033,6 +1052,7 @@ void MainWindow::updateIcons()
     m_timestampButton->setIcon(MdiIcons::icon(mdi::ClockOutline, kToolGlyphSize));
     m_directionButton->setIcon(MdiIcons::icon(mdi::SwapHorizontal, kToolGlyphSize));
     m_echoButton->setIcon(MdiIcons::icon(mdi::Keyboard, kToolGlyphSize));
+    m_lineNumberButton->setIcon(MdiIcons::icon(mdi::FormatListNumbered, kToolGlyphSize));
     m_clearButton->setIcon(MdiIcons::icon(mdi::Broom, kToolGlyphSize));
     m_followButton->setIcon(MdiIcons::icon(mdi::ArrowCollapseDown, kToolGlyphSize));
 }

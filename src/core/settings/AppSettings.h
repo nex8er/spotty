@@ -72,6 +72,9 @@ struct AppSettings
 
     bool showDirection = true;
 
+    /// \brief Показывать номера строк в колонке слева.
+    bool showLineNumbers = false;
+
     /// \brief Отражать отправленное в терминал.
     bool localEcho = true;
 

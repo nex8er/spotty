@@ -50,6 +50,9 @@ constexpr int kGutterGap = 1;
 /// \brief Ширина отметки направления, в знакоместах: «> », «< », «* ».
 constexpr int kDirectionWidth = 2;
 
+/// \brief Наименьшая ширина колонки номеров, знакомест под цифры.
+constexpr int kMinLineNumberDigits = 5;
+
 /// \brief Насколько приглушается цвет правила подсветки под текстом.
 constexpr int kHighlightAlpha = 64;
 
@@ -514,9 +517,35 @@ int TerminalView::timestampColumns() const
     return (m_relativeTimestamps ? 9 : int(m_timestampFormat.size())) + 1;
 }
 
+void TerminalView::setShowLineNumbers(bool show)
+{
+    if (m_showLineNumbers == show)
+        return;
+    m_showLineNumbers = show;
+    updateScrollBars();
+    viewport()->update();
+}
+
+int TerminalView::lineNumberColumns() const
+{
+    if (!m_showLineNumbers)
+        return 0;
+
+    // Ширина считается по наибольшему номеру, но не уже пяти знакомест. Иначе колонка
+    // расширялась бы на каждом переходе через степень десяти, и весь текст справа
+    // прыгал бы вбок посреди работы — ровно в тот момент, когда за ним следят.
+    int digits = kMinLineNumberDigits;
+    if (m_buffer) {
+        const qint64 largest = qMax(qint64(1), m_buffer->nextLineNumber());
+        digits = qMax(digits, int(QString::number(largest).size()));
+    }
+    // Плюс знакоместо на пробел, как и у метки времени.
+    return digits + 1;
+}
+
 int TerminalView::gutterWidth() const
 {
-    int columns = 0;
+    int columns = lineNumberColumns();
     if (m_showTimestamps)
         columns += timestampColumns();
     if (m_showDirection)
@@ -753,6 +782,17 @@ void TerminalView::paintEvent(QPaintEvent *event)
         if (row == 0) {
             int gutterX = kLeftMargin;
             painter.setPen(colors.textMuted);
+
+            if (m_showLineNumbers) {
+                const int columns = lineNumberColumns();
+                // Номер прижат вправо внутри своей колонки: у выключенного по левому краю
+                // столбца разной длины единицы не выстраиваются друг под другом, и
+                // сравнить два номера глазами становится нельзя.
+                const QString number = QString::number(lineNumber + 1)
+                                           .rightJustified(columns - 1, u' ');
+                painter.drawText(gutterX, textY, number);
+                gutterX += columns * m_charWidth;
+            }
 
             if (m_showTimestamps) {
                 painter.drawText(gutterX, textY, timestampText(*line, lineNumber));
@@ -1108,6 +1148,18 @@ void TerminalView::contextMenuEvent(QContextMenuEvent *event)
 
     menu.addAction(tr("Select All"), this, &TerminalView::selectAll)
         ->setShortcut(QKeySequence::SelectAll);
+
+    menu.addSeparator();
+
+    // Нумерация доступна и отсюда, и кнопкой в панели: включают её нечасто и обычно
+    // тогда, когда взгляд уже в выводе, а не на панели.
+    QAction *numbers = menu.addAction(tr("Line numbers"));
+    numbers->setCheckable(true);
+    numbers->setChecked(m_showLineNumbers);
+    connect(numbers, &QAction::toggled, this, [this](bool on) {
+        setShowLineNumbers(on);
+        Q_EMIT showLineNumbersChanged(on);
+    });
 
     menu.addSeparator();
     menu.addAction(tr("Scroll to Bottom"), this, &TerminalView::scrollToBottom);

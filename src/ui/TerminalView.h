@@ -85,6 +85,16 @@ public:
     bool showTimestamps() const { return m_showTimestamps; }
 
     /**
+     * \brief Показывать номера строк в колонке слева.
+     *
+     * Номера сквозные и совпадают с нумерацией буфера, а не с положением на экране: буфер
+     * подрезается спереди, и «первая видимая строка» — это не первая строка сеанса. Так
+     * номер отвечает на вопрос «сколько всего пришло», а не «сколько влезло в окно».
+     */
+    void setShowLineNumbers(bool show);
+    bool showLineNumbers() const { return m_showLineNumbers; }
+
+    /**
      * \brief Показывать метку времени относительно предыдущей строки, а не абсолютную.
      *
      * Разница между строками отвечает на вопрос «сколько устройство думало», ради
@@ -199,6 +209,15 @@ Q_SIGNALS:
      */
     void terminalFontSizeChanged(int pointSize);
 
+    /**
+     * \brief Нумерация строк переключена из контекстного меню.
+     *
+     * Кнопка в панели управления и пункт меню правят одно и то же состояние, поэтому та
+     * из них, что не была нажата, обязана узнать об изменении — иначе кнопка показывала
+     * бы одно, а терминал делал другое.
+     */
+    void showLineNumbersChanged(bool show);
+
 protected:
     void paintEvent(QPaintEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
@@ -292,6 +311,9 @@ private:
     /// \brief Ширина колонок слева от содержимого.
     int gutterWidth() const;
 
+    /// \brief Ширина колонки номеров в знакоместах; 0, когда номера скрыты.
+    int lineNumberColumns() const;
+
     /// \brief Текст колонки меток времени для строки.
     QString timestampText(const TerminalBuffer::Line &line, qint64 lineNumber) const;
 
@@ -315,6 +337,7 @@ private:
 
     ViewMode m_viewMode = ViewMode::Text;
     bool m_showTimestamps = false;
+    bool m_showLineNumbers = false;
     bool m_relativeTimestamps = false;
     QString m_timestampFormat = QStringLiteral("HH:mm:ss.zzz");
     bool m_showDirection = true;
