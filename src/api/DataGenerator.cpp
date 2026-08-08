@@ -6,6 +6,8 @@
 
 #include <QRandomGenerator>
 
+#include <cmath>
+
 namespace spotty {
 
 namespace {
@@ -76,6 +78,39 @@ QByteArray DataGenerator::build(quint64 counter, int rampOffset) const
         for (int i = 0; i < m_length; ++i)
             result.append(kAlphabet[(int(counter) + i) % kAlphabetSize]);
         break;
+
+    case Pattern::Sine:
+    case Pattern::Square:
+    case Pattern::Triangle:
+    case Pattern::Sawtooth: {
+        // Фаза от 0 до 1 внутри периода. Считается по номеру посылки, а не по времени:
+        // период отправки операционная система не выдерживает точно, и форма, привязанная
+        // к часам, плыла бы от каждого опоздания таймера.
+        const double phase = double(counter % quint64(m_wavePeriod)) / double(m_wavePeriod);
+
+        double unit = 0.0; // 0…1
+        switch (m_pattern) {
+        case Pattern::Sine:
+            unit = (std::sin(phase * 2.0 * M_PI) + 1.0) / 2.0;
+            break;
+        case Pattern::Square:
+            unit = phase < 0.5 ? 0.0 : 1.0;
+            break;
+        case Pattern::Triangle:
+            unit = phase < 0.5 ? phase * 2.0 : (1.0 - phase) * 2.0;
+            break;
+        case Pattern::Sawtooth:
+            unit = phase;
+            break;
+        default:
+            break;
+        }
+
+        // Три знака после запятой: меньше — и синус превращается в лестницу на графике,
+        // больше — и строка вырастает без всякой пользы для глаза.
+        result = QByteArray::number(unit * m_amplitude, 'f', 3);
+        break;
+    }
     }
 
     return result;
@@ -85,6 +120,30 @@ void DataGenerator::reset()
 {
     m_counter = 0;
     m_rampOffset = 0;
+}
+
+bool DataGenerator::isWaveform(Pattern pattern)
+{
+    switch (pattern) {
+    case Pattern::Sine:
+    case Pattern::Square:
+    case Pattern::Triangle:
+    case Pattern::Sawtooth:
+        return true;
+    default:
+        return false;
+    }
+}
+
+void DataGenerator::setWavePeriod(int samples)
+{
+    // Меньше двух посылок на период — это уже не форма, а чередование двух чисел.
+    m_wavePeriod = qMax(2, samples);
+}
+
+void DataGenerator::setAmplitude(double amplitude)
+{
+    m_amplitude = amplitude;
 }
 
 QString DataGenerator::patternName(Pattern pattern)
@@ -98,6 +157,14 @@ QString DataGenerator::patternName(Pattern pattern)
         return tr("Ramp 00..FF");
     case Pattern::AsciiText:
         return tr("ASCII text");
+    case Pattern::Sine:
+        return tr("Sine");
+    case Pattern::Square:
+        return tr("Square wave");
+    case Pattern::Triangle:
+        return tr("Triangle wave");
+    case Pattern::Sawtooth:
+        return tr("Sawtooth wave");
     case Pattern::Counter:
         break;
     }

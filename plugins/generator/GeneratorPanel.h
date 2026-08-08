@@ -11,6 +11,7 @@ class QComboBox;
 class QLabel;
 class QPlainTextEdit;
 class QPushButton;
+class QDoubleSpinBox;
 class QSpinBox;
 class QTimer;
 
@@ -49,6 +50,8 @@ private:
     QComboBox *m_pattern = nullptr;
     QSpinBox *m_length = nullptr;
     QSpinBox *m_fixedByte = nullptr;
+    QSpinBox *m_wavePeriod = nullptr;
+    QDoubleSpinBox *m_amplitude = nullptr;
     QComboBox *m_interval = nullptr;
     QPlainTextEdit *m_preview = nullptr;
     QPushButton *m_sendOnce = nullptr;

@@ -14,6 +14,7 @@
 #include <QLabel>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QDoubleSpinBox>
 #include <QSpinBox>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -28,6 +29,12 @@ constexpr DataGenerator::Pattern kPatterns[] = {
     DataGenerator::Pattern::Random,
     DataGenerator::Pattern::Fixed,
     DataGenerator::Pattern::AsciiText,
+    // Формы сигнала идут последними: они выдают не байты, а число строкой, и смешивать
+    // их с прочими видами в начале списка значило бы прятать эту разницу.
+    DataGenerator::Pattern::Sine,
+    DataGenerator::Pattern::Square,
+    DataGenerator::Pattern::Triangle,
+    DataGenerator::Pattern::Sawtooth,
 };
 
 /// \brief Периоды потоковой отправки, та же логарифмическая шкала, что у макросов.
@@ -61,6 +68,21 @@ GeneratorPanel::GeneratorPanel(IPanelHost *panelHost, QWidget *parent)
     m_fixedByte->setDisplayIntegerBase(16);
     m_fixedByte->setPrefix(QStringLiteral("0x"));
     form->addRow(tr("Byte value"), m_fixedByte);
+
+    m_wavePeriod = new QSpinBox(this);
+    m_wavePeriod->setRange(2, 10000);
+    m_wavePeriod->setValue(32);
+    m_wavePeriod->setSuffix(tr(" packets"));
+    m_wavePeriod->setToolTip(tr("Period counted in packets, not milliseconds: the send "
+                                "interval is not kept exactly by the operating system, and "
+                                "a shape tied to the clock would drift."));
+    form->addRow(tr("Wave period"), m_wavePeriod);
+
+    m_amplitude = new QDoubleSpinBox(this);
+    m_amplitude->setRange(0.001, 1'000'000.0);
+    m_amplitude->setDecimals(3);
+    m_amplitude->setValue(100.0);
+    form->addRow(tr("Amplitude"), m_amplitude);
 
     m_interval = new QComboBox(this);
     for (const int interval : kIntervalsMs)
@@ -110,11 +132,19 @@ GeneratorPanel::GeneratorPanel(IPanelHost *panelHost, QWidget *parent)
         // Значение байта имеет смысл только для одного вида данных — прячем его, чтобы
         // не создавать ощущение, будто оно влияет на остальные.
         const auto pattern = DataGenerator::Pattern(m_pattern->currentData().toInt());
+        const bool wave = DataGenerator::isWaveform(pattern);
         m_fixedByte->setEnabled(pattern == DataGenerator::Pattern::Fixed);
+        // Длина посылки на формы сигнала не влияет — её задаёт само значение. Оставить
+        // поле доступным значило бы обещать действие, которого не будет.
+        m_length->setEnabled(!wave);
+        m_wavePeriod->setEnabled(wave);
+        m_amplitude->setEnabled(wave);
         onParameterChanged();
     });
     connect(m_length, &QSpinBox::valueChanged, this, onParameterChanged);
     connect(m_fixedByte, &QSpinBox::valueChanged, this, onParameterChanged);
+    connect(m_wavePeriod, &QSpinBox::valueChanged, this, onParameterChanged);
+    connect(m_amplitude, &QDoubleSpinBox::valueChanged, this, onParameterChanged);
 
     connect(m_sendOnce, &QPushButton::clicked, this, &GeneratorPanel::sendOnce);
     connect(m_stream, &QPushButton::toggled, this, &GeneratorPanel::toggleStream);
@@ -127,6 +157,8 @@ GeneratorPanel::GeneratorPanel(IPanelHost *panelHost, QWidget *parent)
     });
 
     m_fixedByte->setEnabled(false);
+    m_wavePeriod->setEnabled(false);
+    m_amplitude->setEnabled(false);
     applySettingsToGenerator();
     updatePreview();
     setSendEnabled(false);
@@ -137,12 +169,20 @@ void GeneratorPanel::applySettingsToGenerator()
     m_generator.setPattern(DataGenerator::Pattern(m_pattern->currentData().toInt()));
     m_generator.setLength(m_length->value());
     m_generator.setFixedByte(quint8(m_fixedByte->value()));
+    m_generator.setWavePeriod(m_wavePeriod->value());
+    m_generator.setAmplitude(m_amplitude->value());
 }
 
 void GeneratorPanel::updatePreview()
 {
     const QByteArray data = m_generator.preview();
-    m_preview->setPlainText(DataCodec::toHex(data));
+
+    // Форму сигнала показываем как есть: это число строкой, и шестнадцатеричная запись
+    // «37 33 2e 32 34 35» не отвечает ни на один вопрос, который к ней задают.
+    const auto pattern = DataGenerator::Pattern(m_pattern->currentData().toInt());
+    m_preview->setPlainText(DataGenerator::isWaveform(pattern)
+                                ? QString::fromUtf8(data)
+                                : DataCodec::toHex(data));
 }
 
 void GeneratorPanel::sendOnce()

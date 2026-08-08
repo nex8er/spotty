@@ -4,6 +4,8 @@
  */
 #include <spotty/data/DataGenerator.h>
 
+#include <QSet>
+
 #include <gtest/gtest.h>
 
 #include <set>
@@ -171,4 +173,72 @@ TEST(DataGenerator, PatternNamesAreNotEmpty)
                                DataGenerator::Pattern::AsciiText}) {
         EXPECT_FALSE(DataGenerator::patternName(pattern).isEmpty());
     }
+}
+
+// --- Формы сигнала --------------------------------------------------------------------
+
+TEST(DataGenerator, SineSweepsTheWholeAmplitude)
+{
+    DataGenerator generator;
+    generator.setPattern(DataGenerator::Pattern::Sine);
+    generator.setWavePeriod(4);
+    generator.setAmplitude(100.0);
+
+    double lowest = 1e9;
+    double highest = -1e9;
+    for (int i = 0; i < 4; ++i) {
+        const double value = generator.generate().toDouble();
+        lowest = qMin(lowest, value);
+        highest = qMax(highest, value);
+    }
+
+    // Синус обязан дойти до обоих краёв размаха, иначе форма на графике окажется срезанной.
+    EXPECT_NEAR(lowest, 0.0, 0.01);
+    EXPECT_NEAR(highest, 100.0, 0.01);
+}
+
+TEST(DataGenerator, SquareHasOnlyTwoLevels)
+{
+    DataGenerator generator;
+    generator.setPattern(DataGenerator::Pattern::Square);
+    generator.setWavePeriod(4);
+    generator.setAmplitude(10.0);
+
+    QSet<QString> levels;
+    for (int i = 0; i < 8; ++i)
+        levels.insert(QString::fromUtf8(generator.generate()));
+
+    // Меандр — это два уровня и ничего между ними.
+    EXPECT_EQ(levels.size(), 2);
+}
+
+TEST(DataGenerator, SawtoothResetsAfterThePeriod)
+{
+    DataGenerator generator;
+    generator.setPattern(DataGenerator::Pattern::Sawtooth);
+    generator.setWavePeriod(4);
+    generator.setAmplitude(100.0);
+
+    const double first = generator.generate().toDouble();
+    for (int i = 0; i < 3; ++i)
+        generator.generate();
+    const double afterPeriod = generator.generate().toDouble();
+
+    EXPECT_DOUBLE_EQ(first, afterPeriod);
+}
+
+TEST(DataGenerator, WavePeriodIsClampedToTwo)
+{
+    DataGenerator generator;
+    generator.setWavePeriod(0);
+    // Меньше двух посылок на период — уже не форма, а чередование двух чисел.
+    EXPECT_EQ(generator.wavePeriod(), 2);
+}
+
+TEST(DataGenerator, WaveformFlagMatchesThePattern)
+{
+    EXPECT_TRUE(DataGenerator::isWaveform(DataGenerator::Pattern::Sine));
+    EXPECT_TRUE(DataGenerator::isWaveform(DataGenerator::Pattern::Sawtooth));
+    EXPECT_FALSE(DataGenerator::isWaveform(DataGenerator::Pattern::Counter));
+    EXPECT_FALSE(DataGenerator::isWaveform(DataGenerator::Pattern::Random));
 }
