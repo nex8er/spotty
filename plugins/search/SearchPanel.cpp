@@ -9,6 +9,9 @@
 
 #include <QCheckBox>
 #include <QColorDialog>
+#include <QIcon>
+#include <QPainter>
+#include <QPixmap>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
@@ -46,6 +49,25 @@ QColor toColor(quint32 rgb)
 quint32 fromColor(const QColor &color)
 {
     return (quint32(color.red()) << 16) | (quint32(color.green()) << 8) | quint32(color.blue());
+}
+
+/// \brief Квадратик выбранного цвета с тонкой обводкой.
+QIcon colorSwatch(const QColor &color)
+{
+    constexpr int kSwatch = 14;
+
+    QPixmap pixmap(kSwatch, kSwatch);
+    pixmap.fill(Qt::transparent);
+
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    // Обводка обязательна: без неё тёмный цвет на тёмной теме сливается с фоном ячейки, и
+    // квадратик неотличим от пустого места — ровно та неисправность, которую чиним.
+    painter.setPen(QPen(QColor(0x80, 0x80, 0x80), 1));
+    painter.setBrush(color);
+    painter.drawRoundedRect(QRectF(0.5, 0.5, kSwatch - 1, kSwatch - 1), 2, 2);
+
+    return QIcon(pixmap);
 }
 
 } // namespace
@@ -179,11 +201,12 @@ SearchPanel::SearchPanel(IPanelHost *panelHost, QWidget *parent)
         QTableWidgetItem *item = m_rules->item(row, ColumnColor);
         if (!item)
             return;
-        const QColor chosen = QColorDialog::getColor(item->background().color(), this,
-                                                     tr("Highlight colour"));
+        const QColor chosen = QColorDialog::getColor(
+            toColor(item->data(Qt::UserRole).toUInt()), this, tr("Highlight colour"));
         if (!chosen.isValid())
             return;
-        item->setBackground(chosen);
+        item->setIcon(colorSwatch(chosen));
+        item->setData(Qt::UserRole, fromColor(chosen));
         commitRules();
     });
 
@@ -285,8 +308,18 @@ void SearchPanel::appendRuleRow(const HighlightRule &rule)
 
     m_rules->setItem(row, ColumnPattern, new QTableWidgetItem(rule.pattern));
 
+    // Цвет показывается значком, а не фоном ячейки.
+    //
+    // setBackground() здесь не работает вовсе: правило `QTableView::item` из таблицы
+    // стилей задаёт фон само и отменяет то, что выставлено моделью. Та же ловушка, что с
+    // флажком, — взяв элемент под свой стиль, изображение обязан дать сам. Ячейка
+    // выглядела пустой, и выбранный цвет нельзя было увидеть, не открыв диалог заново.
+    //
+    // Значение при этом хранится в UserRole: восстанавливать цвет из пикселей значка
+    // можно, но это чтение того, что мы сами же и нарисовали.
     auto *color = new QTableWidgetItem;
-    color->setBackground(toColor(rule.color));
+    color->setIcon(colorSwatch(toColor(rule.color)));
+    color->setData(Qt::UserRole, rule.color);
     color->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
     color->setToolTip(tr("Double-click to change"));
     m_rules->setItem(row, ColumnColor, color);
@@ -319,7 +352,7 @@ void SearchPanel::commitRules()
         HighlightRule rule;
         rule.enabled = enabled->checkState() == Qt::Checked;
         rule.pattern = pattern->text();
-        rule.color = fromColor(color->background().color());
+        rule.color = color->data(Qt::UserRole).toUInt();
         rules.append(rule);
     }
 

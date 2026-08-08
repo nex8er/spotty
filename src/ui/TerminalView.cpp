@@ -13,6 +13,7 @@
 #include <QHelpEvent>
 #include <QKeyEvent>
 #include <QMenu>
+#include <QTimer>
 #include <QWheelEvent>
 #include <QMouseEvent>
 #include <QPaintEvent>
@@ -53,6 +54,20 @@ constexpr int kDirectionWidth = 2;
 /// \brief Наименьшая ширина колонки номеров, знакомест под цифры.
 constexpr int kMinLineNumberDigits = 5;
 
+/// \name Насыщенность заливки совпадений поиска
+/// Обычное совпадение подсвечивается едва заметно — их бывает много, и яркая заливка
+/// превратила бы вывод в мозаику. Текущее, наоборот, обязано выделяться из остальных.
+/// @{
+constexpr int kMatchAlpha = 90;
+constexpr int kCurrentMatchAlpha = 200;
+
+/// \brief Предел числа меток в дорожке: больше, чем пикселей, всё равно не нарисовать.
+constexpr int kMaxScrollMarkers = 2000;
+
+/// \brief Задержка пересчёта меток, мс. Обход буфера дорог, а точность здесь не нужна.
+constexpr int kMarkerRefreshMs = 250;
+/// @}
+
 /// \brief Насколько приглушается цвет правила подсветки под текстом.
 constexpr int kHighlightAlpha = 64;
 
@@ -79,6 +94,17 @@ TerminalView::TerminalView(QWidget *parent)
     setAttribute(Qt::WA_OpaquePaintEvent);
     viewport()->setCursor(Qt::IBeamCursor);
     viewport()->setMouseTracking(true);
+
+    // Своя полоса прокрутки — ради меток найденного в её дорожке.
+    m_markerBar = new ScrollMarkerBar(this);
+    setVerticalScrollBar(m_markerBar);
+
+    // Пересчёт меток отложенный: обход буфера дорог, а на глаз задержка в четверть
+    // секунды неразличима.
+    m_markerTimer = new QTimer(this);
+    m_markerTimer->setSingleShot(true);
+    m_markerTimer->setInterval(kMarkerRefreshMs);
+    connect(m_markerTimer, &QTimer::timeout, this, &TerminalView::updateScrollMarkers);
 
     setTerminalFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
 
@@ -199,6 +225,54 @@ void TerminalView::wheelEvent(QWheelEvent *event)
 
     Q_EMIT terminalFontSizeChanged(wanted);
     event->accept();
+}
+
+void TerminalView::updateScrollMarkers()
+{
+    if (!m_markerBar)
+        return;
+
+    QList<ScrollMarkerBar::Marker> markers;
+    if (!m_buffer || m_visible.empty() || (!m_searchActive && m_highlightRules.isEmpty())) {
+        m_markerBar->setMarkers(markers);
+        return;
+    }
+
+    const ThemeColors colors = m_theme ? m_theme->colors() : ThemeColors{};
+
+    // Метка ставится по номеру ряда, а не строки: полоса измеряет ряды, и в HEX-режиме
+    // одна строка занимает их несколько.
+    qint64 rowIndex = 0;
+    for (const VisibleLine &entry : m_visible) {
+        const TerminalBuffer::Line *line = m_buffer->line(entry.lineNumber);
+        if (!line) {
+            rowIndex += entry.rows;
+            continue;
+        }
+
+        if (m_searchActive && !searchMatches(line->text).isEmpty()) {
+            markers.append({int(rowIndex), colors.accent});
+        } else if (!m_highlightRules.isEmpty()) {
+            // Правила проверяются, только если совпадения поиска не нашлось: две метки на
+            // одном месте одна поверх другой ничего не добавляют, а поиск сейчас важнее —
+            // его только что запустили.
+            const int rule = m_highlightRules.match(line->text);
+            if (rule >= 0) {
+                const quint32 rgb = m_highlightRules.colorAt(rule);
+                markers.append({int(rowIndex),
+                                QColor(int((rgb >> 16) & 0xFF), int((rgb >> 8) & 0xFF),
+                                       int(rgb & 0xFF))});
+            }
+        }
+
+        rowIndex += entry.rows;
+
+        // Больше меток, чем пикселей в дорожке, не нарисовать, а обход стоит времени.
+        if (markers.size() >= kMaxScrollMarkers)
+            break;
+    }
+
+    m_markerBar->setMarkers(std::move(markers));
 }
 
 void TerminalView::updateMetrics()
@@ -598,6 +672,9 @@ int TerminalView::gutterWidth() const
 
 void TerminalView::updateScrollBars()
 {
+    if (m_markerTimer)
+        m_markerTimer->start();
+
     const int visibleRows = qMax(1, viewport()->height() / m_lineHeight);
 
     verticalScrollBar()->setRange(0, int(qMax(qint64(0), m_totalRows - visibleRows)));
@@ -878,11 +955,27 @@ void TerminalView::paintEvent(QPaintEvent *event)
         // Совпадения поиска — под текстом, но над подсветкой правил.
         if (m_searchActive) {
             QColor matchColor = colors.accent;
-            matchColor.setAlpha(90);
+            matchColor.setAlpha(kMatchAlpha);
+
+            // Текущее совпадение — то, на которое перешли по «дальше» или «назад», —
+            // красится отдельно и заметно ярче. Без этого при десятке совпадений на
+            // экране непонятно, где именно ты сейчас: все они выглядят одинаково, и
+            // нажатие «дальше» не даёт видимого отклика.
+            QColor currentColor = colors.accentSolid;
+            currentColor.setAlpha(kCurrentMatchAlpha);
+            const bool onCurrentLine =
+                m_currentMatch >= 0 && m_currentMatch < int(m_visible.size())
+                && m_visible[size_t(m_currentMatch)].lineNumber == lineNumber;
+
             const QList<QPair<int, int>> matches = searchMatches(content);
+            bool first = true;
             for (const auto &[start, length] : matches) {
+                // Переход встаёт на первое совпадение в строке — см. stepMatch(), — и
+                // ярко красится ровно оно.
+                const bool current = onCurrentLine && first && row == 0;
                 painter.fillRect(contentX + start * m_charWidth, y, length * m_charWidth,
-                                 m_lineHeight, matchColor);
+                                 m_lineHeight, current ? currentColor : matchColor);
+                first = false;
             }
         }
 

@@ -6,6 +6,8 @@
 
 #include "theme/AnsiPalette.h"
 
+#include "ScrollMarkerBar.h"
+
 #include <spotty/data/CsvDetector.h>
 #include <spotty/data/HighlightRules.h>
 #include <terminal/TerminalBuffer.h>
@@ -328,6 +330,15 @@ private:
     /// \brief Ширина колонки номеров в знакоместах; 0, когда номера скрыты.
     int lineNumberColumns() const;
 
+    /**
+     * \brief Пересчитать метки в дорожке полосы прокрутки.
+     *
+     * Обходит видимые строки — то есть весь буфер за вычетом отфильтрованных, — и потому
+     * зовётся не на каждую пришедшую строку, а по таймеру: на буфере в сотни тысяч строк
+     * полный обход при каждом обновлении съел бы поток интерфейса.
+     */
+    void updateScrollMarkers();
+
     /// \brief Текст колонки меток времени для строки.
     QString timestampText(const TerminalBuffer::Line &line, qint64 lineNumber) const;
 
@@ -354,6 +365,12 @@ private:
     bool m_showLineNumbers = false;
     bool m_csvFilterEnabled = false;
     CsvDetector m_csvDetector;
+
+    /// \brief Своя полоса прокрутки: рисует метки найденного прямо в дорожке.
+    ScrollMarkerBar *m_markerBar = nullptr;
+
+    /// \brief Откладывает пересчёт меток; см. updateScrollMarkers().
+    QTimer *m_markerTimer = nullptr;
 
     /**
      * \brief Наибольшая встреченная ширина содержимого, знакомест.

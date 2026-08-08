@@ -47,6 +47,8 @@ qt_add_executable(spotty
     PanelPluginRegistry.h
     SchemaForm.cpp
     SchemaForm.h
+    ScrollMarkerBar.cpp
+    ScrollMarkerBar.h
     SendBar.cpp
     SendBar.h
     TerminalView.cpp
