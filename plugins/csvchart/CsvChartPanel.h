@@ -1,6 +1,6 @@
 /**
  * \file CsvChartPanel.h
- * \brief Настройки графика в боковой рейке.
+ * \brief Панель графика: таблица рядов, настройки и сам график.
  */
 #pragma once
 
@@ -11,17 +11,25 @@ class QComboBox;
 class QLabel;
 class QPushButton;
 class QSpinBox;
+class QTableWidget;
 
 namespace spotty {
 
+class CsvChartView;
 class CsvSeries;
 
 /**
  * \class CsvChartPanel
- * \brief Что показывать на графике и из чего его строить.
+ * \brief Что показывать на графике, из чего его строить и куда выгрузить.
  *
- * Настройки правятся по ходу работы — разделитель приходится подбирать под конкретную
- * прошивку, — поэтому живут в панели, а не в общем диалоге.
+ * \par Таблица рядов
+ *
+ * Строится сама по пришедшим данным: колонок в потоке столько, сколько шлёт устройство, и
+ * заранее их не знает никто. В таблице ряд включается и выключается, ему задаётся цвет и
+ * видна статистика по накопленному окну.
+ *
+ * Она же заменяет легенду. Прежде ряды различались только цветом — это нарушало
+ * требование WCAG «не полагаться на цвет» и просто не позволяло понять, какая кривая чья.
  */
 class CsvChartPanel : public PanelWidget
 {
@@ -34,23 +42,33 @@ protected:
     void settingsReset() override;
 
 private:
-    /// \brief Прочитать настройки и раздать их модели.
     void reloadFromSettings();
-
-    /// \brief Записать настройки и применить их.
     void commit();
 
-    void updateStats();
+    /// \brief Перестроить таблицу под текущий состав рядов.
+    void rebuildTable();
+
+    /// \brief Обновить в таблице статистику, не трогая её строение.
+    void refreshStatistics();
+
+    /// \brief Открыть график в отдельном окне.
+    void openInWindow();
+
+    void exportCsv();
+    void exportImage();
 
     CsvSeries *m_series = nullptr;
+    CsvChartView *m_chart = nullptr;
 
     QComboBox *m_separator = nullptr;
     QSpinBox *m_points = nullptr;
-    QCheckBox *m_enabled = nullptr;
-    QPushButton *m_clear = nullptr;
-    QLabel *m_stats = nullptr;
+    QComboBox *m_xAxis = nullptr;
+    QTableWidget *m_table = nullptr;
+    QPushButton *m_pause = nullptr;
 
-    /// \brief Признак программного заполнения — гасит обработчики.
+    /// \brief Отдельное окно с графиком; создаётся по требованию и живёт до закрытия.
+    QWidget *m_window = nullptr;
+
     bool m_populating = false;
 };
 

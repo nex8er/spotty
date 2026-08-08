@@ -6,8 +6,8 @@ spotty_add_plugin(spotty-plugin-csvchart
         CsvChartPlugin.h
         CsvChartPanel.cpp
         CsvChartPanel.h
-        CsvChartOverlay.cpp
-        CsvChartOverlay.h
+        CsvChartView.cpp
+        CsvChartView.h
         CsvSeries.cpp
         CsvSeries.h
 )

@@ -4,7 +4,6 @@
  */
 #include "CsvChartPlugin.h"
 
-#include "CsvChartOverlay.h"
 #include "CsvChartPanel.h"
 #include "CsvSeries.h"
 
@@ -21,31 +20,23 @@ CsvChartPlugin::~CsvChartPlugin() = default;
 
 QList<PanelDescriptor> CsvChartPlugin::panels() const
 {
-    return {
-        PanelDescriptor{
-            .id = QStringLiteral("csvchart"),
-            .title = tr("CSV chart"),
-            .glyph = mdi::ChartLine,
-            .placement = PanelPlacement::Rail,
-            .order = 500,
-        },
-        PanelDescriptor{
-            .id = QStringLiteral("csvchart.plot"),
-            .title = tr("CSV plot"),
-            .placement = PanelPlacement::Overlay,
-            .order = 500,
-            .anchor = PanelAnchor::Fill,
-            // График только показывает и ни на что не нажимается. Без этого флага он
-            // отнял бы у терминала выделение текста на всей своей площади.
-            .mouseTransparent = true,
-        },
-    };
+    // Одна панель вместо двух. Слоя поверх терминала больше нет: текст под кривой читать
+    // трудно, а сама кривая теряется в тексте — страдали оба ради экономии места,
+    // которой никто не просил. График живёт в своей панели, а для разглядывания
+    // открывается отдельным окном.
+    return {PanelDescriptor{
+        .id = QStringLiteral("csvchart"),
+        .title = tr("Chart"),
+        .glyph = mdi::ChartLine,
+        .placement = PanelPlacement::Rail,
+        .order = 500,
+    }};
 }
 
 QWidget *CsvChartPlugin::createPanel(const QString &panelId, IPanelHost *host, QWidget *parent)
 {
-    // Подписка ставится один раз, при создании первой из двух панелей: хост один на
-    // плагин, и второй connect() удваивал бы разбор каждой строки.
+    // Подписка ставится один раз, а не при каждом создании панели: хост один на плагин,
+    // и повторный connect() удваивал бы разбор каждой строки.
     if (!m_host) {
         m_host = host;
         m_nextLine = host->nextLineNumber();
@@ -63,7 +54,9 @@ QWidget *CsvChartPlugin::createPanel(const QString &panelId, IPanelHost *host, Q
                             continue;
                         if (line.direction != DataDirection::Rx)
                             continue; // Отправленное — не данные устройства.
-                        m_series->feed(line.text.trimmed());
+                        // Отметка времени идёт вместе со строкой: точки приходят
+                        // неравномерно, и равноотстоящая ось искажает форму сигнала.
+                        m_series->feed(line.text.trimmed(), line.monotonicNs);
                     }
                     m_nextLine = end;
                 });
@@ -71,8 +64,6 @@ QWidget *CsvChartPlugin::createPanel(const QString &panelId, IPanelHost *host, Q
 
     if (panelId == QLatin1String("csvchart"))
         return new CsvChartPanel(host, m_series, parent);
-    if (panelId == QLatin1String("csvchart.plot"))
-        return new CsvChartOverlay(host, m_series, parent);
     return nullptr;
 }
 
