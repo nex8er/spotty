@@ -73,7 +73,14 @@ private:
     void submit();
 
     /// \brief Дополнить ввод по истории (Tab).
-    void completeFromHistory();
+    /**
+     * \brief Подставить следующий вариант из истории по набранному началу.
+     * \param backwards Идти к более старым записям, а не к более новым.
+     */
+    void completeFromHistory(bool backwards);
+
+    /// \brief Прекратить перебор вариантов: набранное начало больше не действует.
+    void resetCompletion();
 
     /// \brief Шаг по истории: -1 назад, +1 вперёд.
     void stepHistory(int direction);
@@ -99,6 +106,16 @@ private:
      * тексте».
      */
     int m_historyIndex = 0;
+
+    /// \name Перебор вариантов дополнения по Tab
+    /// Начало, набранное человеком, запоминается при первом Tab и не меняется, пока идёт
+    /// перебор: иначе каждый следующий Tab искал бы продолжение уже подставленного
+    /// варианта и перебор схлопывался бы на первом же совпадении.
+    /// @{
+    QString m_completionStem;
+    QStringList m_completionMatches;
+    int m_completionIndex = -1;
+    /// @}
 
     /// \brief Набранное до входа в историю, чтобы вернуть его при выходе.
     QString m_draft;

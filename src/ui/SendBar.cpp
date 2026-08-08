@@ -5,10 +5,12 @@
 #include "SendBar.h"
 
 #include "theme/MdiIcons.h"
+#include "theme/ThemeManager.h"
 
 #include <HistoryStore.h>
 
 #include <QComboBox>
+#include <QFontMetrics>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
@@ -64,6 +66,27 @@ SendBar::SendBar(HistoryStore *history, QWidget *parent)
         m_termination->addItem(DataCodec::terminationName(termination), int(termination));
     m_termination->setCurrentIndex(3); // CR+LF — самая частая для устройств.
     m_termination->setToolTip(tr("Appended to every message"));
+
+    // Оба списка ужимаются до самого длинного своего пункта плюс запас под стрелку.
+    // По умолчанию QComboBox берёт ширину с большим запасом «на вырост», и в полосе
+    // отправки два таких списка отъедали место у поля ввода — того единственного, чего
+    // здесь всегда мало. Считаем по метрикам шрифта, а не числом: при переводе «CR+LF»
+    // становится «ВК+ПС», а кегль задаёт система.
+    const auto shrinkToContents = [](QComboBox *combo) {
+        const QFontMetrics metrics(combo->font());
+        int widest = 0;
+        for (int i = 0; i < combo->count(); ++i)
+            widest = qMax(widest, metrics.horizontalAdvance(combo->itemText(i)));
+
+        // Запас под стрелку раскрытия, отступы поля и рамку. Стрелка рисуется размером
+        // со строку, поэтому считается от высоты, а не задаётся числом.
+        const int arrow = combo->sizeHint().height();
+        combo->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+        combo->setMinimumWidth(widest + arrow + 2 * ThemeManager::metrics().padH / 2);
+        combo->setMaximumWidth(widest + arrow + 2 * ThemeManager::metrics().padH);
+    };
+    shrinkToContents(m_format);
+    shrinkToContents(m_termination);
 
     m_send = new QPushButton(tr("Send"), this);
     m_send->setDefault(true);
@@ -200,29 +223,57 @@ void SendBar::stepHistory(int direction)
     m_input->end(false);
 }
 
-void SendBar::completeFromHistory()
+void SendBar::resetCompletion()
+{
+    m_completionStem.clear();
+    m_completionMatches.clear();
+    m_completionIndex = -1;
+}
+
+void SendBar::completeFromHistory(bool backwards)
 {
     if (!m_history)
         return;
 
-    const QString prefix = m_input->text();
-    QStringList matches;
-    const QString completed = m_history->complete(prefix, &matches);
+    // Первый Tab запоминает набранное начало и собирает варианты. Повторные только
+    // двигают указатель: искать заново по уже подставленному тексту значило бы сузить
+    // список до одной записи и остановить перебор на первом же шаге.
+    if (m_completionIndex < 0) {
+        m_completionStem = m_input->text();
+        if (m_completionStem.isEmpty())
+            return;
 
-    if (matches.isEmpty())
-        return;
+        // HistoryStore::complete() отдаёт совпадения от новых к старым — тот же порядок,
+        // в котором их перебирает bash по Ctrl+R: свежая команда вероятнее нужной.
+        m_history->complete(m_completionStem, &m_completionMatches);
+        if (m_completionMatches.isEmpty())
+            return;
 
-    if (completed != prefix) {
-        m_input->setText(completed);
-        m_input->end(false);
+        m_completionIndex = 0;
+    } else {
+        const int count = int(m_completionMatches.size());
+        // По кругу: дойдя до конца, перебор возвращается к самому свежему варианту.
+        // Упереться в край и замолчать хуже — человек не знает, кончились варианты или
+        // клавиша перестала работать.
+        m_completionIndex = (m_completionIndex + (backwards ? -1 : 1) + count) % count;
     }
 
-    // Если общий префикс не удлинился, показываем варианты: иначе Tab выглядел бы
-    // сломанным, хотя подходящих записей несколько.
-    if (matches.size() > 1) {
-        const QStringList shown = matches.mid(0, 8);
+    const QString candidate = m_completionMatches.at(m_completionIndex);
+
+    // Подставленное выделяется от набранного до конца: следующее нажатие любой клавиши
+    // заменит подсказку, а Enter отправит её целиком. Так же ведёт себя дополнение в
+    // командных оболочках.
+    const QSignalBlocker blocker(m_input);
+    m_input->setText(candidate);
+    m_input->setSelection(int(m_completionStem.size()),
+                          int(candidate.size() - m_completionStem.size()));
+
+    if (m_completionMatches.size() > 1) {
         QToolTip::showText(m_input->mapToGlobal(QPoint(0, -m_input->height())),
-                           shown.join(u'\n'), m_input);
+                           tr("%1 of %2 — Tab for next")
+                               .arg(m_completionIndex + 1)
+                               .arg(m_completionMatches.size()),
+                           m_input);
     }
 }
 
@@ -235,22 +286,33 @@ bool SendBar::eventFilter(QObject *watched, QEvent *event)
 
     switch (keyEvent->key()) {
     case Qt::Key_Tab:
-        completeFromHistory();
+        completeFromHistory(/*backwards=*/false);
+        return true;
+    case Qt::Key_Backtab:
+        // Shift+Tab приходит отдельной клавишей, а не Tab с модификатором.
+        completeFromHistory(/*backwards=*/true);
         return true;
     case Qt::Key_Up:
+        resetCompletion();
         stepHistory(-1);
         return true;
     case Qt::Key_Down:
+        resetCompletion();
         stepHistory(+1);
         return true;
     default:
         break;
     }
 
-    // Любое редактирование выводит из перебора истории: иначе следующая стрелка вверх
-    // прыгнула бы от только что набранного текста к записи, к которой он не относится.
-    if (!keyEvent->text().isEmpty() && m_history)
-        m_historyIndex = int(m_history->entries().size());
+    // Любое редактирование выводит и из перебора истории, и из перебора дополнений:
+    // иначе следующая стрелка вверх прыгнула бы от только что набранного текста к записи,
+    // к которой он не относится, а следующий Tab продолжал бы искать по устаревшему
+    // началу.
+    if (!keyEvent->text().isEmpty()) {
+        resetCompletion();
+        if (m_history)
+            m_historyIndex = int(m_history->entries().size());
+    }
 
     return QWidget::eventFilter(watched, event);
 }
