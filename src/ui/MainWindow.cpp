@@ -40,6 +40,7 @@
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QStatusBar>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -51,18 +52,14 @@ constexpr int kPanelGlyphSize = 20;
 constexpr int kToolGlyphSize = 18;
 
 /**
- * \brief Ширины полей строки состояния (RX/TX, скорость, ошибки), в знаках моноширинного
- *        шрифта.
+ * \brief Ширины полей строки состояния в знаках моноширинного шрифта.
  *
- * Значение каждого поля дополняется пробелами до этой ширины, поэтому смена «340 B» на
- * «1.2 KiB» не сдвигает то, что стоит правее, — вплоть до #kStatsReservedWidth.
+ * Значение дополняется пробелами до этой ширины, поэтому смена «340 Б» на «1.2 КиБ» не
+ * сдвигает то, что стоит правее. Счётчик ошибок в выравнивании не нуждается: он крайний
+ * слева среди постоянных полей и появляется целиком.
  */
 constexpr int kStatsValueWidth = 10;   // "9999.9 GiB"
 constexpr int kStatsRateWidth = 12;    // "9999.9 GiB/s"
-constexpr int kStatsErrorsWidth = 13;  // "9999 error(s)"
-
-/// \brief Пустой резерв в конце строки состояния под будущий индикатор.
-constexpr int kStatsReservedWidth = 12;
 
 // Состояние окна, а не пользовательские настройки: сюда spotty::AppSettings не лезет.
 constexpr auto kKeyGeometry = "window/geometry";
@@ -212,13 +209,54 @@ void MainWindow::buildUi()
 
     setCentralWidget(m_splitter);
 
+    // --- Строка состояния -------------------------------------------------------------
+    //
+    // Четыре секции, разделённые линиями в пиксель: состояние канала, счётчики, скорость
+    // и ошибки, линии управления. Прежде всё это шло одной лентой цифр через точки, и
+    // прочитать в ней «сколько принято» можно было только пересчитав пробелы.
+    //
+    // Состояние стоит слева и первым: это ответ на вопрос «что сейчас происходит», а
+    // строка состояния — каноническое место для него. Цвет там не единственный признак,
+    // рядом стоит слово: одного цвета не хватает ни дальтонику, ни в чёрно-белом снимке.
+    m_stateLabel = new QLabel(this);
+    statusBar()->addWidget(m_stateLabel);
+
+    const QFont mono = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+
+    // Счётчики, скорость и время — моноширинным: иначе выравнивание пробелами ничего не
+    // даёт, у пропорционального шрифта одинаковое число знаков занимает разную ширину, и
+    // цифры дёргаются на каждом обновлении.
     m_statsLabel = new QLabel(this);
-    // Моноширинный шрифт — иначе выравнивание пробелами в updateStatistics() ничего не
-    // даёт: у пропорционального шрифта одинаковое число символов занимает разную ширину.
-    m_statsLabel->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    m_statsLabel->setFont(mono);
+    m_rateLabel = new QLabel(this);
+    m_rateLabel->setFont(mono);
+    m_uptimeLabel = new QLabel(this);
+    m_uptimeLabel->setFont(mono);
+
+    // Счётчик ошибок скрыт, пока ошибок нет. Постоянное «0 ошибок» — шум, который глаз
+    // перестаёт замечать через минуту; появившаяся из ниоткуда надпись, наоборот, видна
+    // сразу (эффект фон Ресторфа).
+    m_errorsLabel = new QLabel(this);
+    m_errorsLabel->setFont(mono);
+    m_errorsLabel->hide();
+
     m_linesLabel = new QLabel(this);
+    m_linesLabel->setFont(mono);
+
+    statusBar()->addPermanentWidget(m_errorsLabel);
+    statusBar()->addPermanentWidget(makeStatusSeparator());
     statusBar()->addPermanentWidget(m_linesLabel);
+    statusBar()->addPermanentWidget(makeStatusSeparator());
+    statusBar()->addPermanentWidget(m_uptimeLabel);
+    statusBar()->addPermanentWidget(makeStatusSeparator());
+    statusBar()->addPermanentWidget(m_rateLabel);
+    statusBar()->addPermanentWidget(makeStatusSeparator());
     statusBar()->addPermanentWidget(m_statsLabel);
+
+    // Время сеанса тикает само: остальные поля обновляются по событиям, а это — нет.
+    m_uptimeTimer = new QTimer(this);
+    m_uptimeTimer->setInterval(1000);
+    connect(m_uptimeTimer, &QTimer::timeout, this, &MainWindow::updateUptime);
 
     // --- Связывание ------------------------------------------------------------------
 
@@ -881,6 +919,52 @@ void MainWindow::applyChannelState(ChannelState state, const QString &detail)
     const bool open = state == ChannelState::Open;
 
     m_interfaceBar->setChannelState(state, detail);
+
+    // Состояние в строке состояния — цвет и слово вместе. Одного цвета мало: он не
+    // доходит ни до дальтоника, ни до чёрно-белого снимка экрана в отчёте об ошибке.
+    if (m_context.theme) {
+        const ThemeColors &colors = m_context.theme->colors();
+        QString name;
+        QColor tint = colors.textMuted;
+        switch (state) {
+        case ChannelState::Open:
+            name = tr("Open");
+            tint = colors.okText;
+            break;
+        case ChannelState::Opening:
+            name = tr("Opening");
+            tint = colors.accent;
+            break;
+        case ChannelState::Closed:
+            name = tr("Closed");
+            break;
+        case ChannelState::Unavailable:
+            name = tr("Unavailable");
+            tint = colors.errorText;
+            break;
+        case ChannelState::Error:
+            name = tr("Error");
+            tint = colors.errorText;
+            break;
+        }
+        m_stateLabel->setText(QStringLiteral("● %1").arg(name));
+        m_stateLabel->setStyleSheet(QStringLiteral("color: %1;").arg(tint.name()));
+        m_stateLabel->setToolTip(detail);
+    }
+
+    // Счётчик времени идёт, только пока канал открыт: у закрытого канала «время сеанса»
+    // означало бы время, прошедшее с закрытия, а это другое число.
+    if (open) {
+        if (!m_openedAt.isValid()) {
+            m_openedAt = QDateTime::currentDateTime();
+            m_uptimeTimer->start();
+        }
+    } else {
+        m_openedAt = QDateTime();
+        m_uptimeTimer->stop();
+        m_uptimeLabel->clear();
+    }
+    updateUptime();
     m_sendBar->setSendEnabled(open);
     updatePlaceholder(state);
 
@@ -921,39 +1005,70 @@ void MainWindow::updatePlaceholder(ChannelState state)
     }
 }
 
+QWidget *MainWindow::makeStatusSeparator()
+{
+    // Линия, а не пробел: секции строки состояния — разные виды сведений, и пробелом
+    // отделить их от соседних цифр невозможно, всё сливается в одну ленту.
+    //
+    // QFrame::VLine здесь не годится по той же причине, что и в панели терминала: он
+    // рисуется палитрой стиля, а не цветом темы, и на тёмной теме даёт вдавленную
+    // двухцветную канавку вместо линии.
+    auto *line = new QFrame(this);
+    line->setObjectName(QStringLiteral("statusSeparator"));
+    line->setFixedWidth(1);
+    return line;
+}
+
 void MainWindow::updateStatistics()
 {
     if (!m_context.session) {
         m_statsLabel->clear();
+        m_rateLabel->clear();
+        m_errorsLabel->hide();
         return;
     }
 
     const Session::Statistics stats = m_context.session->statistics();
 
-    // Каждое поле дополнено пробелами до фиксированной ширины (см. kStatsValueWidth и
-    // соседние константы): без этого RX/TX/скорость меняют ширину на каждое обновление и
-    // сдвигают всё, что справа, при каждом тике.
-    QString text = tr("RX %1  TX %2")
-                       .arg(Formatting::byteCount(stats.bytesReceived)
-                                .rightJustified(kStatsValueWidth),
-                            Formatting::byteCount(stats.bytesSent)
-                                .rightJustified(kStatsValueWidth));
+    // Значения дополнены пробелами до постоянной ширины: без этого счётчики меняют ширину
+    // на каждом обновлении и сдвигают всё, что стоит правее, по нескольку раз в секунду.
+    m_statsLabel->setText(tr("RX %1   TX %2")
+                              .arg(Formatting::byteCount(stats.bytesReceived)
+                                       .rightJustified(kStatsValueWidth),
+                                   Formatting::byteCount(stats.bytesSent)
+                                       .rightJustified(kStatsValueWidth)));
 
-    const QString rate = stats.receiveRateBps > 0.5
-                             ? tr("%1/s").arg(Formatting::byteCount(qint64(stats.receiveRateBps)))
-                             : QString();
-    text += tr("  ·  %1").arg(rate.rightJustified(kStatsRateWidth));
+    // Скорость показывается, только пока данные идут: «0 Б/с» на простое означает ровно
+    // то же, что пустое место, но занимает внимание.
+    m_rateLabel->setText(
+        stats.receiveRateBps > 0.5
+            ? tr("%1/s").arg(Formatting::byteCount(qint64(stats.receiveRateBps)))
+                  .rightJustified(kStatsRateWidth)
+            : QString(kStatsRateWidth, u' '));
 
-    const QString errors = stats.errorCount > 0
-                               ? tr("%n error(s)", nullptr, int(stats.errorCount))
-                               : QString();
-    text += tr("  ·  %1").arg(errors.leftJustified(kStatsErrorsWidth));
+    // Ошибки появляются из ниоткуда и потому заметны. Постоянное «0 ошибок» глаз
+    // перестаёт замечать через минуту — а именно его и нужно было бы заметить.
+    if (stats.errorCount > 0) {
+        m_errorsLabel->setText(tr("%n error(s)", nullptr, int(stats.errorCount)));
+        m_errorsLabel->show();
+    } else {
+        m_errorsLabel->hide();
+    }
+}
 
-    // Резерв под будущий индикатор строки состояния — держит место заранее, чтобы его
-    // появление не сдвинуло уже показанные значения.
-    text += QString(kStatsReservedWidth, u' ');
+void MainWindow::updateUptime()
+{
+    if (!m_openedAt.isValid()) {
+        m_uptimeLabel->clear();
+        return;
+    }
 
-    m_statsLabel->setText(text);
+    const qint64 seconds = m_openedAt.secsTo(QDateTime::currentDateTime());
+    m_uptimeLabel->setText(QStringLiteral("%1:%2:%3")
+                               .arg(seconds / 3600, 2, 10, QLatin1Char('0'))
+                               .arg((seconds / 60) % 60, 2, 10, QLatin1Char('0'))
+                               .arg(seconds % 60, 2, 10, QLatin1Char('0')));
+    m_uptimeLabel->setToolTip(tr("Time since the interface was opened"));
 }
 
 void MainWindow::updateControlLines(const QVariantMap &lines)

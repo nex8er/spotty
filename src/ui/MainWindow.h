@@ -14,6 +14,7 @@
 #include <spotty/api/ChannelState.h>
 #include <spotty/data/DataCodec.h>
 
+#include <QDateTime>
 #include <QHash>
 #include <QList>
 #include <QMainWindow>
@@ -23,6 +24,7 @@ class QAction;
 class QButtonGroup;
 class QLabel;
 class QSplitter;
+class QTimer;
 class QStackedWidget;
 class QToolButton;
 class QVBoxLayout;
@@ -259,8 +261,29 @@ private:
     QToolButton *m_clearButton = nullptr;
     QToolButton *m_followButton = nullptr;
 
-    QLabel *m_statsLabel = nullptr;
-    QLabel *m_linesLabel = nullptr;
+    /// \name Строка состояния
+    /// Секции разделены линиями, а не пробелами: сплошная лента цифр не читается, а
+    /// группировка близостью работает без единого пикселя разметки.
+    /// @{
+    QLabel *m_stateLabel = nullptr;   ///< Состояние канала: цвет плюс слово.
+    QLabel *m_statsLabel = nullptr;   ///< Счётчики приёма и передачи.
+    QLabel *m_rateLabel = nullptr;    ///< Скорость приёма; пусто, когда данных нет.
+    QLabel *m_errorsLabel = nullptr;  ///< Счётчик ошибок; скрыт, пока их нет.
+    QLabel *m_uptimeLabel = nullptr;  ///< Сколько открыт текущий сеанс.
+    QLabel *m_linesLabel = nullptr;   ///< Линии управления.
+    /// @}
+
+    /// \brief Момент открытия канала для счётчика времени сеанса.
+    QDateTime m_openedAt;
+
+    /// \brief Тикает раз в секунду, пока канал открыт.
+    QTimer *m_uptimeTimer = nullptr;
+
+    /// \brief Собрать разделитель секций строки состояния.
+    QWidget *makeStatusSeparator();
+
+    /// \brief Обновить надпись о длительности сеанса.
+    void updateUptime();
 
     /// \brief Действия по идентификаторам из spotty::SettingsDialog::shortcutActions().
     QHash<QString, QAction *> m_actions;
