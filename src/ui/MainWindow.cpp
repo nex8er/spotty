@@ -261,6 +261,13 @@ void MainWindow::buildUi()
         m_followButton->setChecked(following);
     });
 
+    // Кегль, подобранный колесом, переживает перезапуск: подбирают его один раз и надолго,
+    // и терять его при закрытии окна значило бы заставлять делать это каждый сеанс.
+    connect(m_terminal, &TerminalView::terminalFontSizeChanged, this, [this](int pointSize) {
+        m_settings.fontSize = pointSize;
+        m_settings.save(*m_context.settings);
+    });
+
     if (m_context.session) {
         connect(m_context.session, &Session::stateChanged,
                 this, &MainWindow::applyChannelState);

@@ -189,6 +189,16 @@ Q_SIGNALS:
     /// \brief Изменилось число совпадений с образцом поиска.
     void matchCountChanged(int count);
 
+    /**
+     * \brief Пользователь изменил кегль колесом с Ctrl.
+     * \param pointSize Новый кегль.
+     *
+     * Терминал уже применил его к себе; сигнал нужен только чтобы владелец сохранил
+     * величину в настройках. Иначе подобранный размер терялся бы при перезапуске — а
+     * подбирают его ровно один раз и надолго.
+     */
+    void terminalFontSizeChanged(int pointSize);
+
 protected:
     void paintEvent(QPaintEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
@@ -197,6 +207,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
     void scrollContentsBy(int dx, int dy) override;
     bool viewportEvent(QEvent *event) override;

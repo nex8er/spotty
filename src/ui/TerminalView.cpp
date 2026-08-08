@@ -13,6 +13,7 @@
 #include <QHelpEvent>
 #include <QKeyEvent>
 #include <QMenu>
+#include <QWheelEvent>
 #include <QMouseEvent>
 #include <QPaintEvent>
 #include <QPainter>
@@ -27,6 +28,15 @@
 namespace spotty {
 
 namespace {
+
+/// \name Пределы кегля при изменении колесом
+/// Ниже шести пунктов текст нечитаем даже вплотную к экрану, выше сорока восьми в окне
+/// помещается десяток строк — оба края бесполезны, но добраться до них случайным
+/// движением трекпада очень легко.
+/// @{
+constexpr int kMinFontPointSize = 6;
+constexpr int kMaxFontPointSize = 48;
+/// @}
 
 /// \brief Частота перерисовки, мс. Примерно 60 кадров в секунду.
 constexpr int kRepaintIntervalMs = 16;
@@ -132,6 +142,45 @@ void TerminalView::setTerminalFont(const QFont &font)
     updateMetrics();
     rebuildVisible();
     viewport()->update();
+}
+
+void TerminalView::wheelEvent(QWheelEvent *event)
+{
+    // Ctrl (на macOS Qt отображает сюда и Cmd) плюс колесо — общепринятый способ менять
+    // кегль в терминалах и редакторах. Проверять раскладку не нужно: модификатор
+    // приходит уже разобранным.
+    if (!event->modifiers().testFlag(Qt::ControlModifier)) {
+        QAbstractScrollArea::wheelEvent(event);
+        return;
+    }
+
+    // angleDelta даёт восьмые доли градуса; знак важен, величина — нет. Один щелчок
+    // колеса меняет кегль на единицу, иначе на трекпаде размер улетал бы за пару
+    // движений.
+    const int steps = event->angleDelta().y() > 0 ? 1 : (event->angleDelta().y() < 0 ? -1 : 0);
+    if (steps == 0) {
+        event->accept();
+        return;
+    }
+
+    // Кегль может быть задан в пикселях — тогда pointSize() возвращает -1, и прибавлять к
+    // нему нечего. Переводим в пункты по метрикам текущего шрифта.
+    int current = m_font.pointSize();
+    if (current <= 0)
+        current = QFontInfo(m_font).pointSize();
+
+    const int wanted = qBound(kMinFontPointSize, current + steps, kMaxFontPointSize);
+    if (wanted == current) {
+        event->accept();
+        return;
+    }
+
+    QFont scaled = m_font;
+    scaled.setPointSize(wanted);
+    setTerminalFont(scaled);
+
+    Q_EMIT terminalFontSizeChanged(wanted);
+    event->accept();
 }
 
 void TerminalView::updateMetrics()
