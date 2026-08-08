@@ -50,7 +50,7 @@ def main() -> int:
     line_percent = percent(lines["covered"], lines["count"])
 
     print()
-    print("Покрытие spotty-core")
+    print("Покрытие spotty-core и spotty-api")
     print(f"  функции : {percent(functions['covered'], functions['count']):6.2f}%"
           f"  ({functions['covered']}/{functions['count']})")
     print(f"  строки  : {line_percent:6.2f}%  ({lines['covered']}/{lines['count']})")

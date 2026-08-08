@@ -2,7 +2,7 @@
  * \file test_data_generator.cpp
  * \brief Тесты spotty::DataGenerator.
  */
-#include <DataGenerator.h>
+#include <spotty/data/DataGenerator.h>
 
 #include <gtest/gtest.h>
 

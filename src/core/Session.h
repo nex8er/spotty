@@ -9,6 +9,7 @@
 
 #include <spotty/api/ChannelState.h>
 
+#include <QList>
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -20,6 +21,7 @@ class QTimer;
 namespace spotty {
 
 class ChannelWorker;
+class IDataFilter;
 class InterfaceRegistry;
 class PluginManager;
 
@@ -47,7 +49,7 @@ class PluginManager;
  *
  * \note Мультисессионность заложена в устройство класса: ничего глобального сессия не
  *       трогает, и несколько экземпляров могут работать одновременно. Интерфейс в версии
- *       0.1.0a показывает одну.
+ *       0.2.0a показывает одну.
  */
 class Session : public QObject
 {
@@ -104,6 +106,23 @@ public:
     /// \brief Состояние входных линий: `CTS`, `DSR`, `DCD`, `RI`.
     QVariantMap controlLines() const { return m_controlLines; }
 
+    /**
+     * \brief Врезать звено в цепочку преобразования потока.
+     * \param filter Звено. Владение остаётся за вызывающей стороной; оно обязано пережить
+     *        сессию либо быть снятым через removeDataFilter() раньше неё.
+     * \param order Место в цепочке: меньше — раньше в приёмном направлении.
+     * \param name Разрешает совпадения \p order. Сюда передаётся идентификатор плагина, а
+     *        не порядок регистрации: тот зависит от обхода каталогов с плагинами и потому
+     *        отличается от машины к машине. Одинаковый вход должен давать одинаковый
+     *        порядок звеньев везде.
+     *
+     * Повторная врезка того же звена ничего не делает.
+     */
+    void addDataFilter(IDataFilter *filter, int order, const QString &name);
+
+    /// \brief Снять звено. Безопасно для незарегистрированного.
+    void removeDataFilter(IDataFilter *filter);
+
 public Q_SLOTS:
     /// \brief Открыть выбранный интерфейс.
     void open();
@@ -154,6 +173,18 @@ Q_SIGNALS:
      */
     void dataLogged(const QByteArray &data, spotty::DataDirection direction);
 
+    /**
+     * \brief Принятые байты вместе с отметкой чтения.
+     * \param data Байты как есть, до цепочки преобразования.
+     * \param monotonicNs Отметка, поставленная каналом монотонными часами.
+     *
+     * Отдельный сигнал, а не параметр к dataLogged(): туда попадает и передающее
+     * направление, у которого отметки чтения нет вовсе. Класть в неё ноль означало бы
+     * завести «магическое» значение — тот самый приём, который уже один раз сломал
+     * spotty::Packetizer, где ноль был признаком «данных не было».
+     */
+    void dataReceived(const QByteArray &data, qint64 monotonicNs);
+
 private Q_SLOTS:
     /// \brief Устройство появилось в системе.
     void onInterfaceAppeared(const QString &id);
@@ -177,8 +208,22 @@ private:
     /// \brief Истекла межбайтовая пауза — завершить накопленный пакет.
     void handlePacketTimeout();
 
+    /**
+     * \struct FilterSlot
+     * \brief Звено цепочки вместе с тем, что задаёт его место.
+     */
+    struct FilterSlot
+    {
+        int order = 0;
+        QString name;
+        IDataFilter *filter = nullptr;
+    };
+
     PluginManager *m_plugins;
     InterfaceRegistry *m_registry;
+
+    /// \brief Цепочка преобразования, упорядоченная по паре (order, name).
+    QList<FilterSlot> m_filters;
 
     TerminalBuffer m_buffer;
     Packetizer m_packetizer;

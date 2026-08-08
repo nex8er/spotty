@@ -6,6 +6,8 @@
 
 #include "Paths.h"
 
+#include <spotty/data/FileUtils.h>
+
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
@@ -193,7 +195,7 @@ bool SettingsStore::save()
 {
     m_saveTimer->stop();
 
-    if (!Paths::ensureDir(QFileInfo(m_filePath).absolutePath()))
+    if (!ensureDir(QFileInfo(m_filePath).absolutePath()))
         return false;
 
     QSaveFile file(m_filePath);

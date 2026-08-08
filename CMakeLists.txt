@@ -1,11 +1,12 @@
 # Корневая сборка Spotty.
 #
-# Порядок add_subdirectory значим: src/api задаёт цель Spotty::Api, plugins наполняет
-# глобальное свойство SPOTTY_STATIC_PLUGIN_CLASSES, а src/ui это свойство читает.
+# Порядок add_subdirectory значим: src/api задаёт цель Spotty::Api, src/uiapi — надстроенную
+# над ней Spotty::UiApi, plugins наполняет глобальное свойство SPOTTY_STATIC_PLUGIN_CLASSES,
+# а src/ui это свойство читает.
 cmake_minimum_required(VERSION 3.21)
 
 project(Spotty
-    VERSION 0.1.0
+    VERSION 0.2.0
     DESCRIPTION "Modular terminal port monitor"
     HOMEPAGE_URL "https://github.com/nex8er/spotty"
     LANGUAGES CXX)
@@ -16,11 +17,20 @@ set(SPOTTY_VERSION "${PROJECT_VERSION}a")
 
 option(SPOTTY_STATIC_PLUGINS "Link interface plugins into the executable instead of loading them at runtime" OFF)
 option(SPOTTY_BUILD_TESTS "Build unit tests" OFF)
-option(SPOTTY_ENABLE_COVERAGE "Instrument spotty-core for coverage analysis" OFF)
+option(SPOTTY_ENABLE_COVERAGE "Instrument the core and the SDK for coverage analysis" OFF)
 
 if(SPOTTY_ENABLE_COVERAGE AND NOT SPOTTY_BUILD_TESTS)
     # Инструментирование без тестов бессмысленно: измерять было бы нечем.
     message(FATAL_ERROR "SPOTTY_ENABLE_COVERAGE requires SPOTTY_BUILD_TESTS=ON")
+endif()
+
+if(SPOTTY_ENABLE_COVERAGE AND NOT SPOTTY_STATIC_PLUGINS)
+    # Измеряемая логика теперь и в spotty-api, а он по умолчанию разделяемый. Счётчики
+    # покрытия в разделяемой библиотеке ведут собственный набор данных профилирования, и
+    # сводка по исполняемому файлу тестов их не видит. В статической сборке делить между
+    # модулями нечего, и обе библиотеки становятся STATIC по общему правилу.
+    set(SPOTTY_STATIC_PLUGINS ON CACHE BOOL "" FORCE)
+    message(STATUS "Coverage build implies SPOTTY_STATIC_PLUGINS=ON")
 endif()
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets Network)
@@ -53,6 +63,7 @@ include(SpottyPlugin)
 include(SpottyCoverage)
 
 add_subdirectory(src/api)
+add_subdirectory(src/uiapi)
 add_subdirectory(src/core)
 add_subdirectory(plugins)
 add_subdirectory(src/ui)

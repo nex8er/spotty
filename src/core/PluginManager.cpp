@@ -34,15 +34,48 @@ void PluginManager::load()
     loadStaticPlugins();
     loadDynamicPlugins();
 
-    qCInfo(lcPlugins) << "loaded" << m_plugins.size() << "plugin(s),"
+    qCInfo(lcPlugins) << "found" << m_instances.size() << "instance(s),"
+                      << m_plugins.size() << "interface plugin(s)";
+}
+
+void PluginManager::markRecognized(QObject *instance)
+{
+    for (LoadedInstance &loaded : m_instances) {
+        if (loaded.instance == instance) {
+            loaded.recognized = true;
+            return;
+        }
+    }
+}
+
+void PluginManager::finishLoading()
+{
+    if (m_finished)
+        return;
+    m_finished = true;
+
+    for (const LoadedInstance &loaded : std::as_const(m_instances)) {
+        if (loaded.recognized)
+            continue;
+        // Библиотека загрузилась, объект создался, но ни один реестр ролей его не принял.
+        // Почти всегда это плагин от другой версии Spotty либо чужой плагин Qt, случайно
+        // положенный в каталог.
+        const QString reason = tr("Not a Spotty plugin of any known kind.");
+        m_failures.append({loaded.origin, reason});
+        qCWarning(lcPlugins) << loaded.origin << reason;
+    }
+
+    qCInfo(lcPlugins) << "loaded" << m_plugins.size() << "interface plugin(s),"
                       << m_failures.size() << "rejected";
 }
 
 void PluginManager::loadStaticPlugins()
 {
     const QObjectList instances = QPluginLoader::staticInstances();
-    for (QObject *instance : instances)
-        registerInstance(instance, QStringLiteral("<static>"));
+    for (QObject *instance : instances) {
+        m_instances.append({instance, QStringLiteral("<static>"), false});
+        registerInstance(instance, QStringLiteral("<static>"), /*deferUnrecognized=*/true);
+    }
 }
 
 void PluginManager::loadDynamicPlugins()
@@ -72,24 +105,44 @@ void PluginManager::loadDynamicPlugins()
                 continue;
             }
 
-            if (!registerInstance(instance, path))
-                loader.unload();
+            // Выгрузить нельзя, даже если наша роль не подошла: роль объекта к этому
+            // моменту разобрана не полностью — панельный реестр к нему ещё не подходил, —
+            // а выгрузка библиотеки из-под живого QObject это гарантированное падение.
+            // Отображённая в память чужая библиотека дешевле.
+            m_instances.append({instance, path, false});
+            registerInstance(instance, path, /*deferUnrecognized=*/true);
         }
     }
 }
 
 bool PluginManager::addPlugin(QObject *instance, const QString &origin)
 {
-    return registerInstance(instance, origin);
+    // Запись заводится до проверок, чтобы markRecognized() изнутри registerInstance()
+    // нашёл её и пометка легла на тот же экземпляр.
+    m_instances.append({instance, origin, false});
+    return registerInstance(instance, origin, /*deferUnrecognized=*/false);
 }
 
-bool PluginManager::registerInstance(QObject *instance, const QString &origin)
+bool PluginManager::registerInstance(QObject *instance, const QString &origin,
+                                     bool deferUnrecognized)
 {
     auto *plugin = qobject_cast<IInterfacePlugin *>(instance);
     if (!plugin) {
-        m_failures.append({origin, tr("Not a Spotty interface plugin.")});
+        if (!deferUnrecognized) {
+            // Вызывающий передал конкретный экземпляр и ждёт приговора сейчас, а не после
+            // разбора чужих ролей. Приговор окончательный, поэтому запись помечается
+            // разобранной: finishLoading() не должен добавить к ней вторую.
+            m_failures.append({origin, tr("Not a Spotty interface plugin.")});
+            markRecognized(instance);
+        }
         return false;
     }
+
+    // Роль признана — дальше идут проверки самого плагина. Пометка ставится здесь, а не
+    // после них: провал по версии или по повтору идентификатора уже даёт свою запись в
+    // failures(), и finishLoading() не должен добавлять к ней вторую, гораздо менее
+    // внятную. «Распознан» значит «роль ясна», а не «проверки пройдены».
+    markRecognized(instance);
 
     if (plugin->apiVersion() != SPOTTY_API_VERSION) {
         const QString reason = tr("Built against API version %1, this build expects %2.")

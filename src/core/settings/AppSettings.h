@@ -103,17 +103,10 @@ struct AppSettings
     /// \brief Сколько записей хранить в истории отправки.
     int historySize = 500;
 
-    // --- Логи ------------------------------------------------------------------------
-
-    /// \brief Каталог логов. Пустая строка — spotty::Paths::defaultLogDir().
-    QString logDirectory;
-
-    QString logFileNameTemplate = QStringLiteral("{alias}_{date}_{time}");
-    bool logFilterAnsi = true;
-    bool logIncludeTx = true;
-
-    /// \brief Начинать запись автоматически при открытии интерфейса.
-    bool logAutoStart = false;
+    // Настройки журналирования переехали к плагину `logging`: они принадлежат ему, а не
+    // программе, и живут в `plugins/logging/*`. Держать их здесь после этого значило бы
+    // иметь два места для одного факта — ровно то, из-за чего ключи настроек когда-то и
+    // свели в этот класс.
 
     // --- Данные ----------------------------------------------------------------------
 
@@ -145,7 +138,6 @@ struct AppSettings
     void save(SettingsStore &store) const;
 
     /// \brief Каталог логов с учётом умолчания.
-    QString effectiveLogDirectory() const;
 };
 
 } // namespace spotty

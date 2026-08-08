@@ -6,6 +6,8 @@
 
 #include "settings/Paths.h"
 
+#include <spotty/data/FileUtils.h>
+
 #include <QFile>
 #include <QFileInfo>
 #include <QLoggingCategory>
@@ -57,7 +59,7 @@ bool HistoryStore::save()
     if (!m_dirty)
         return true;
 
-    if (!Paths::ensureDir(QFileInfo(m_filePath).absolutePath()))
+    if (!ensureDir(QFileInfo(m_filePath).absolutePath()))
         return false;
 
     QSaveFile file(m_filePath);

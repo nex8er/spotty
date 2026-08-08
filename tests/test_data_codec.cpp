@@ -2,7 +2,7 @@
  * \file test_data_codec.cpp
  * \brief Тесты spotty::DataCodec.
  */
-#include <terminal/DataCodec.h>
+#include <spotty/data/DataCodec.h>
 
 #include <gtest/gtest.h>
 

@@ -8,12 +8,15 @@
 #include "InterfaceRegistry.h"
 #include "PluginManager.h"
 
+#include <spotty/api/IDataFilter.h>
 #include <spotty/api/IInterfaceChannel.h>
 #include <spotty/api/IInterfacePlugin.h>
 
 #include <QLoggingCategory>
 #include <QThread>
 #include <QTimer>
+
+#include <algorithm>
 
 namespace spotty {
 
@@ -284,8 +287,43 @@ void Session::send(const QByteArray &data)
         Q_EMIT errorOccurred(tr("The interface is not open."));
         return;
     }
+
+    // Передающая цепочка идёт в обратную сторону, как в стеке протоколов: что приёмное
+    // звено развернуло последним, передающее сворачивает первым.
+    QByteArray effective = data;
+    for (auto it = m_filters.crbegin(); it != m_filters.crend(); ++it) {
+        effective = it->filter->filterOutgoing(effective);
+        // Пустой результат — решение звена не отправлять, а не сбой: сообщать об ошибке
+        // здесь значило бы жаловаться на то, о чём попросили.
+        if (effective.isEmpty())
+            return;
+    }
+
     QMetaObject::invokeMethod(m_worker, "write", Qt::QueuedConnection,
-                              Q_ARG(QByteArray, data));
+                              Q_ARG(QByteArray, effective));
+}
+
+void Session::addDataFilter(IDataFilter *filter, int order, const QString &name)
+{
+    if (!filter)
+        return;
+    for (const FilterSlot &slot : std::as_const(m_filters)) {
+        if (slot.filter == filter)
+            return;
+    }
+
+    m_filters.append({order, name, filter});
+    std::stable_sort(m_filters.begin(), m_filters.end(),
+                     [](const FilterSlot &lhs, const FilterSlot &rhs) {
+                         if (lhs.order != rhs.order)
+                             return lhs.order < rhs.order;
+                         return lhs.name < rhs.name;
+                     });
+}
+
+void Session::removeDataFilter(IDataFilter *filter)
+{
+    m_filters.removeIf([filter](const FilterSlot &slot) { return slot.filter == filter; });
 }
 
 void Session::reloadSettings()
@@ -316,10 +354,24 @@ void Session::sendBreak(int milliseconds)
 
 void Session::handleIncoming(const QByteArray &data, qint64 monotonicNs)
 {
-    // Журналу отдаём поток до пакетизации: он должен получить ровно то, что пришло.
+    // Наблюдателям отдаём поток до пакетизации и до цепочки: журнал должен получить ровно
+    // то, что пришло по проводу, а не то, что из этого сделали плагины.
     Q_EMIT dataLogged(data, DataDirection::Rx);
+    Q_EMIT dataReceived(data, monotonicNs);
 
-    const QList<Packetizer::Packet> packets = m_packetizer.feed(data, monotonicNs);
+    QByteArray effective = data;
+    for (const FilterSlot &slot : std::as_const(m_filters)) {
+        effective = slot.filter->filterIncoming(effective, monotonicNs);
+        if (effective.isEmpty())
+            break;
+    }
+
+    // Порция проглочена целиком. Пакетизатору её отдавать нечего, а таймер паузы трогать
+    // нельзя: перезапуск отодвинул бы сброс уже накопленного пакета на лишний таймаут.
+    if (effective.isEmpty())
+        return;
+
+    const QList<Packetizer::Packet> packets = m_packetizer.feed(effective, monotonicNs);
     for (const Packetizer::Packet &packet : packets)
         m_buffer.append(packet.data, DataDirection::Rx, monotonicNs, packet.terminatesLine);
 

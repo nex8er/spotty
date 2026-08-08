@@ -4,9 +4,14 @@
  */
 #include "SettingsDialog.h"
 
+#include "../PanelPluginRegistry.h"
+
+#include <spotty/api/IInterfacePlugin.h>
+#include "../SchemaForm.h"
+
 #include "InterfaceSettingsPanel.h"
 
-#include <terminal/DataCodec.h>
+#include <spotty/data/DataCodec.h>
 #include <terminal/Packetizer.h>
 
 #include <QCheckBox>
@@ -14,11 +19,13 @@
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFileDialog>
+#include <QHeaderView>
 #include <QFontComboBox>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QKeySequenceEdit>
+#include <QTreeWidget>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -81,9 +88,13 @@ void paintSwatch(QToolButton *button, const QColor &color)
 
 } // namespace
 
-QList<ShortcutAction> SettingsDialog::shortcutActions()
+QList<ShortcutAction> SettingsDialog::builtinShortcutActions()
 {
     // Идентификаторы попадают в файл настроек, поэтому не переводятся и не меняются.
+    //
+    // Поиска и записи журнала здесь больше нет: они принадлежат панелям, а те объявляют
+    // свои сочетания сами. Держать их и тут значило бы иметь два места, где задаётся одно
+    // и то же, — и первое же расхождение осталось бы незамеченным.
     return {
         {QStringLiteral("interface.toggle"), tr("Open / close interface"),
          QStringLiteral("Ctrl+O")},
@@ -92,18 +103,19 @@ QList<ShortcutAction> SettingsDialog::shortcutActions()
          QStringLiteral("Ctrl+H")},
         {QStringLiteral("terminal.timestamps"), tr("Toggle timestamps"),
          QStringLiteral("Ctrl+T")},
-        {QStringLiteral("search.focus"), tr("Focus search"), QStringLiteral("Ctrl+F")},
         {QStringLiteral("send.focus"), tr("Focus send bar"), QStringLiteral("Ctrl+E")},
-        {QStringLiteral("logging.toggle"), tr("Start / stop logging"),
-         QStringLiteral("Ctrl+R")},
     };
 }
 
 SettingsDialog::SettingsDialog(const AppSettings &settings, const QStringList &ansiPalette,
                                InterfaceRegistry *registry, PluginManager *plugins,
-                               QWidget *parent)
+                               PanelPluginRegistry *panels,
+                               const QHash<QString, QVariantMap> &pluginValues,
+                               const QList<ShortcutAction> &shortcutActions, QWidget *parent)
     : QDialog(parent)
     , m_initial(settings)
+    , m_pluginValues(pluginValues)
+    , m_shortcutActions(shortcutActions.isEmpty() ? builtinShortcutActions() : shortcutActions)
 {
     setWindowTitle(tr("Settings"));
     setModal(true);
@@ -120,17 +132,26 @@ SettingsDialog::SettingsDialog(const AppSettings &settings, const QStringList &a
     // приходится, чтобы дочитать название, — а место в списке занимает.
     m_categories->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_categories->setTextElideMode(Qt::ElideRight);
-    m_categories->addItems({tr("General"), tr("Terminal"), tr("Send"), tr("Logging"),
-                            tr("Data"), tr("Interfaces"), tr("Shortcuts")});
+    // Список разделов больше не литерал: часть их приносят плагины, и число разделов
+    // становится известно только здесь.
+    QStringList titles{tr("General"), tr("Terminal"), tr("Send"), tr("Data")};
 
     m_pages = new QStackedWidget(this);
     m_pages->addWidget(buildGeneralPage());
     m_pages->addWidget(buildTerminalPage());
     m_pages->addWidget(buildSendPage());
-    m_pages->addWidget(buildLoggingPage());
     m_pages->addWidget(buildDataPage());
+
+    // Разделы плагинов идут между настройками программы и «Интерфейсами»: это тоже
+    // настройки того, что показывает окно, а не устройств.
+    buildPluginPages(panels, titles);
+
+    titles << tr("Interfaces") << tr("Plugins") << tr("Shortcuts");
     m_pages->addWidget(buildInterfacesPage(registry, plugins));
+    m_pages->addWidget(buildPluginsPage(plugins, panels));
     m_pages->addWidget(buildShortcutsPage());
+
+    m_categories->addItems(titles);
 
     connect(m_categories, &QListWidget::currentRowChanged,
             m_pages, &QStackedWidget::setCurrentIndex);
@@ -377,52 +398,35 @@ QWidget *SettingsDialog::buildSendPage()
     return page;
 }
 
-QWidget *SettingsDialog::buildLoggingPage()
+void SettingsDialog::buildPluginPages(PanelPluginRegistry *panels, QStringList &titles)
 {
-    auto *page = new QWidget(this);
-    auto *layout = new QVBoxLayout(page);
-    auto *form = new QFormLayout;
+    if (!panels)
+        return;
 
-    auto *directoryRow = new QWidget(page);
-    auto *directoryLayout = new QHBoxLayout(directoryRow);
-    directoryLayout->setContentsMargins(0, 0, 0, 0);
+    for (IPanelPlugin *plugin : panels->plugins()) {
+        const SettingsSchema schema = plugin->settingsSchema();
+        if (schema.isEmpty())
+            continue;
 
-    m_logDirectory = new QLineEdit(m_initial.effectiveLogDirectory(), directoryRow);
-    auto *browse = new QPushButton(tr("Browse..."), directoryRow);
-    connect(browse, &QPushButton::clicked, this, [this] {
-        const QString chosen = QFileDialog::getExistingDirectory(this, tr("Log directory"),
-                                                                 m_logDirectory->text());
-        if (!chosen.isEmpty())
-            m_logDirectory->setText(chosen);
-    });
-    directoryLayout->addWidget(m_logDirectory, 1);
-    directoryLayout->addWidget(browse);
-    form->addRow(tr("Directory"), directoryRow);
+        auto *page = new QWidget(this);
+        auto *layout = new QVBoxLayout(page);
 
-    m_logTemplate = new QLineEdit(m_initial.logFileNameTemplate, page);
-    form->addRow(tr("File name"), m_logTemplate);
+        auto *form = new SchemaForm(schema, m_pluginValues.value(plugin->pluginId()), page);
+        layout->addWidget(form);
+        layout->addStretch(1);
 
-    auto *templateHint = new QLabel(
-        tr("Placeholders: {alias}, {interface}, {date}, {time}"), page);
-    templateHint->setObjectName(QStringLiteral("hintLabel"));
-    form->addRow(QString(), templateHint);
+        m_pluginForms.insert(plugin->pluginId(), form);
+        m_pages->addWidget(page);
+        titles << plugin->displayName();
+    }
+}
 
-    layout->addLayout(form);
-
-    m_logFilterAnsi = new QCheckBox(tr("Strip ANSI escape sequences"), page);
-    m_logFilterAnsi->setChecked(m_initial.logFilterAnsi);
-
-    m_logIncludeTx = new QCheckBox(tr("Include sent data"), page);
-    m_logIncludeTx->setChecked(m_initial.logIncludeTx);
-
-    m_logAutoStart = new QCheckBox(tr("Start recording when the interface opens"), page);
-    m_logAutoStart->setChecked(m_initial.logAutoStart);
-
-    layout->addWidget(m_logFilterAnsi);
-    layout->addWidget(m_logIncludeTx);
-    layout->addWidget(m_logAutoStart);
-    layout->addStretch(1);
-    return page;
+QHash<QString, QVariantMap> SettingsDialog::pluginSettings() const
+{
+    QHash<QString, QVariantMap> result;
+    for (auto it = m_pluginForms.cbegin(); it != m_pluginForms.cend(); ++it)
+        result.insert(it.key(), it.value()->values());
+    return result;
 }
 
 QWidget *SettingsDialog::buildDataPage()
@@ -484,13 +488,85 @@ QWidget *SettingsDialog::buildInterfacesPage(InterfaceRegistry *registry, Plugin
     return m_interfacePanel;
 }
 
+QWidget *SettingsDialog::buildPluginsPage(PluginManager *plugins, PanelPluginRegistry *panels)
+{
+    auto *page = new QWidget(this);
+    auto *layout = new QVBoxLayout(page);
+
+    auto *tree = new QTreeWidget(page);
+    tree->setColumnCount(2);
+    tree->setHeaderLabels({tr("Plugin"), tr("Details")});
+    tree->setRootIsDecorated(true);
+    tree->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+
+    const auto addGroup = [tree](const QString &title) {
+        auto *group = new QTreeWidgetItem(tree, {title, QString()});
+        group->setExpanded(true);
+        group->setFirstColumnSpanned(true);
+        return group;
+    };
+
+    QTreeWidgetItem *interfaces = addGroup(tr("Interfaces"));
+    if (plugins) {
+        for (IInterfacePlugin *plugin : plugins->plugins())
+            new QTreeWidgetItem(interfaces, {plugin->pluginId(), plugin->displayName()});
+    }
+
+    QTreeWidgetItem *panelGroup = addGroup(tr("Panels and data"));
+    if (panels) {
+        for (IPanelPlugin *plugin : panels->plugins()) {
+            auto *item = new QTreeWidgetItem(panelGroup,
+                                             {plugin->pluginId(), plugin->displayName()});
+            for (const PanelPluginRegistry::PanelEntry &entry : panels->panels()) {
+                if (entry.plugin == plugin)
+                    new QTreeWidgetItem(item, {entry.descriptor.id, entry.descriptor.title});
+            }
+            item->setExpanded(true);
+        }
+    }
+
+    // Отвергнутые собираются из обоих реестров: у каждого свои причины отказа, и
+    // пользователю всё равно, кто именно не принял файл.
+    QList<PluginManager::LoadFailure> failures;
+    if (plugins)
+        failures += plugins->failures();
+    if (panels)
+        failures += panels->failures();
+
+    if (!failures.isEmpty()) {
+        QTreeWidgetItem *rejected = addGroup(tr("Rejected"));
+        for (const PluginManager::LoadFailure &failure : failures) {
+            auto *item = new QTreeWidgetItem(rejected, {failure.path, failure.reason});
+            item->setToolTip(0, failure.path);
+            item->setToolTip(1, failure.reason);
+        }
+    }
+
+    layout->addWidget(tree, 1);
+
+    auto *dirsTitle = new QLabel(tr("Searched directories"), page);
+    dirsTitle->setObjectName(QStringLiteral("hintLabel"));
+    layout->addWidget(dirsTitle);
+
+    auto *dirs = new QLabel(page);
+    dirs->setObjectName(QStringLiteral("hintLabel"));
+    dirs->setWordWrap(true);
+    dirs->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    const QStringList searched = plugins ? plugins->searchedDirectories() : QStringList{};
+    dirs->setText(searched.isEmpty() ? tr("None — plugins are built into the executable.")
+                                     : searched.join(u'\n'));
+    layout->addWidget(dirs);
+
+    return page;
+}
+
 QWidget *SettingsDialog::buildShortcutsPage()
 {
     auto *page = new QWidget(this);
     auto *layout = new QVBoxLayout(page);
     auto *form = new QFormLayout;
 
-    for (const ShortcutAction &action : shortcutActions()) {
+    for (const ShortcutAction &action : m_shortcutActions) {
         auto *editor = new QKeySequenceEdit(page);
         const QString stored = m_initial.shortcuts.value(action.id, action.defaultSequence);
         editor->setKeySequence(QKeySequence(stored));
@@ -560,11 +636,6 @@ AppSettings SettingsDialog::settings() const
     result.sendTermination = m_sendTermination->currentData().toInt();
     result.historySize = m_historySize->value();
 
-    result.logDirectory = m_logDirectory->text();
-    result.logFileNameTemplate = m_logTemplate->text();
-    result.logFilterAnsi = m_logFilterAnsi->isChecked();
-    result.logIncludeTx = m_logIncludeTx->isChecked();
-    result.logAutoStart = m_logAutoStart->isChecked();
 
     result.packetizerMode = m_packetizerMode->currentData().toInt();
     result.packetizerTimeoutMs = m_packetizerTimeout->value();
@@ -572,7 +643,7 @@ AppSettings SettingsDialog::settings() const
     result.packetizerFixedLength = m_packetizerLength->value();
 
     result.shortcuts.clear();
-    for (const ShortcutAction &action : shortcutActions()) {
+    for (const ShortcutAction &action : m_shortcutActions) {
         QKeySequenceEdit *editor = m_shortcutEditors.value(action.id);
         if (!editor)
             continue;

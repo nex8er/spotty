@@ -7,6 +7,7 @@
 
 #include <PluginManager.h>
 #include <settings/Paths.h>
+#include <spotty/data/FileUtils.h>
 
 #include <QDir>
 
@@ -64,11 +65,11 @@ TEST(Paths, EnsureDirCreatesNestedDirectories)
     TempDir dir;
     const QString nested = QDir(dir.path()).filePath(QStringLiteral("a/b/c"));
 
-    EXPECT_TRUE(Paths::ensureDir(nested));
+    EXPECT_TRUE(spotty::ensureDir(nested));
     EXPECT_TRUE(QDir(nested).exists());
 
     // Повторный вызов на существующем каталоге тоже успешен.
-    EXPECT_TRUE(Paths::ensureDir(nested));
+    EXPECT_TRUE(spotty::ensureDir(nested));
 }
 
 TEST(Paths, PluginDirsAreUniqueAndExisting)

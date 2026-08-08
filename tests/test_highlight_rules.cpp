@@ -2,7 +2,7 @@
  * \file test_highlight_rules.cpp
  * \brief Тесты spotty::HighlightRules.
  */
-#include <HighlightRules.h>
+#include <spotty/data/HighlightRules.h>
 
 #include <gtest/gtest.h>
 

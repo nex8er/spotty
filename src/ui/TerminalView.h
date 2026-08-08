@@ -6,7 +6,7 @@
 
 #include "theme/AnsiPalette.h"
 
-#include <HighlightRules.h>
+#include <spotty/data/HighlightRules.h>
 #include <terminal/TerminalBuffer.h>
 
 #include <QAbstractScrollArea>

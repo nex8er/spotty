@@ -28,7 +28,6 @@ TEST(AppSettings, DefaultsOnEmptyStore)
     EXPECT_EQ(settings.hexBytesPerRow, 16);
     EXPECT_EQ(settings.sendTermination, 3);
     EXPECT_TRUE(settings.localEcho);
-    EXPECT_TRUE(settings.logFilterAnsi);
 
     // Открытие порта дёргает DTR и перехватывает порт у другой программы: делать это молча
     // при каждом запуске нельзя.
@@ -60,11 +59,6 @@ TEST(AppSettings, RoundTripThroughStore)
     original.sendFormat = 1;
     original.sendTermination = 2;
     original.historySize = 42;
-    original.logDirectory = QStringLiteral("/tmp/logs");
-    original.logFileNameTemplate = QStringLiteral("{interface}");
-    original.logFilterAnsi = false;
-    original.logIncludeTx = false;
-    original.logAutoStart = true;
     original.packetizerMode = 2;
     original.packetizerTimeoutMs = 55;
     original.packetizerDelimiterHex = QStringLiteral("0D0A");
@@ -100,36 +94,11 @@ TEST(AppSettings, RoundTripThroughStore)
     EXPECT_EQ(restored.sendFormat, original.sendFormat);
     EXPECT_EQ(restored.sendTermination, original.sendTermination);
     EXPECT_EQ(restored.historySize, original.historySize);
-    EXPECT_EQ(restored.logDirectory, original.logDirectory);
-    EXPECT_EQ(restored.logFileNameTemplate, original.logFileNameTemplate);
-    EXPECT_EQ(restored.logFilterAnsi, original.logFilterAnsi);
-    EXPECT_EQ(restored.logIncludeTx, original.logIncludeTx);
-    EXPECT_EQ(restored.logAutoStart, original.logAutoStart);
     EXPECT_EQ(restored.packetizerMode, original.packetizerMode);
     EXPECT_EQ(restored.packetizerTimeoutMs, original.packetizerTimeoutMs);
     EXPECT_EQ(restored.packetizerDelimiterHex, original.packetizerDelimiterHex);
     EXPECT_EQ(restored.packetizerFixedLength, original.packetizerFixedLength);
     EXPECT_EQ(restored.shortcuts, original.shortcuts);
-}
-
-TEST(AppSettings, EmptyLogDirectoryFallsBackToDefault)
-{
-    Paths::initialize();
-
-    AppSettings settings;
-    settings.logDirectory.clear();
-
-    // Пустая строка означает «использовать умолчание», а не «писать в текущий каталог».
-    EXPECT_EQ(settings.effectiveLogDirectory(), Paths::defaultLogDir());
-    EXPECT_FALSE(settings.effectiveLogDirectory().isEmpty());
-}
-
-TEST(AppSettings, ExplicitLogDirectoryWins)
-{
-    AppSettings settings;
-    settings.logDirectory = QStringLiteral("/somewhere/else");
-
-    EXPECT_EQ(settings.effectiveLogDirectory(), QStringLiteral("/somewhere/else"));
 }
 
 TEST(AppSettings, EmptyPaletteMeansFollowTheme)

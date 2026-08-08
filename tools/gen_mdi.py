@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Пересоздаёт src/ui/theme/MdiCodepoints.h из метаданных шрифта Material Design Icons.
+"""Пересоздаёт include/spotty/ui/MdiCodepoints.h из метаданных шрифта Material Design Icons.
 
 Spotty встраивает веб-шрифт целиком, но по имени обращается лишь к нескольким десяткам
 глифов. Поэтому в репозитории лежит порождённый заголовок только с нужными константами, а
@@ -35,10 +35,10 @@ content-save plus minus pencil delete close check chevron-down chevron-up chevro
 chevron-right folder-open file-document-outline open-in-new send keyboard history filter
 filter-off palette translate format-font format-size theme-light-dark weather-night
 white-balance-sunny information-outline alert-outline timer-outline puzzle rename-box
-content-duplicate file-import file-export
+content-duplicate file-import file-export chart-line file-upload
 """.split()
 
-HEADER = Path(__file__).resolve().parent.parent / "src" / "ui" / "theme" / "MdiCodepoints.h"
+HEADER = Path(__file__).resolve().parent.parent / "include" / "spotty" / "ui" / "MdiCodepoints.h"
 
 
 def pascal(name: str) -> str:

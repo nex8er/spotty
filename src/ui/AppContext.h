@@ -8,6 +8,7 @@ namespace spotty {
 
 class HistoryStore;
 class InterfaceRegistry;
+class PanelPluginRegistry;
 class PluginManager;
 class Session;
 class SettingsStore;
@@ -28,7 +29,8 @@ class ThemeManager;
 struct AppContext
 {
     SettingsStore *settings = nullptr;     ///< Общие настройки (`settings.json`).
-    PluginManager *plugins = nullptr;      ///< Загруженные плагины.
+    PluginManager *plugins = nullptr;      ///< Плагины интерфейсов.
+    PanelPluginRegistry *panels = nullptr; ///< Плагины панелей и обработки данных.
     InterfaceRegistry *registry = nullptr; ///< Доступные устройства.
     ThemeManager *theme = nullptr;         ///< Оформление и палитра.
     Session *session = nullptr;            ///< Сеанс работы с интерфейсом.

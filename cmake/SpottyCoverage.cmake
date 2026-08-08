@@ -3,8 +3,9 @@
 # Включается опцией SPOTTY_ENABLE_COVERAGE и добавляет цель `coverage`: прогнать тесты,
 # собрать отчёт, показать сводку и проверить нижний порог.
 #
-# Измеряется только `spotty-core`. Смысла мерить покрытие тестов самими собой нет, а UI и
-# плагины модульными тестами не покрываются в принципе — они проверяются запуском.
+# Измеряются `spotty-core` и `spotty-api` — вся логика, не зависящая от Qt6::Widgets.
+# Смысла мерить покрытие тестов самими собой нет, а UI и плагины модульными тестами не
+# покрываются в принципе — они проверяются запуском.
 #
 # Сборка с инструментированием заметно медленнее и непригодна для работы, поэтому её
 # принято держать в отдельном каталоге:
@@ -17,7 +18,7 @@
 # Порог существует не ради красивой цифры: он ловит момент, когда в ядро добавили код и
 # забыли тест. Стопроцентное покрытие целью не ставится — доводить до него обычно значит
 # писать тесты на обработчики ошибок файловой системы, которые всё равно не воспроизвести.
-set(SPOTTY_COVERAGE_MINIMUM "80.0" CACHE STRING "Minimum line coverage percentage for spotty-core")
+set(SPOTTY_COVERAGE_MINIMUM "80.0" CACHE STRING "Minimum line coverage percentage for the core and the SDK")
 
 function(spotty_enable_coverage target)
     if(NOT SPOTTY_ENABLE_COVERAGE)
@@ -107,7 +108,7 @@ ctest --test-dir '${CMAKE_BINARY_DIR}' --output-on-failure
 
 # Из отчёта исключается всё, что не является измеряемым кодом: сами тесты, GoogleTest,
 # порождённые moc файлы и системные заголовки. Иначе цифра размывается до бессмысленной.
-ignore='(/tests/|_deps/|/moc_|/mocs_compilation|qrc_|/usr/|/Applications/|\\.framework/)'
+ignore='(/tests/|/src/ui/|/plugins/|_deps/|/moc_|/mocs_compilation|qrc_|/usr/|/Applications/|\\.framework/)'
 
 '${LLVM_COV}' report \"\$binary\" \\
     -instr-profile=\"\$coverage_dir/merged.profdata\" \\
@@ -156,8 +157,12 @@ function(_spotty_coverage_gcc test_target coverage_dir)
         COMMAND ctest --test-dir "${CMAKE_BINARY_DIR}" --output-on-failure
         COMMAND "${GCOVR}"
                 --root "${CMAKE_SOURCE_DIR}"
-                # Измеряется только ядро — по той же причине, что и в ветке Clang.
+                # Измеряется логика — по той же причине, что и в ветке Clang. Она лежит в
+                # двух местах: ядро и SDK, куда переехали MacroStore, LogWriter,
+                # DataGenerator, HighlightRules и DataCodec. UI и плагины сюда не входят.
                 --filter "${CMAKE_SOURCE_DIR}/src/core"
+                --filter "${CMAKE_SOURCE_DIR}/src/api"
+                --filter "${CMAKE_SOURCE_DIR}/include/spotty"
                 --exclude ".*/moc_.*"
                 --exclude ".*/mocs_compilation.*"
                 --print-summary

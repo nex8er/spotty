@@ -37,11 +37,6 @@ constexpr auto kSendFormat = "send/format";
 constexpr auto kSendTermination = "send/termination";
 constexpr auto kHistorySize = "send/historySize";
 
-constexpr auto kLogDirectory = "logging/directory";
-constexpr auto kLogTemplate = "logging/fileNameTemplate";
-constexpr auto kLogFilterAnsi = "logging/filterAnsi";
-constexpr auto kLogIncludeTx = "logging/includeTx";
-constexpr auto kLogAutoStart = "logging/autoStart";
 
 constexpr auto kPacketizerMode = "data/packetizerMode";
 constexpr auto kPacketizerTimeout = "data/packetizerTimeoutMs";
@@ -87,15 +82,6 @@ AppSettings AppSettings::load(const SettingsStore &store)
     settings.historySize =
         store.value(QLatin1String(kHistorySize), settings.historySize).toInt();
 
-    settings.logDirectory = store.value(QLatin1String(kLogDirectory)).toString();
-    settings.logFileNameTemplate =
-        store.value(QLatin1String(kLogTemplate), settings.logFileNameTemplate).toString();
-    settings.logFilterAnsi =
-        store.value(QLatin1String(kLogFilterAnsi), settings.logFilterAnsi).toBool();
-    settings.logIncludeTx =
-        store.value(QLatin1String(kLogIncludeTx), settings.logIncludeTx).toBool();
-    settings.logAutoStart =
-        store.value(QLatin1String(kLogAutoStart), settings.logAutoStart).toBool();
 
     settings.packetizerMode =
         store.value(QLatin1String(kPacketizerMode), settings.packetizerMode).toInt();
@@ -138,11 +124,6 @@ void AppSettings::save(SettingsStore &store) const
     store.setValue(QLatin1String(kSendTermination), sendTermination);
     store.setValue(QLatin1String(kHistorySize), historySize);
 
-    store.setValue(QLatin1String(kLogDirectory), logDirectory);
-    store.setValue(QLatin1String(kLogTemplate), logFileNameTemplate);
-    store.setValue(QLatin1String(kLogFilterAnsi), logFilterAnsi);
-    store.setValue(QLatin1String(kLogIncludeTx), logIncludeTx);
-    store.setValue(QLatin1String(kLogAutoStart), logAutoStart);
 
     store.setValue(QLatin1String(kPacketizerMode), packetizerMode);
     store.setValue(QLatin1String(kPacketizerTimeout), packetizerTimeoutMs);
@@ -153,11 +134,6 @@ void AppSettings::save(SettingsStore &store) const
     for (auto it = shortcuts.constBegin(); it != shortcuts.constEnd(); ++it)
         shortcutMap.insert(it.key(), it.value());
     store.setValue(QLatin1String(kShortcuts), shortcutMap);
-}
-
-QString AppSettings::effectiveLogDirectory() const
-{
-    return logDirectory.isEmpty() ? Paths::defaultLogDir() : logDirectory;
 }
 
 } // namespace spotty

@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include <terminal/TextStyle.h>
+#include <spotty/data/TextStyle.h>
 
 #include <QColor>
 #include <QStringList>

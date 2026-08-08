@@ -21,6 +21,9 @@ class QToolButton;
 
 namespace spotty {
 
+class PanelPluginRegistry;
+class SchemaForm;
+
 class InterfaceRegistry;
 class InterfaceSettingsPanel;
 class PluginManager;
@@ -65,9 +68,18 @@ public:
      * \param registry Реестр интерфейсов для раздела «Интерфейсы»; `nullptr` — раздел не
      *        строится (например, в тестах, где реестра нет).
      * \param plugins Менеджер плагинов; действует та же оговорка, что и для \p registry.
+     * \param panels Реестр панельных плагинов: из их схем строятся отдельные разделы.
+     *        `nullptr` — разделов плагинов не будет.
+     * \param pluginValues Текущие настройки плагинов по их идентификаторам. Как и
+     *        \p settings, это копия: правки уезжают в хранилище только после «ОК».
+     * \param shortcutActions Полный список настраиваемых действий, включая объявленные
+     *        панелями. Пустой список означает «только собственные действия окна».
      */
     SettingsDialog(const AppSettings &settings, const QStringList &ansiPalette,
                    InterfaceRegistry *registry = nullptr, PluginManager *plugins = nullptr,
+                   PanelPluginRegistry *panels = nullptr,
+                   const QHash<QString, QVariantMap> &pluginValues = {},
+                   const QList<ShortcutAction> &shortcutActions = {},
                    QWidget *parent = nullptr);
 
     /// \brief Настройки с внесёнными правками.
@@ -82,8 +94,20 @@ public:
      */
     InterfaceSettingsPanel *interfacePanel() const { return m_interfacePanel; }
 
-    /// \brief Список действий, которым можно назначать сочетания клавиш.
-    static QList<ShortcutAction> shortcutActions();
+    /**
+     * \brief Действия самого окна, которым можно назначать сочетания клавиш.
+     *
+     * Сочетания панелей сюда не входят: их объявляют плагины через
+     * spotty::IPanelHost::setShortcuts(), и собирает их spotty::MainWindow.
+     */
+    static QList<ShortcutAction> builtinShortcutActions();
+
+    /**
+     * \brief Настройки плагинов, изменённые пользователем.
+     * \return Карта «идентификатор плагина → значения его схемы». Пустая, если реестр не
+     *         передавался или ни один плагин схемы не объявил.
+     */
+    QHash<QString, QVariantMap> pluginSettings() const;
 
 Q_SIGNALS:
     /**
@@ -99,10 +123,27 @@ private:
     QWidget *buildGeneralPage();
     QWidget *buildTerminalPage();
     QWidget *buildSendPage();
-    QWidget *buildLoggingPage();
     QWidget *buildDataPage();
     QWidget *buildShortcutsPage();
     QWidget *buildInterfacesPage(InterfaceRegistry *registry, PluginManager *plugins);
+
+    /**
+     * \brief Добавить по разделу на каждый панельный плагин со схемой.
+     * \param titles Названия разделов; метод дописывает в него свои.
+     *
+     * Раздел появляется только у плагина, объявившего непустую схему: плагину, чьи
+     * настройки правятся прямо в панели, пустая страница в диалоге не нужна.
+     */
+    void buildPluginPages(PanelPluginRegistry *panels, QStringList &titles);
+
+    /**
+     * \brief Раздел «Plugins»: что загрузилось, что отвергнуто и где искали.
+     *
+     * До него отчёт spotty::PluginManager о загрузке жил только в журнале. Молча
+     * пропавший плагин — самая неприятная в разборе неисправность, и список отвергнутых
+     * с причинами существует ровно ради неё; показывать его стоило с самого начала.
+     */
+    QWidget *buildPluginsPage(PluginManager *plugins, PanelPluginRegistry *panels);
 
     /// \brief Обновить доступность полей, зависящих от других полей.
     void updateEnabledState();
@@ -114,6 +155,15 @@ private:
 
     /// \brief Панель раздела «Интерфейсы»; nullptr, если раздел не строился.
     InterfaceSettingsPanel *m_interfacePanel = nullptr;
+
+    /// \brief Формы разделов панельных плагинов по идентификатору плагина.
+    QHash<QString, SchemaForm *> m_pluginForms;
+
+    /// \brief Значения, с которыми формы плагинов были построены.
+    QHash<QString, QVariantMap> m_pluginValues;
+
+    /// \brief Действия раздела «Сочетания клавиш».
+    QList<ShortcutAction> m_shortcutActions;
 
     // Общие
     QComboBox *m_language = nullptr;
@@ -141,11 +191,6 @@ private:
     QSpinBox *m_historySize = nullptr;
 
     // Логи
-    QLineEdit *m_logDirectory = nullptr;
-    QLineEdit *m_logTemplate = nullptr;
-    QCheckBox *m_logFilterAnsi = nullptr;
-    QCheckBox *m_logIncludeTx = nullptr;
-    QCheckBox *m_logAutoStart = nullptr;
 
     // Данные
     QComboBox *m_packetizerMode = nullptr;

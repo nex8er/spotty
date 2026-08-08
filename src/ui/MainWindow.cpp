@@ -4,16 +4,15 @@
  */
 #include "MainWindow.h"
 
-#include "Formatting.h"
+#include <spotty/data/Formatting.h>
 #include "InterfaceBar.h"
 #include "SendBar.h"
 #include "dialogs/InterfaceSettingsDialog.h"
 #include "dialogs/InterfaceSettingsPanel.h"
 #include "dialogs/SettingsDialog.h"
-#include "panels/GeneratorPanel.h"
-#include "panels/LoggingPanel.h"
-#include "panels/MacrosPanel.h"
-#include "panels/SearchPanel.h"
+#include "OverlayLayer.h"
+#include "PanelHostImpl.h"
+#include "PanelPluginRegistry.h"
 #include "theme/MdiIcons.h"
 
 #include <HistoryStore.h>
@@ -70,24 +69,16 @@ constexpr auto kKeyGeometry = "window/geometry";
 // размеры относились к обратному порядку виджетов. Восстановление старого состояния
 // растянуло бы панель на всё окно.
 constexpr auto kKeySplitter = "window/mainSplitter";
-constexpr auto kKeyPanelIndex = "window/panelIndex";
+// Панель запоминается идентификатором, а не номером страницы: при плагинах набор
+// перестал быть постоянным, и сохранённый номер после установки или снятия плагина
+// указывал бы на чужую панель.
+constexpr auto kKeyPanelId = "window/panelId";
+constexpr auto kKeyPanelIndexLegacy = "window/panelIndex";
+constexpr auto kKeyTerminalSplitter = "window/terminalSplitter";
 constexpr auto kKeyInterface = "session/interfaceId";
 
-/// \brief Значки правых панелей в порядке их страниц в стопке.
-constexpr char32_t kPanelGlyphs[] = {
-    mdi::Flash,               // Макросы
-    mdi::RecordCircleOutline, // Логирование
-    mdi::Magnify,             // Поиск
-    mdi::ShuffleVariant,      // Генератор
-};
-
-/// \brief Подсказки к значкам панелей, в том же порядке.
-const char *const kPanelTitles[] = {
-    QT_TRANSLATE_NOOP("spotty::MainWindow", "Macros"),
-    QT_TRANSLATE_NOOP("spotty::MainWindow", "Logging"),
-    QT_TRANSLATE_NOOP("spotty::MainWindow", "Search"),
-    QT_TRANSLATE_NOOP("spotty::MainWindow", "Generator"),
-};
+/// \brief Прежний порядок панелей — для переноса kKeyPanelIndexLegacy в kKeyPanelId.
+const char *const kLegacyPanelIds[] = {"macros", "logging", "search", "generator"};
 
 /// \brief Кодировка приёма по имени из настроек.
 QStringConverter::Encoding encodingFromName(const QString &name)
@@ -185,12 +176,22 @@ void MainWindow::buildUi()
     // них.
     const ThemeMetrics &metrics = ThemeManager::metrics();
 
+    // Разделитель создаётся всегда, даже когда ни один плагин не просит своей полосы:
+    // с единственным ребёнком он неотличим от голого виджета, а условная ветка «когда
+    // полос нет — по-старому» была бы вторым путём, который сломается первым.
+    m_terminalSplitter = new QSplitter(Qt::Vertical, this);
+    m_terminalSplitter->setHandleWidth(metrics.splitterHandle);
+    m_terminalSplitter->setChildrenCollapsible(false);
+    m_terminalCard = makeCard(terminalBlock);
+    m_terminalSplitter->addWidget(m_terminalCard);
+    m_terminalSplitter->setStretchFactor(0, 1);
+
     auto *rightColumn = new QWidget(this);
     auto *rightLayout = new QVBoxLayout(rightColumn);
     rightLayout->setContentsMargins(metrics.gap, metrics.gap, metrics.gap, metrics.gap);
     rightLayout->setSpacing(metrics.gap);
     rightLayout->addWidget(makeCard(m_interfaceBar));
-    rightLayout->addWidget(makeCard(terminalBlock), 1);
+    rightLayout->addWidget(m_terminalSplitter, 1);
     rightLayout->addWidget(makeCard(m_sendBar));
 
     // --- Панель слева во всю высоту ---------------------------------------------------
@@ -278,54 +279,14 @@ void MainWindow::buildUi()
         });
     }
 
-    // --- Панели ----------------------------------------------------------------------
-
-    const auto sendFromPanel = [this](const QByteArray &data) {
-        if (m_context.session)
-            m_context.session->send(data);
-    };
-    connect(m_macrosPanel, &MacrosPanel::sendRequested, this, sendFromPanel);
-    connect(m_generatorPanel, &GeneratorPanel::sendRequested, this, sendFromPanel);
-
-    const auto showStatus = [this](const QString &message) {
-        statusBar()->showMessage(message, 8000);
-    };
-    connect(m_macrosPanel, &MacrosPanel::statusMessage, this, showStatus);
-    connect(m_loggingPanel, &LoggingPanel::statusMessage, this, showStatus);
-
-    connect(m_generatorPanel, &GeneratorPanel::pushToSendBarRequested, this,
-            [this](const QString &text, int format) {
-                m_sendBar->setFormat(DataCodec::Format(format));
-                m_sendBar->setText(text);
-                m_sendBar->focusInput();
-            });
-
-    connect(m_loggingPanel, &LoggingPanel::logFileRequested, this, &MainWindow::showLogFile);
-    connect(m_loggingPanel, &LoggingPanel::optionsChanged, this,
-            [this](bool filterAnsi, bool includeTx) {
-                m_settings.logFilterAnsi = filterAnsi;
-                m_settings.logIncludeTx = includeTx;
-                m_settings.save(*m_context.settings);
-            });
-
-    connect(m_searchPanel, &SearchPanel::searchChanged, this,
-            [this](const QString &pattern, bool regex, bool caseSensitive, bool wholeWords) {
-                m_terminal->setSearchPattern(pattern, regex, caseSensitive, wholeWords);
-            });
-    connect(m_searchPanel, &SearchPanel::filterToggled,
-            m_terminal, &TerminalView::setFilterEnabled);
-    connect(m_searchPanel, &SearchPanel::findNextRequested,
-            m_terminal, &TerminalView::findNext);
-    connect(m_searchPanel, &SearchPanel::findPreviousRequested,
-            m_terminal, &TerminalView::findPrevious);
-    connect(m_searchPanel, &SearchPanel::highlightRulesChanged,
-            m_terminal, &TerminalView::setHighlightRules);
-    connect(m_terminal, &TerminalView::matchCountChanged,
-            m_searchPanel, &SearchPanel::setMatchCount);
-
-    // Правила, прочитанные панелью из настроек в её конструкторе, до подключения выше не
-    // дошли бы: сигнала тогда ещё некому было слушать.
-    m_terminal->setHighlightRules(m_searchPanel->highlightRules());
+    // --- Панели плагинов ----------------------------------------------------------------
+    //
+    // Строятся последними: хост панели подписывается в конструкторе на сигналы терминала
+    // и сессии, и до этого места их ещё нет. Связывать панели поимённо больше не нужно —
+    // всё, что им доступно, они берут через свой хост.
+    m_overlay = new OverlayLayer(m_terminal);
+    buildPanelPlugins();
+    installPluginFilters();
 
     applyChannelState(ChannelState::Closed, {});
     updateStatistics();
@@ -416,37 +377,15 @@ QWidget *MainWindow::buildSidePanel()
     // Линия между рейкой и содержимым панели (правило #panelRail в QSS): без неё при
     // узкой панели столбец значков и её содержимое сливаются в один столбец кнопок.
     rail->setObjectName(QStringLiteral("panelRail"));
-    auto *railLayout = new QVBoxLayout(rail);
-    railLayout->setContentsMargins(4, 6, 4, 6);
-    railLayout->setSpacing(4);
-
-    auto *group = new QButtonGroup(this);
-    group->setExclusive(true);
+    m_railLayout = new QVBoxLayout(rail);
+    m_railLayout->setContentsMargins(4, 6, 4, 6);
+    m_railLayout->setSpacing(4);
 
     m_panelStack = new QStackedWidget(panel);
 
-    m_macrosPanel = new MacrosPanel(m_context, m_panelStack);
-    m_loggingPanel = new LoggingPanel(m_context, m_panelStack);
-    m_searchPanel = new SearchPanel(m_context, m_panelStack);
-    m_generatorPanel = new GeneratorPanel(m_context, m_panelStack);
-
-    m_panelStack->addWidget(m_macrosPanel);
-    m_panelStack->addWidget(m_loggingPanel);
-    m_panelStack->addWidget(m_searchPanel);
-    m_panelStack->addWidget(m_generatorPanel);
-
-    for (int index = 0; index < int(std::size(kPanelGlyphs)); ++index) {
-        auto *button = new QToolButton(rail);
-        button->setCheckable(true);
-        button->setAutoRaise(true);
-        button->setToolTip(tr(kPanelTitles[index]));
-        button->setIconSize(QSize(kPanelGlyphSize, kPanelGlyphSize));
-        group->addButton(button, index);
-        railLayout->addWidget(button);
-        m_panelButtons.append(button);
-    }
-
-    railLayout->addStretch(1);
+    // Страницы добавит buildPanelPlugins() — к этому моменту ни терминала, ни строки
+    // отправки ещё нет, а хост панели подписывается на них в конструкторе.
+    m_railLayout->addStretch(1);
 
     // Настройки — не панель, а действие, поэтому вне группы переключателей: растяжка
     // отделяет её от них и прижимает к низу рейки.
@@ -454,10 +393,8 @@ QWidget *MainWindow::buildSidePanel()
     m_settingsRailButton->setAutoRaise(true);
     m_settingsRailButton->setToolTip(tr("Settings"));
     m_settingsRailButton->setIconSize(QSize(kPanelGlyphSize, kPanelGlyphSize));
-    railLayout->addWidget(m_settingsRailButton);
+    m_railLayout->addWidget(m_settingsRailButton);
     connect(m_settingsRailButton, &QToolButton::clicked, this, &MainWindow::showSettingsDialog);
-
-    connect(group, &QButtonGroup::idClicked, m_panelStack, &QStackedWidget::setCurrentIndex);
 
     auto *layout = new QHBoxLayout(panel);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -465,10 +402,92 @@ QWidget *MainWindow::buildSidePanel()
     layout->addWidget(rail);
     layout->addWidget(m_panelStack, 1);
 
-    if (!m_panelButtons.isEmpty())
-        m_panelButtons.first()->setChecked(true);
-
     return panel;
+}
+
+void MainWindow::buildPanelPlugins()
+{
+    PanelPluginRegistry *registry = m_context.panels;
+    if (!registry)
+        return;
+
+    auto *group = new QButtonGroup(this);
+    group->setExclusive(true);
+
+    for (const PanelPluginRegistry::PanelEntry &entry : registry->panels()) {
+        const QString pluginId = entry.plugin->pluginId();
+
+        // Хост один на плагин, а не на панель: настройки, каталог данных и сочетания
+        // клавиш принадлежат плагину целиком.
+        PanelHostImpl *host = m_hosts.value(pluginId);
+        if (!host) {
+            host = new PanelHostImpl(m_context, this, pluginId);
+            m_hosts.insert(pluginId, host);
+        }
+
+        QWidget *widget = entry.plugin->createPanel(entry.descriptor.id, host, nullptr);
+        if (!widget) {
+            qWarning("Panel plugin \"%s\" declared panel \"%s\" but refused to create it",
+                     qUtf8Printable(pluginId), qUtf8Printable(entry.descriptor.id));
+            continue;
+        }
+
+        switch (entry.descriptor.placement) {
+        case PanelPlacement::Rail:
+            addRailPanel(entry.descriptor, widget, group);
+            break;
+        case PanelPlacement::Splitter:
+            addSplitterPanel(entry.descriptor, widget);
+            break;
+        case PanelPlacement::Overlay:
+            m_overlay->addOverlay(widget, entry.descriptor.anchor,
+                                  entry.descriptor.mouseTransparent);
+            break;
+        }
+    }
+
+    if (!m_railPanels.isEmpty()) {
+        m_railPanels.first().button->setChecked(true);
+        m_panelStack->setCurrentIndex(0);
+    }
+}
+
+void MainWindow::addRailPanel(const PanelDescriptor &descriptor, QWidget *widget,
+                              QButtonGroup *group)
+{
+    const int index = m_panelStack->count();
+    m_panelStack->addWidget(widget);
+
+    auto *button = new QToolButton(m_panelStack->parentWidget());
+    button->setCheckable(true);
+    button->setAutoRaise(true);
+    button->setToolTip(descriptor.title);
+    button->setIconSize(QSize(kPanelGlyphSize, kPanelGlyphSize));
+    // Панель без значка подписывается первой буквой: пустая кнопка в рейке неотличима от
+    // промежутка, и нажать на неё можно только случайно.
+    if (descriptor.glyph == 0)
+        button->setText(descriptor.title.left(1).toUpper());
+
+    group->addButton(button, index);
+    // Перед растяжкой и кнопкой настроек, которые уже стоят в конце рейки.
+    m_railLayout->insertWidget(index, button);
+
+    connect(button, &QToolButton::clicked, this,
+            [this, index] { m_panelStack->setCurrentIndex(index); });
+
+    m_railPanels.append({descriptor.id, widget, button});
+}
+
+void MainWindow::addSplitterPanel(const PanelDescriptor &descriptor, QWidget *widget)
+{
+    // Порядок внутри разделителя: всё, что «сверху», идёт до терминала, остальное после.
+    // Индекс терминала ищется каждый раз заново — панелей может быть несколько, и он
+    // сдвигается по мере их добавления.
+    const int terminalIndex = m_terminalSplitter->indexOf(m_terminalCard);
+    const int at = descriptor.side == PanelSide::Above ? terminalIndex : terminalIndex + 1;
+
+    m_terminalSplitter->insertWidget(at, makeCard(widget));
+    m_terminalSplitter->setStretchFactor(at, 0);
 }
 
 void MainWindow::buildMenus()
@@ -534,25 +553,14 @@ void MainWindow::buildMenus()
 
     viewMenu->addSeparator();
 
-    m_actions.insert(QStringLiteral("search.focus"),
-                     viewMenu->addAction(tr("&Find..."), this, [this] {
-                         m_panelStack->setCurrentIndex(2);
-                         if (m_panelButtons.size() > 2)
-                             m_panelButtons.at(2)->setChecked(true);
-                         m_searchPanel->focusSearch();
-                     }));
-
     m_actions.insert(QStringLiteral("send.focus"),
                      viewMenu->addAction(tr("Focus &send bar"), this,
                                          [this] { m_sendBar->focusInput(); }));
 
-    m_actions.insert(QStringLiteral("logging.toggle"),
-                     viewMenu->addAction(tr("Start / stop &recording"), this, [this] {
-                         m_panelStack->setCurrentIndex(1);
-                         if (m_panelButtons.size() > 1)
-                             m_panelButtons.at(1)->setChecked(true);
-                         m_loggingPanel->toggleRecordingFromShortcut();
-                     }));
+    // «Найти» и «Начать запись» отсюда ушли: они принадлежат панелям поиска и журнала, а
+    // те объявляют свои сочетания сами через IPanelHost::setShortcuts(). Прежде окно
+    // знало о них и переключало страницу по жёсткому номеру — с плагинами такой номер
+    // означал бы разное при разном наборе установленных панелей.
 
     viewMenu->addSeparator();
 
@@ -629,26 +637,66 @@ void MainWindow::applySettings()
     m_sendBar->setFormat(DataCodec::Format(m_settings.sendFormat));
     m_sendBar->setTermination(DataCodec::Termination(m_settings.sendTermination));
 
-    m_loggingPanel->applySettings(m_settings);
-
     applyShortcuts();
 }
 
 void MainWindow::applyShortcuts()
 {
-    for (const ShortcutAction &action : SettingsDialog::shortcutActions()) {
+    for (const ShortcutAction &action : SettingsDialog::builtinShortcutActions()) {
         QAction *target = m_actions.value(action.id);
         if (!target)
             continue;
         target->setShortcut(
             QKeySequence(m_settings.shortcuts.value(action.id, action.defaultSequence)));
     }
+
+    // Сочетания панелей переопределяются через их хосты: сами действия создал хост, и
+    // только он знает, какому идентификатору какое соответствует.
+    for (auto it = m_hosts.cbegin(); it != m_hosts.cend(); ++it) {
+        for (const PanelShortcut &shortcut : it.value()->configurableShortcuts()) {
+            const QString fullId = QStringLiteral("%1.%2").arg(it.key(), shortcut.id);
+            const QString stored = m_settings.shortcuts.value(fullId);
+            if (!stored.isEmpty())
+                it.value()->applyShortcutOverride(fullId, QKeySequence(stored));
+        }
+    }
+}
+
+QList<ShortcutAction> MainWindow::allShortcutActions() const
+{
+    QList<ShortcutAction> actions = SettingsDialog::builtinShortcutActions();
+
+    for (auto it = m_hosts.cbegin(); it != m_hosts.cend(); ++it) {
+        for (const PanelShortcut &shortcut : it.value()->configurableShortcuts()) {
+            actions.append({QStringLiteral("%1.%2").arg(it.key(), shortcut.id),
+                            shortcut.title,
+                            shortcut.defaultSequence.toString(QKeySequence::PortableText)});
+        }
+    }
+    return actions;
+}
+
+QHash<QString, QVariantMap> MainWindow::currentPluginSettings() const
+{
+    QHash<QString, QVariantMap> values;
+    if (!m_context.panels || !m_context.settings)
+        return values;
+
+    for (IPanelPlugin *plugin : m_context.panels->plugins()) {
+        if (plugin->settingsSchema().isEmpty())
+            continue;
+        values.insert(plugin->pluginId(),
+                      m_context.settings->group(QStringLiteral("plugins/%1")
+                                                    .arg(plugin->pluginId())));
+    }
+    return values;
 }
 
 void MainWindow::showSettingsDialog()
 {
     SettingsDialog dialog(m_settings, m_terminal->ansiPalette(), m_context.registry,
-                         m_context.plugins, this);
+                          m_context.plugins, m_context.panels, currentPluginSettings(),
+                          allShortcutActions(), this);
     if (InterfaceSettingsPanel *panel = dialog.interfacePanel()) {
         panel->selectInterface(m_context.session ? m_context.session->interfaceId() : QString());
         connect(panel, &InterfaceSettingsPanel::settingsApplied,
@@ -664,6 +712,16 @@ void MainWindow::showSettingsDialog()
 
     m_settings = dialog.settings();
     m_settings.save(*m_context.settings);
+
+    // Настройки плагинов пишутся поддеревьями: ключи внутри схемы знает только плагин, и
+    // перечислять их здесь значило бы завести второе место, где они объявлены.
+    const QHash<QString, QVariantMap> pluginValues = dialog.pluginSettings();
+    for (auto it = pluginValues.cbegin(); it != pluginValues.cend(); ++it) {
+        m_context.settings->setGroup(QStringLiteral("plugins/%1").arg(it.key()), it.value());
+        if (PanelHostImpl *host = m_hosts.value(it.key()))
+            host->notifySettingsReset();
+    }
+
     m_context.settings->save();
 
     if (m_context.theme) {
@@ -716,6 +774,11 @@ void MainWindow::resetToDefaults()
     applySettings();
     applyShortcuts();
 
+    // Прежде панели после сброса оставались с состоянием, прочитанным при запуске: файл
+    // настроек уже чист, а панель показывает старое. Теперь каждая перечитывает своё.
+    for (PanelHostImpl *host : std::as_const(m_hosts))
+        host->notifySettingsReset();
+
     statusBar()->showMessage(
         tr("Settings, interfaces and history have been reset to defaults."), 8000);
 }
@@ -762,12 +825,10 @@ void MainWindow::applyChannelState(ChannelState state, const QString &detail)
     m_sendBar->setSendEnabled(open);
     updatePlaceholder(state);
 
-    if (m_macrosPanel)
-        m_macrosPanel->setSendEnabled(open);
-    if (m_generatorPanel)
-        m_generatorPanel->setSendEnabled(open);
-    if (m_loggingPanel)
-        m_loggingPanel->setInterfaceOpen(open);
+    // Панели узнают о состоянии через свои хосты: окну незачем знать, какая из них что
+    // из него извлечёт.
+    for (PanelHostImpl *host : std::as_const(m_hosts))
+        host->notifyChannelState(state);
 
     if (open)
         m_sendBar->focusInput();
@@ -860,17 +921,17 @@ void MainWindow::updateControlLines(const QVariantMap &lines)
     m_linesLabel->setToolTip(tr("Control lines: uppercase means asserted"));
 }
 
-void MainWindow::showLogFile(const QString &filePath)
+bool MainWindow::showLogFile(const QString &filePath)
 {
     if (filePath.isEmpty())
-        return;
+        return false;
 
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) {
         statusBar()->showMessage(tr("Cannot open %1: %2")
                                      .arg(QFileInfo(filePath).fileName(), file.errorString()),
                                  8000);
-        return;
+        return false;
     }
 
     if (!m_logBuffer)
@@ -888,6 +949,12 @@ void MainWindow::showLogFile(const QString &filePath)
     m_logViewLabel->setToolTip(filePath);
     m_logViewBar->show();
     updatePlaceholder(m_context.session ? m_context.session->state() : ChannelState::Closed);
+
+    // Слои поверх вывода относятся к живому потоку: график, нарисованный по нему, поверх
+    // чужого файла означал бы не то, что показывает.
+    if (m_overlay)
+        m_overlay->hide();
+    return true;
 }
 
 void MainWindow::returnToLiveView()
@@ -898,6 +965,9 @@ void MainWindow::returnToLiveView()
     m_terminal->setBuffer(m_context.session->buffer());
     m_logViewBar->hide();
     updatePlaceholder(m_context.session->state());
+
+    if (m_overlay)
+        m_overlay->show();
 
     if (m_logBuffer)
         m_logBuffer->clear();
@@ -914,9 +984,24 @@ void MainWindow::raiseWindow()
 
 void MainWindow::updateIcons()
 {
-    for (int i = 0; i < m_panelButtons.size() && i < int(std::size(kPanelGlyphs)); ++i)
-        m_panelButtons.at(i)->setIcon(MdiIcons::icon(kPanelGlyphs[i], kPanelGlyphSize));
+    if (m_context.panels) {
+        for (const PanelPluginRegistry::PanelEntry &entry : m_context.panels->panels()) {
+            const RailPanel *slot = nullptr;
+            for (const RailPanel &candidate : std::as_const(m_railPanels)) {
+                if (candidate.id == entry.descriptor.id) {
+                    slot = &candidate;
+                    break;
+                }
+            }
+            if (slot && entry.descriptor.glyph != 0)
+                slot->button->setIcon(MdiIcons::icon(entry.descriptor.glyph, kPanelGlyphSize));
+        }
+    }
     m_settingsRailButton->setIcon(MdiIcons::icon(mdi::Cog, kPanelGlyphSize));
+
+    // Значки внутри панелей перекрашивают они сами, получив themeChanged() от хоста.
+    for (PanelHostImpl *host : std::as_const(m_hosts))
+        host->notifyThemeChanged();
 
     m_hexButton->setIcon(MdiIcons::icon(mdi::Hexadecimal, kToolGlyphSize));
     m_timestampButton->setIcon(MdiIcons::icon(mdi::ClockOutline, kToolGlyphSize));
@@ -939,10 +1024,75 @@ void MainWindow::restoreWindowState()
     else
         m_splitter->setSizes({320, 860}); // Первый запуск: панель узкая, терминалу — остальное.
 
-    const int panelIndex = store->value(QLatin1String(kKeyPanelIndex), 0).toInt();
-    if (panelIndex >= 0 && panelIndex < m_panelButtons.size()) {
-        m_panelButtons.at(panelIndex)->setChecked(true);
-        m_panelStack->setCurrentIndex(panelIndex);
+    const QByteArray terminalSplitter =
+        store->value(QLatin1String(kKeyTerminalSplitter)).toByteArray();
+    // Восстанавливаем только при совпавшем числе секций: иначе набор плагинов сменился, и
+    // сохранённые размеры относятся к другой раскладке.
+    if (!terminalSplitter.isEmpty()) {
+        const QList<int> saved = m_terminalSplitter->sizes();
+        m_terminalSplitter->restoreState(terminalSplitter);
+        if (m_terminalSplitter->sizes().size() != saved.size())
+            m_terminalSplitter->setSizes(saved);
+    }
+
+    QString panelId = store->value(QLatin1String(kKeyPanelId)).toString();
+    if (panelId.isEmpty()) {
+        // Перенос со старого числового ключа. Читается один раз и тут же удаляется:
+        // держать оба означало бы держать два источника одной правды.
+        const QVariant legacy = store->value(QLatin1String(kKeyPanelIndexLegacy));
+        if (legacy.isValid()) {
+            const int index = legacy.toInt();
+            if (index >= 0 && index < int(std::size(kLegacyPanelIds)))
+                panelId = QLatin1String(kLegacyPanelIds[index]);
+            store->remove(QLatin1String(kKeyPanelIndexLegacy));
+        }
+    }
+
+    // Панель могла исчезнуть вместе со снятым плагином — тогда остаётся первая по порядку,
+    // уже выбранная в buildPanelPlugins().
+    if (!panelId.isEmpty())
+        activatePanel(panelId);
+}
+
+void MainWindow::activatePanel(const QString &panelId)
+{
+    for (int i = 0; i < m_railPanels.size(); ++i) {
+        if (m_railPanels.at(i).id != panelId)
+            continue;
+        m_railPanels.at(i).button->setChecked(true);
+        m_panelStack->setCurrentIndex(i);
+        return;
+    }
+}
+
+void MainWindow::composeInSendBar(const QString &text, DataCodec::Format format)
+{
+    m_sendBar->setFormat(format);
+    m_sendBar->setText(text);
+    m_sendBar->focusInput();
+}
+
+void MainWindow::showStatusMessage(const QString &message)
+{
+    statusBar()->showMessage(message, 8000);
+}
+
+bool MainWindow::showDocument(const QString &filePath, const QString &title)
+{
+    Q_UNUSED(title);
+    return showLogFile(filePath);
+}
+
+void MainWindow::installPluginFilters()
+{
+    if (!m_context.session || !m_context.panels)
+        return;
+
+    for (IPanelPlugin *plugin : m_context.panels->plugins()) {
+        if (IDataFilter *filter = plugin->dataFilter()) {
+            m_context.session->addDataFilter(filter, plugin->filterOrder(),
+                                             plugin->pluginId());
+        }
     }
 }
 
@@ -950,7 +1100,11 @@ void MainWindow::persistWindowState()
 {
     m_context.settings->setValue(QLatin1String(kKeyGeometry), saveGeometry());
     m_context.settings->setValue(QLatin1String(kKeySplitter), m_splitter->saveState());
-    m_context.settings->setValue(QLatin1String(kKeyPanelIndex), m_panelStack->currentIndex());
+    m_context.settings->setValue(QLatin1String(kKeyTerminalSplitter),
+                                 m_terminalSplitter->saveState());
+    const int current = m_panelStack->currentIndex();
+    if (current >= 0 && current < m_railPanels.size())
+        m_context.settings->setValue(QLatin1String(kKeyPanelId), m_railPanels.at(current).id);
     // Явный save(), а не отложенный: приложение вот-вот завершится, ждать таймер некому.
     m_context.settings->save();
 
@@ -960,6 +1114,20 @@ void MainWindow::persistWindowState()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    // Панели дописывают файлы и останавливают запись до того, как их разрушат вместе с
+    // окном: журнал иначе остался бы с недописанным хвостом.
+    for (PanelHostImpl *host : std::as_const(m_hosts))
+        host->notifyAboutToClose();
+
+    // Звенья цепочки принадлежат плагинам и переживут сессию — снимаем их явно, пока
+    // панели, на состояние которых они ссылаются, ещё целы.
+    if (m_context.session && m_context.panels) {
+        for (IPanelPlugin *plugin : m_context.panels->plugins()) {
+            if (IDataFilter *filter = plugin->dataFilter())
+                m_context.session->removeDataFilter(filter);
+        }
+    }
+
     persistWindowState();
 
     // Канал закрывается до разрушения окна: поток ввода-вывода должен остановиться, пока

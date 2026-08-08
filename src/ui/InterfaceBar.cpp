@@ -5,7 +5,7 @@
 #include "InterfaceBar.h"
 
 #include "AppContext.h"
-#include "Formatting.h"
+#include <spotty/data/Formatting.h>
 #include "InterfaceCombo.h"
 #include "InterfaceItemDelegate.h"
 #include "InterfaceLabel.h"

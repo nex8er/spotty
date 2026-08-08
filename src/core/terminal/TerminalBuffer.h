@@ -5,7 +5,9 @@
 #pragma once
 
 #include "AnsiParser.h"
-#include "TextStyle.h"
+
+#include <spotty/api/DataDirection.h>
+#include <spotty/data/TextStyle.h>
 
 #include <QByteArray>
 #include <QDateTime>
@@ -16,16 +18,6 @@
 #include <deque>
 
 namespace spotty {
-
-/**
- * \enum DataDirection
- * \brief Откуда взялись данные строки.
- */
-enum class DataDirection : quint8 {
-    Rx,     ///< Принято от устройства.
-    Tx,     ///< Отправлено нами и отражено в терминал.
-    System, ///< Сообщение самой программы: открытие порта, ошибка, разрыв связи.
-};
 
 /**
  * \class TerminalBuffer

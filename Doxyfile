@@ -8,7 +8,7 @@
 #   apt install doxygen graphviz
 
 PROJECT_NAME           = "Spotty"
-PROJECT_NUMBER         = "0.1.0a"
+PROJECT_NUMBER         = "0.2.0a"
 PROJECT_BRIEF          = "Модульный терминал-монитор портов"
 
 OUTPUT_DIRECTORY       = docs
@@ -21,7 +21,8 @@ INPUT                  = include \
                          src \
                          plugins \
                          README.md \
-                         docs/PLUGIN_API.md
+                         docs/PLUGIN_API.md \
+                         docs/PANEL_API.md
 
 # Титульная страница — README, чтобы сгенерированная документация начиналась с того же,
 # с чего начинается репозиторий.

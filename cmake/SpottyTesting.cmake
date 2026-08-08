@@ -67,7 +67,7 @@ function(spotty_provide_googletest)
     endforeach()
 endfunction()
 
-# spotty_add_test(<имя> SOURCES <файлы...> [LINK <библиотеки...>])
+# spotty_add_test(<имя> SOURCES <файлы...> [LINK <библиотеки...>] [ENVIRONMENT <VAR=знач...>])
 #
 # Один вызов на группу тестов. gtest_discover_tests регистрирует каждый TEST отдельно,
 # поэтому ctest показывает, какой именно случай упал, а не только «набор не прошёл».
@@ -77,7 +77,7 @@ endfunction()
 # библиотеках — безобидные, но зашумляющие вывод сборки, из-за чего в нём теряются
 # настоящие.
 function(spotty_add_test target)
-    cmake_parse_arguments(PARSE_ARGV 1 ARG "" "" "SOURCES;LINK")
+    cmake_parse_arguments(PARSE_ARGV 1 ARG "" "" "SOURCES;LINK;ENVIRONMENT")
 
     add_executable(${target} ${ARG_SOURCES})
 
@@ -85,10 +85,19 @@ function(spotty_add_test target)
 
     target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 
+    # Окружение задаётся здесь, а не через set_tests_properties: имена случаев появляются
+    # только на этапе сборки, когда gtest_discover_tests опрашивает готовый файл, и по
+    # имени цели их не найти.
+    set(properties "")
+    if(ARG_ENVIRONMENT)
+        list(APPEND properties PROPERTIES ENVIRONMENT "${ARG_ENVIRONMENT}")
+    endif()
+
     gtest_discover_tests(${target}
         # Тесты трогают файловую систему во временных каталогах; запуск из каталога сборки
         # делает пути в сообщениях об ошибках предсказуемыми.
         WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
         DISCOVERY_TIMEOUT 30
+        ${properties}
     )
 endfunction()

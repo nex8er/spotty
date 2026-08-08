@@ -4,7 +4,7 @@
  */
 #include "support/TestSupport.h"
 
-#include <MacroStore.h>
+#include <spotty/data/MacroStore.h>
 
 #include <QFile>
 

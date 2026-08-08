@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include <terminal/DataCodec.h>
+#include <spotty/data/DataCodec.h>
 
 #include <QWidget>
 

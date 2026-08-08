@@ -4,6 +4,7 @@
  */
 #include "ui/AppContext.h"
 #include "ui/MainWindow.h"
+#include "ui/PanelPluginRegistry.h"
 #include "ui/theme/MdiIcons.h"
 #include "ui/theme/ThemeManager.h"
 
@@ -56,6 +57,55 @@ void installTranslations(QApplication &app, const QString &language)
     }
 }
 
+/**
+ * \brief Перенести настройки, переехавшие к плагинам, под их пространство имён.
+ * \param store Общие настройки.
+ *
+ * Макросы, поиск и журналирование стали плагинами, и их ключи переехали из корня
+ * `settings.json` под `plugins/<id>/`. Без переноса пользователь после обновления получил
+ * бы сброшенные правила подсветки и потерянный выбранный набор макросов — настройки,
+ * которые задают один раз и рассчитывают, что они останутся.
+ *
+ * Перенос делает приложение, а не сами плагины: старые ключи — факт истории программы, и
+ * знать о нём каждому плагину незачем. Одно место, которое в следующей версии удаляется
+ * целиком.
+ *
+ * \note Ключ переносится только если на новом месте ничего нет: иначе повторный запуск
+ *       затирал бы то, что человек успел изменить уже в новой версии.
+ */
+void migrateLegacyPluginSettings(spotty::SettingsStore &store)
+{
+    static const QList<QPair<QString, QString>> moved = {
+        {QStringLiteral("macros/preset"), QStringLiteral("plugins/macros/preset")},
+        {QStringLiteral("search/highlightRules"),
+         QStringLiteral("plugins/search/highlightRules")},
+        {QStringLiteral("search/regularExpression"),
+         QStringLiteral("plugins/search/regularExpression")},
+        {QStringLiteral("search/caseSensitive"),
+         QStringLiteral("plugins/search/caseSensitive")},
+        {QStringLiteral("search/wholeWords"), QStringLiteral("plugins/search/wholeWords")},
+        {QStringLiteral("logging/directory"), QStringLiteral("plugins/logging/directory")},
+        {QStringLiteral("logging/fileNameTemplate"),
+         QStringLiteral("plugins/logging/fileNameTemplate")},
+        {QStringLiteral("logging/filterAnsi"), QStringLiteral("plugins/logging/filterAnsi")},
+        {QStringLiteral("logging/includeTx"), QStringLiteral("plugins/logging/includeTx")},
+        {QStringLiteral("logging/autoStart"), QStringLiteral("plugins/logging/autoStart")},
+    };
+
+    bool changed = false;
+    for (const auto &[from, to] : moved) {
+        if (!store.contains(from))
+            continue;
+        if (!store.contains(to))
+            store.setValue(to, store.value(from));
+        store.remove(from);
+        changed = true;
+    }
+
+    if (changed)
+        store.save();
+}
+
 } // namespace
 
 /**
@@ -74,9 +124,11 @@ void installTranslations(QApplication &app, const QString &language)
  * 6. Переводы — до создания виджетов: строки берутся при их построении.
  * 7. Оформление — тоже до виджетов, иначе окно моргнёт стилем по умолчанию.
  * 8. Шрифт значков — до построения окна, иначе кнопки останутся пустыми.
- * 9. Плагины — до реестра, который их опрашивает.
- * 10. Реестр — до сессии, которая берёт из него настройки устройства.
- * 11. Сессия — до окна, которое показывает её буфер.
+ * 9. Плагины — до реестров, которые разбирают их роли.
+ * 10. Реестр панелей — вторая фаза загрузки; после неё PluginManager::finishLoading()
+ *     заносит в отчёт всё, чью роль не признал никто.
+ * 11. Реестр интерфейсов — до сессии, которая берёт из него настройки устройства.
+ * 12. Сессия — до окна, которое показывает её буфер.
  *
  * \par Владение
  *
@@ -101,6 +153,10 @@ int main(int argc, char *argv[])
     spotty::SettingsStore settings(spotty::Paths::settingsFile());
     settings.load();
 
+    // До первого чтения настроек плагинами: они начнут читать своё пространство имён из
+    // конструкторов панелей, то есть уже при построении окна.
+    migrateLegacyPluginSettings(settings);
+
     const spotty::AppSettings appSettings = spotty::AppSettings::load(settings);
 
     // Второй экземпляр завершается до построения интерфейса: строить окно, чтобы тут же
@@ -123,6 +179,16 @@ int main(int argc, char *argv[])
     spotty::PluginManager plugins;
     plugins.load();
 
+    // Вторая фаза: панельную роль разбирает реестр из слоя UI — панельный SDK линкуется с
+    // Qt6::Widgets, и ядру он недоступен. Макросы, журнал, поиск и генератор приходят тем
+    // же путём, что и сторонние: они обычные плагины и ничем не привилегированы.
+    spotty::PanelPluginRegistry panels(&plugins);
+    panels.load();
+
+    // Только теперь отчёт о загрузке полон: до этого момента плагин чужой роли выглядел
+    // бы нераспознанным.
+    plugins.finishLoading();
+
     // Отдельное хранилище: устройств бывает много, и мешать их с настройками приложения
     // значило бы разрастить settings.json списком всех когда-либо виденных портов.
     spotty::SettingsStore interfaceStore(spotty::Paths::interfacesFile());
@@ -136,8 +202,8 @@ int main(int argc, char *argv[])
 
     spotty::Session session(&plugins, &registry);
 
-    const spotty::AppContext context{&settings, &plugins,  &registry,
-                                     &theme,    &session,  &history};
+    const spotty::AppContext context{&settings, &plugins, &panels,  &registry,
+                                     &theme,    &session, &history};
 
     spotty::MainWindow window(context);
     QObject::connect(&guard, &spotty::SingleInstanceGuard::raiseRequested,

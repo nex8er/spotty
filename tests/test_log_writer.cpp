@@ -4,7 +4,7 @@
  */
 #include "support/TestSupport.h"
 
-#include <LogWriter.h>
+#include <spotty/data/LogWriter.h>
 
 #include <QDir>
 #include <QFile>

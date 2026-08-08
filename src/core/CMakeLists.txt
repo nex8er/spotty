@@ -7,18 +7,10 @@
 add_library(spotty-core STATIC
     ChannelWorker.cpp
     ChannelWorker.h
-    DataGenerator.cpp
-    DataGenerator.h
-    HighlightRules.cpp
-    HighlightRules.h
     HistoryStore.cpp
     HistoryStore.h
     InterfaceRegistry.cpp
     InterfaceRegistry.h
-    LogWriter.cpp
-    LogWriter.h
-    MacroStore.cpp
-    MacroStore.h
     PluginManager.cpp
     PluginManager.h
     Session.cpp
@@ -33,13 +25,10 @@ add_library(spotty-core STATIC
     settings/SettingsStore.h
     terminal/AnsiParser.cpp
     terminal/AnsiParser.h
-    terminal/DataCodec.cpp
-    terminal/DataCodec.h
     terminal/Packetizer.cpp
     terminal/Packetizer.h
     terminal/TerminalBuffer.cpp
     terminal/TerminalBuffer.h
-    terminal/TextStyle.h
 )
 
 add_library(Spotty::Core ALIAS spotty-core)

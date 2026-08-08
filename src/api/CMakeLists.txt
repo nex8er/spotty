@@ -1,8 +1,12 @@
 # Библиотека SDK плагинов.
 #
-# Почти целиком состоит из заголовков; библиотека нужна ради единственного QObject в API
-# (IInterfaceChannel), чтобы его метаобъект, таблица виртуальных функций и typeinfo имели
-# ровно одно определение, общее для исполняемого файла и всех плагинов.
+# Содержит две вещи: контракты (include/spotty/api) и готовую логику, которой плагин
+# вправе пользоваться (include/spotty/data). Граница между ними и остальной программой
+# проходит по Qt6::Widgets: всё здешнее обязано оставаться проверяемым без QApplication.
+#
+# Библиотека нужна ради QObject'ов в API (IInterfaceChannel, LogWriter), чтобы их
+# метаобъекты, таблицы виртуальных функций и typeinfo имели ровно одно определение, общее
+# для исполняемого файла и всех плагинов.
 #
 # Разделяемая по умолчанию, статическая при вкомпилированных плагинах: там один двоичный
 # файл и делить между модулями нечего.
@@ -19,16 +23,33 @@ add_library(Spotty::Api ALIAS spotty-api)
 
 target_sources(spotty-api
     PRIVATE
+        DataCodec.cpp
+        DataGenerator.cpp
+        FileUtils.cpp
+        Formatting.cpp
+        HighlightRules.cpp
         IInterfaceChannel.cpp
-        # Заголовки перечислены, чтобы AUTOMOC обработал класс с Q_OBJECT: он лежит вне
-        # каталога цели, и без явного указания moc до него не доберётся.
+        LogWriter.cpp
+        MacroStore.cpp
+        # Заголовки перечислены, чтобы AUTOMOC обработал классы с Q_OBJECT: они лежат вне
+        # каталога цели, и без явного указания moc до них не доберётся.
         "${CMAKE_SOURCE_DIR}/include/spotty/api/IInterfaceChannel.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/api/IInterfacePlugin.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/api/ApiVersion.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/api/ChannelState.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/api/DataDirection.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/api/IDataFilter.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/api/InterfaceDescriptor.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/api/SettingsSchema.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/api/SpottyApiExport.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/DataCodec.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/DataGenerator.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/FileUtils.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/Formatting.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/HighlightRules.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/LogWriter.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/MacroStore.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/TextStyle.h"
 )
 
 target_compile_definitions(spotty-api PRIVATE SPOTTY_API_BUILD)
@@ -53,3 +74,9 @@ if(APPLE)
         INSTALL_NAME_DIR "@rpath"
     )
 endif()
+
+# Логика, которую покрывают тесты, живёт теперь и здесь: MacroStore, LogWriter,
+# DataGenerator, HighlightRules и DataCodec переехали сюда из ядра, чтобы плагины имели на
+# них право. Мерить покрытие только по spotty-core после этого значило бы вынести из
+# знаменателя 79 тестов и молча поднять планку для оставшегося кода.
+spotty_enable_coverage(spotty-api)

@@ -8,26 +8,31 @@
 #include "TerminalView.h"
 #include "theme/ThemeManager.h"
 
+#include "dialogs/SettingsDialog.h"
+
 #include <settings/AppSettings.h>
 #include <spotty/api/ChannelState.h>
+#include <spotty/data/DataCodec.h>
 
 #include <QHash>
+#include <QList>
 #include <QMainWindow>
 #include <QStringList>
 
 class QAction;
+class QButtonGroup;
 class QLabel;
 class QSplitter;
 class QStackedWidget;
 class QToolButton;
+class QVBoxLayout;
 
 namespace spotty {
 
-class GeneratorPanel;
+struct PanelDescriptor;
 class InterfaceBar;
-class LoggingPanel;
-class MacrosPanel;
-class SearchPanel;
+class OverlayLayer;
+class PanelHostImpl;
 class SendBar;
 
 /**
@@ -63,6 +68,24 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(const AppContext &context, QWidget *parent = nullptr);
 
+    /// \name Службы для панельных плагинов; зовёт spotty::PanelHostImpl
+    /// @{
+
+    TerminalView *terminalView() const { return m_terminal; }
+
+    /// \brief Сделать панель видимой и выбранной. Неизвестный идентификатор игнорируется.
+    void activatePanel(const QString &panelId);
+
+    /// \brief Положить текст в строку отправки, не отправляя.
+    void composeInSendBar(const QString &text, DataCodec::Format format);
+
+    void showStatusMessage(const QString &message);
+
+    /// \brief Показать файл в области терминала вместо живого вывода.
+    bool showDocument(const QString &filePath, const QString &title);
+
+    /// @}
+
 public Q_SLOTS:
     /// \brief Показать и поднять окно. Вызывается вторым экземпляром приложения.
     void raiseWindow();
@@ -81,6 +104,23 @@ private:
     /// \brief Боковая панель слева: рейка значков и стопка страниц.
     QWidget *buildSidePanel();
 
+    /**
+     * \brief Создать хосты и панели всех загруженных панельных плагинов.
+     *
+     * Вызывается после того, как построены терминал и строка отправки: хост в
+     * конструкторе подписывается на их сигналы.
+     */
+    void buildPanelPlugins();
+
+    /// \brief Врезать звенья цепочки преобразования, объявленные плагинами.
+    void installPluginFilters();
+
+    /// \brief Добавить страницу в рейку значков.
+    void addRailPanel(const PanelDescriptor &descriptor, QWidget *widget, QButtonGroup *group);
+
+    /// \brief Добавить полосу над или под терминалом.
+    void addSplitterPanel(const PanelDescriptor &descriptor, QWidget *widget);
+
     /// \brief Обернуть содержимое в карточку с рамкой — общий вид всех блоков окна.
     QWidget *makeCard(QWidget *content);
 
@@ -89,6 +129,12 @@ private:
 
     /// \brief Назначить действиям сочетания клавиш из настроек.
     void applyShortcuts();
+
+    /// \brief Действия окна вместе с сочетаниями, объявленными панелями.
+    QList<ShortcutAction> allShortcutActions() const;
+
+    /// \brief Текущие настройки панельных плагинов по их идентификаторам.
+    QHash<QString, QVariantMap> currentPluginSettings() const;
 
     /// \brief Показать диалог настроек и применить результат.
     void showSettingsDialog();
@@ -156,8 +202,10 @@ private:
      * Живой вывод при этом не теряется: он остаётся в своём буфере и возвращается на
      * экран кнопкой «к живому выводу». Показывать лог в том же буфере значило бы
      * затереть то, что пришло с устройства.
+     *
+     * \return `false`, если файл не удалось прочитать.
      */
-    void showLogFile(const QString &filePath);
+    bool showLogFile(const QString &filePath);
 
     /// \brief Вернуть в область терминала живой вывод сессии.
     void returnToLiveView();
@@ -170,13 +218,37 @@ private:
     SendBar *m_sendBar = nullptr;
     QSplitter *m_splitter = nullptr;
     QStackedWidget *m_panelStack = nullptr;
-    QList<QToolButton *> m_panelButtons;
+    QVBoxLayout *m_railLayout = nullptr; ///< Раскладка рейки; кнопки вставляются в неё.
     QToolButton *m_settingsRailButton = nullptr; ///< Открывает диалог настроек; внизу рейки.
 
-    GeneratorPanel *m_generatorPanel = nullptr;
-    LoggingPanel *m_loggingPanel = nullptr;
-    MacrosPanel *m_macrosPanel = nullptr;
-    SearchPanel *m_searchPanel = nullptr;
+    /// \brief Вертикальный разделитель: полосы плагинов и сам терминал.
+    QSplitter *m_terminalSplitter = nullptr;
+
+    /// \brief Карточка терминала внутри разделителя; относительно неё встают полосы.
+    QWidget *m_terminalCard = nullptr;
+
+    /// \brief Слой поверх области вывода; ребёнок viewport терминала.
+    OverlayLayer *m_overlay = nullptr;
+
+    /**
+     * \struct RailPanel
+     * \brief Страница рейки вместе с её кнопкой.
+     *
+     * Прежде порядок панелей задавали две параллельные константы, а адресовались они
+     * числовым индексом — меню переключало страницу вызовом setCurrentIndex(2). С
+     * плагинами набор перестал быть постоянным, и любой такой номер означал бы разное при
+     * разном наборе установленных плагинов.
+     */
+    struct RailPanel
+    {
+        QString id;
+        QWidget *widget = nullptr;
+        QToolButton *button = nullptr;
+    };
+    QList<RailPanel> m_railPanels;
+
+    /// \brief Хосты панельных плагинов по идентификатору плагина. Окно ими владеет.
+    QHash<QString, PanelHostImpl *> m_hosts;
 
     QToolButton *m_hexButton = nullptr;
     QToolButton *m_timestampButton = nullptr;

@@ -29,8 +29,6 @@ qt_add_executable(spotty
     # регенерировать при каждой сборке незачем, дизайн иконки не меняется от сборки к сборке.
     $<$<PLATFORM_ID:Windows>:${CMAKE_SOURCE_DIR}/resources/icons/spotty.rc>
     AppContext.h
-    Formatting.cpp
-    Formatting.h
     InterfaceBar.cpp
     InterfaceBar.h
     InterfaceCombo.cpp
@@ -41,6 +39,14 @@ qt_add_executable(spotty
     InterfaceLabel.h
     MainWindow.cpp
     MainWindow.h
+    OverlayLayer.cpp
+    OverlayLayer.h
+    PanelHostImpl.cpp
+    PanelHostImpl.h
+    PanelPluginRegistry.cpp
+    PanelPluginRegistry.h
+    SchemaForm.cpp
+    SchemaForm.h
     SendBar.cpp
     SendBar.h
     TerminalView.cpp
@@ -51,19 +57,8 @@ qt_add_executable(spotty
     dialogs/InterfaceSettingsPanel.h
     dialogs/SettingsDialog.cpp
     dialogs/SettingsDialog.h
-    panels/GeneratorPanel.cpp
-    panels/GeneratorPanel.h
-    panels/LoggingPanel.cpp
-    panels/LoggingPanel.h
-    panels/MacrosPanel.cpp
-    panels/MacrosPanel.h
-    panels/ShortcutDelegate.cpp
-    panels/ShortcutDelegate.h
-    panels/SearchPanel.cpp
-    panels/SearchPanel.h
     theme/AnsiPalette.cpp
     theme/AnsiPalette.h
-    theme/MdiCodepoints.h
     theme/MdiIcons.cpp
     theme/MdiIcons.h
     theme/PlatformChrome.h
@@ -133,6 +128,7 @@ endif()
 target_link_libraries(spotty PRIVATE
     Qt6::Widgets
     Spotty::Core
+    Spotty::UiApi
     ${spotty_static_plugin_targets}
 )
 

@@ -13,3 +13,15 @@ endif()
 # J-Link RTT собирается всегда: libjlinkarm грузится в рантайме, а не на этапе сборки, и
 # её отсутствие плагин переживает так же, как UART переживает отсутствие Qt6::SerialPort.
 add_subdirectory(jlinkrtt)
+
+# Плагины панелей и обработки данных. Отличаются от транспортов только KIND PANEL в
+# spotty_add_plugin(): им дополнительно достаётся Spotty::UiApi, а с ним Qt6::Widgets.
+add_subdirectory(generator)
+add_subdirectory(logging)
+add_subdirectory(macros)
+add_subdirectory(search)
+
+# Плагины-примеры: они и есть проверка API на прочность — писались с нуля, а не
+# переделывались из встроенных панелей.
+add_subdirectory(csvchart)
+add_subdirectory(filesend)

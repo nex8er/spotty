@@ -4,6 +4,8 @@
  */
 #include "Paths.h"
 
+#include <spotty/data/FileUtils.h>
+
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
@@ -56,7 +58,7 @@ void Paths::initialize()
         ? QDir(root).filePath(QStringLiteral("config"))
         : QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
 
-    ensureDir(g_configDir);
+    spotty::ensureDir(g_configDir);
     qCInfo(lcPaths) << "config directory:" << g_configDir << (g_portable ? "(portable)" : "");
 }
 
@@ -134,14 +136,6 @@ QStringList Paths::pluginDirs()
             existing.append(canonical);
     }
     return existing;
-}
-
-bool Paths::ensureDir(const QString &path)
-{
-    if (QDir().mkpath(path))
-        return true;
-    qCWarning(lcPaths) << "cannot create directory" << path;
-    return false;
 }
 
 } // namespace spotty

@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "MdiCodepoints.h"
+#include <spotty/ui/MdiCodepoints.h>
 
 #include <QColor>
 #include <QFont>

@@ -1,6 +1,6 @@
 /**
  * \file PluginManager.h
- * \brief Поиск и загрузка плагинов интерфейсов.
+ * \brief Поиск и загрузка плагинов.
  */
 #pragma once
 
@@ -15,7 +15,22 @@ class IInterfacePlugin;
 
 /**
  * \class PluginManager
- * \brief Находит, проверяет и хранит плагины интерфейсов.
+ * \brief Находит и загружает плагины; хранит плагины интерфейсов.
+ *
+ * \par Две роли, один обход каталогов
+ *
+ * Плагинов два вида: транспорты (spotty::IInterfacePlugin) и панели
+ * (`spotty::IPanelPlugin`). Второй вид описан в панельном SDK, который линкуется с
+ * Qt6::Widgets, — значит здесь о нём знать нельзя, ядру виджеты запрещены.
+ *
+ * Отсюда загрузка в две фазы. Менеджер обходит каталоги **один раз** и складывает всё
+ * созданное в instances(). Свою роль он распознаёт сам; панельную распознаёт реестр из
+ * слоя UI, который вызывает markRecognized() на том, что признал своим. Завершает
+ * finishLoading(): всё, чью роль не признал никто, попадает в failures().
+ *
+ * Второй обход каталогов вместо этого дал бы по записи об отказе на каждый плагин чужой
+ * роли — и отчёт, где половина строк ложные, перестал бы читаться. Один объект при этом
+ * волен играть обе роли: касты независимы.
  *
  * \par Гибридная загрузка
  *
@@ -61,6 +76,17 @@ public:
         QString reason; ///< Причина отказа, пригодная для показа пользователю.
     };
 
+    /**
+     * \struct LoadedInstance
+     * \brief Объект, полученный от загрузчика, до разбора его роли.
+     */
+    struct LoadedInstance
+    {
+        QObject *instance = nullptr;
+        QString origin;         ///< Путь к файлу либо `"<static>"`.
+        bool recognized = false; ///< Хоть один реестр признал объект своим.
+    };
+
     explicit PluginManager(QObject *parent = nullptr);
     ~PluginManager() override;
 
@@ -68,8 +94,37 @@ public:
      * \brief Найти и загрузить плагины.
      *
      * Повторные вызовы игнорируются.
+     *
+     * \note Это только первая фаза. Пока не вызван finishLoading(), failures() неполон:
+     *       в нём нет объектов, чью роль ещё никто не разбирал.
      */
     void load();
+
+    /**
+     * \brief Всё загруженное, независимо от роли.
+     *
+     * Для реестров, которые разбирают роли, недоступные ядру. Владение остаётся за тем,
+     * кто создал объект: у Qt для загруженных модулей и у вызывающей стороны для
+     * addPlugin().
+     */
+    const QList<LoadedInstance> &instances() const { return m_instances; }
+
+    /**
+     * \brief Пометить, что роль экземпляра распознана.
+     *
+     * Вызывается реестром роли после успешной регистрации. Один объект может быть
+     * помечен несколько раз — он вправе играть обе роли.
+     */
+    void markRecognized(QObject *instance);
+
+    /**
+     * \brief Завершить загрузку: занести в failures() всё нераспознанное.
+     *
+     * \warning Вызывать один раз, после того как отработали все реестры ролей. До этого
+     *          момента failures() не полон, и молча пропавший плагин — та самая
+     *          неисправность, ради которой список существует, — в нём не появится.
+     */
+    void finishLoading();
 
     /// \return Успешно загруженные плагины. Владение остаётся за менеджером.
     const QList<IInterfacePlugin *> &plugins() const { return m_plugins; }
@@ -92,6 +147,10 @@ public:
      * потому, что иначе ни эти проверки, ни зависящий от них реестр невозможно проверить,
      * не раскладывая собранные плагины по каталогам.
      *
+     * \note В отличие от пути сканирования, объект не своей роли отклоняется **сразу**:
+     *       вызывающий передаёт конкретный экземпляр и вправе тут же узнать, приняли его
+     *       или нет, не дожидаясь finishLoading().
+     *
      * \note Владение остаётся за вызывающей стороной.
      */
     bool addPlugin(QObject *instance, const QString &origin = QStringLiteral("<embedded>"));
@@ -110,17 +169,22 @@ private:
     void loadDynamicPlugins();
 
     /**
-     * \brief Проверить и зарегистрировать экземпляр плагина.
+     * \brief Проверить и зарегистрировать экземпляр плагина интерфейса.
      * \param instance Объект, полученный от QPluginLoader.
      * \param origin Путь к файлу или `"<static>"` — попадает в сообщение об отказе.
-     * \return `false`, если экземпляр отклонён; причина добавлена в m_failures.
+     * \param deferUnrecognized Не считать отказом объект, не приводящийся к
+     *        spotty::IInterfacePlugin: у него может быть другая роль, и решать это будет
+     *        finishLoading(). Пути сканирования передают `true`, addPlugin() — `false`.
+     * \return `false`, если экземпляр отклонён или отложен.
      */
-    bool registerInstance(QObject *instance, const QString &origin);
+    bool registerInstance(QObject *instance, const QString &origin, bool deferUnrecognized);
 
-    QList<IInterfacePlugin *> m_plugins; ///< Загруженные плагины.
+    QList<IInterfacePlugin *> m_plugins; ///< Плагины интерфейсов.
+    QList<LoadedInstance> m_instances;   ///< Всё загруженное, для разбора ролей.
     QList<LoadFailure> m_failures;       ///< Отклонённые файлы.
     QStringList m_searchedDirs;          ///< Обойденные каталоги.
     bool m_loaded = false;               ///< Защита от повторного вызова load().
+    bool m_finished = false;             ///< Защита от повторного вызова finishLoading().
 };
 
 } // namespace spotty
