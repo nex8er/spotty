@@ -28,6 +28,8 @@ constexpr auto kRelativeTimestamps = "terminal/relativeTimestamps";
 constexpr auto kTimestampFormat = "terminal/timestampFormat";
 constexpr auto kShowDirection = "terminal/showDirection";
 constexpr auto kShowLineNumbers = "terminal/showLineNumbers";
+constexpr auto kCsvFilter = "terminal/csvFilter";
+constexpr auto kCsvSeparator = "terminal/csvSeparator";
 constexpr auto kLocalEcho = "terminal/localEcho";
 constexpr auto kHexBytesPerRow = "terminal/hexBytesPerRow";
 constexpr auto kViewMode = "terminal/viewMode";
@@ -72,6 +74,9 @@ AppSettings AppSettings::load(const SettingsStore &store)
         store.value(QLatin1String(kShowDirection), settings.showDirection).toBool();
     settings.showLineNumbers =
         store.value(QLatin1String(kShowLineNumbers), settings.showLineNumbers).toBool();
+    settings.csvFilter = store.value(QLatin1String(kCsvFilter), settings.csvFilter).toBool();
+    settings.csvSeparator =
+        store.value(QLatin1String(kCsvSeparator), settings.csvSeparator).toString();
     settings.localEcho = store.value(QLatin1String(kLocalEcho), settings.localEcho).toBool();
     settings.hexBytesPerRow =
         store.value(QLatin1String(kHexBytesPerRow), settings.hexBytesPerRow).toInt();
@@ -118,6 +123,8 @@ void AppSettings::save(SettingsStore &store) const
     store.setValue(QLatin1String(kTimestampFormat), timestampFormat);
     store.setValue(QLatin1String(kShowDirection), showDirection);
     store.setValue(QLatin1String(kShowLineNumbers), showLineNumbers);
+    store.setValue(QLatin1String(kCsvFilter), csvFilter);
+    store.setValue(QLatin1String(kCsvSeparator), csvSeparator);
     store.setValue(QLatin1String(kLocalEcho), localEcho);
     store.setValue(QLatin1String(kHexBytesPerRow), hexBytesPerRow);
     store.setValue(QLatin1String(kViewMode), viewMode);

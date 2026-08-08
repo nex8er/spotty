@@ -180,6 +180,7 @@ private:
     QLineEdit *m_timestampFormat = nullptr;
     QCheckBox *m_showDirection = nullptr;
     QCheckBox *m_localEcho = nullptr;
+    QLineEdit *m_csvSeparator = nullptr;
     QSpinBox *m_hexBytesPerRow = nullptr;
     QComboBox *m_encoding = nullptr;
     QList<QToolButton *> m_paletteButtons;

@@ -258,6 +258,7 @@ private:
     QToolButton *m_directionButton = nullptr;
     QToolButton *m_echoButton = nullptr;
     QToolButton *m_lineNumberButton = nullptr;
+    QToolButton *m_csvFilterButton = nullptr;
     QToolButton *m_clearButton = nullptr;
     QToolButton *m_followButton = nullptr;
 

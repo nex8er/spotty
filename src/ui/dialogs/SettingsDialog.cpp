@@ -315,6 +315,25 @@ QWidget *SettingsDialog::buildTerminalPage()
     layout->addWidget(m_showDirection);
     layout->addWidget(m_localEcho);
 
+    // Разделитель телеметрии. Сам фильтр включается кнопкой в панели терминала — его
+    // трогают по ходу работы, — а разделитель подбирают один раз под прошивку, и место
+    // ему здесь.
+    auto *csvForm = new QFormLayout;
+    m_csvSeparator = new QLineEdit(m_initial.csvSeparator, page);
+    m_csvSeparator->setMaxLength(1);
+    m_csvSeparator->setFixedWidth(48);
+    csvForm->addRow(tr("Telemetry delimiter"), m_csvSeparator);
+
+    auto *csvHint = new QLabel(
+        tr("Lines made only of numbers separated by this character can be hidden from the "
+           "terminal with the toolbar button. They still reach the chart, the search and "
+           "the log."),
+        page);
+    csvHint->setObjectName(QStringLiteral("hintLabel"));
+    csvHint->setWordWrap(true);
+    csvForm->addRow(QString(), csvHint);
+    layout->addLayout(csvForm);
+
     connect(m_showTimestamps, &QCheckBox::toggled, this, &SettingsDialog::updateEnabledState);
     connect(m_relativeTimestamps, &QCheckBox::toggled, this,
             &SettingsDialog::updateEnabledState);
@@ -620,6 +639,10 @@ AppSettings SettingsDialog::settings() const
     result.timestampFormat = m_timestampFormat->text();
     result.showDirection = m_showDirection->isChecked();
     result.localEcho = m_localEcho->isChecked();
+    // Пустое поле означает «оставить как было»: разделителя «ничего» не существует, а
+    // сохранить пустую строку значило бы сломать распознавание до следующей правки.
+    result.csvSeparator =
+        m_csvSeparator->text().isEmpty() ? m_initial.csvSeparator : m_csvSeparator->text();
     result.hexBytesPerRow = m_hexBytesPerRow->value();
     result.encoding = m_encoding->currentData().toString();
 

@@ -365,6 +365,8 @@ QWidget *MainWindow::buildTerminalToolbar()
     // устройство отвечает на каждую команду и собственные посылки удваивают вывод.
     m_echoButton = makeButton(tr("Echo sent data into the terminal"), true);
     m_lineNumberButton = makeButton(tr("Show line numbers"), true);
+    m_csvFilterButton = makeButton(
+        tr("Hide telemetry lines: values separated by the delimiter set in Settings"), true);
     m_clearButton = makeButton(tr("Clear the terminal"), false);
     m_followButton = makeButton(tr("Follow output"), true);
     m_followButton->setChecked(true);
@@ -389,6 +391,11 @@ QWidget *MainWindow::buildTerminalToolbar()
         if (m_context.session)
             m_context.session->setEchoEnabled(enabled);
         m_settings.localEcho = enabled;
+        m_settings.save(*m_context.settings);
+    });
+    connect(m_csvFilterButton, &QToolButton::toggled, this, [this](bool hide) {
+        m_terminal->setCsvFilterEnabled(hide);
+        m_settings.csvFilter = hide;
         m_settings.save(*m_context.settings);
     });
     connect(m_lineNumberButton, &QToolButton::toggled, this, [this](bool show) {
@@ -429,6 +436,7 @@ QWidget *MainWindow::buildTerminalToolbar()
     layout->addWidget(m_directionButton);
     layout->addWidget(m_echoButton);
     layout->addWidget(m_lineNumberButton);
+    layout->addWidget(m_csvFilterButton);
     layout->addStretch(1);
     layout->addWidget(m_followButton);
     layout->addWidget(m_clearButton);
@@ -701,6 +709,10 @@ void MainWindow::applySettings()
     m_terminal->setTimestampFormat(m_settings.timestampFormat);
     m_terminal->setShowDirection(m_settings.showDirection);
     m_terminal->setShowLineNumbers(m_settings.showLineNumbers);
+    m_terminal->setCsvSeparator(m_settings.csvSeparator.isEmpty()
+                                    ? u','
+                                    : m_settings.csvSeparator.at(0));
+    m_terminal->setCsvFilterEnabled(m_settings.csvFilter);
     m_terminal->setHexBytesPerRow(m_settings.hexBytesPerRow);
     m_terminal->setAnsiPalette(m_settings.ansiPalette);
     m_terminal->setViewMode(m_settings.viewMode == QLatin1String("hex")
@@ -714,11 +726,13 @@ void MainWindow::applySettings()
     const QSignalBlocker directionBlocker(m_directionButton);
     const QSignalBlocker echoBlocker(m_echoButton);
     const QSignalBlocker numbersBlocker(m_lineNumberButton);
+    const QSignalBlocker csvBlocker(m_csvFilterButton);
     m_hexButton->setChecked(m_settings.viewMode == QLatin1String("hex"));
     m_timestampButton->setChecked(m_settings.showTimestamps);
     m_directionButton->setChecked(m_settings.showDirection);
     m_echoButton->setChecked(m_settings.localEcho);
     m_lineNumberButton->setChecked(m_settings.showLineNumbers);
+    m_csvFilterButton->setChecked(m_settings.csvFilter);
 
     if (m_context.session) {
         m_context.session->buffer()->setMaxLines(m_settings.maxLines);
@@ -1182,6 +1196,7 @@ void MainWindow::updateIcons()
     m_directionButton->setIcon(MdiIcons::icon(mdi::SwapHorizontal, kToolGlyphSize));
     m_echoButton->setIcon(MdiIcons::icon(mdi::Keyboard, kToolGlyphSize));
     m_lineNumberButton->setIcon(MdiIcons::icon(mdi::FormatListNumbered, kToolGlyphSize));
+    m_csvFilterButton->setIcon(MdiIcons::icon(mdi::TableOff, kToolGlyphSize));
     m_clearButton->setIcon(MdiIcons::icon(mdi::Broom, kToolGlyphSize));
     m_followButton->setIcon(MdiIcons::icon(mdi::ArrowCollapseDown, kToolGlyphSize));
 }

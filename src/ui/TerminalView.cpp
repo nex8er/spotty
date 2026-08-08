@@ -348,13 +348,39 @@ QList<QPair<int, int>> TerminalView::searchMatches(const QString &text) const
     return result;
 }
 
+void TerminalView::setCsvFilterEnabled(bool enabled)
+{
+    if (m_csvFilterEnabled == enabled)
+        return;
+    m_csvFilterEnabled = enabled;
+    rebuildVisible();
+    viewport()->update();
+}
+
+void TerminalView::setCsvSeparator(QChar separator)
+{
+    if (m_csvDetector.separator() == separator)
+        return;
+    m_csvDetector.setSeparator(separator);
+    if (m_csvFilterEnabled) {
+        rebuildVisible();
+        viewport()->update();
+    }
+}
+
 bool TerminalView::passesFilter(const TerminalBuffer::Line &line) const
 {
-    if (!m_filterEnabled || !m_searchActive)
-        return true;
-    // Системные сообщения не скрываются: «порт открыт», «устройство отключено» и ошибки
-    // нужны всегда, иначе фильтр прячет причину происходящего.
+    // Системные сообщения не скрываются ни одним из фильтров: «порт открыт», «устройство
+    // отключено» и ошибки нужны всегда, иначе фильтр прячет причину происходящего.
     if (line.direction == DataDirection::System)
+        return true;
+
+    // Данные телеметрии вытесняют из вывода всё остальное — десятки строк в секунду.
+    // Скрытые здесь, они остаются в буфере и достаются графику, поиску и журналу.
+    if (m_csvFilterEnabled && m_csvDetector.isDataLine(line.text))
+        return false;
+
+    if (!m_filterEnabled || !m_searchActive)
         return true;
     return m_searchRegex.match(line.text).hasMatch();
 }

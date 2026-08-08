@@ -69,5 +69,6 @@ inline constexpr char32_t FileExport = 0xF021D;
 inline constexpr char32_t ChartLine = 0xF012A;
 inline constexpr char32_t FileUpload = 0xF0A4D;
 inline constexpr char32_t FormatListNumbered = 0xF027B;
+inline constexpr char32_t TableOff = 0xF13CA;
 
 } // namespace spotty::mdi

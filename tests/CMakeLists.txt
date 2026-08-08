@@ -42,6 +42,7 @@ spotty_add_test(spotty-tests
         test_ansi_parser.cpp
         test_terminal_buffer.cpp
         test_packetizer.cpp
+        test_csv_detector.cpp
         test_data_codec.cpp
         test_history_store.cpp
         test_settings_store.cpp

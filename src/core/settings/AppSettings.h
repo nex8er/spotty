@@ -75,6 +75,12 @@ struct AppSettings
     /// \brief Показывать номера строк в колонке слева.
     bool showLineNumbers = false;
 
+    /// \brief Скрывать из вывода строки телеметрии, состоящие из чисел через разделитель.
+    bool csvFilter = false;
+
+    /// \brief Разделитель полей для распознавания телеметрии.
+    QString csvSeparator = QStringLiteral(",");
+
     /// \brief Отражать отправленное в терминал.
     bool localEcho = true;
 

@@ -23,6 +23,7 @@ add_library(Spotty::Api ALIAS spotty-api)
 
 target_sources(spotty-api
     PRIVATE
+        CsvDetector.cpp
         DataCodec.cpp
         DataGenerator.cpp
         FileUtils.cpp
@@ -42,6 +43,7 @@ target_sources(spotty-api
         "${CMAKE_SOURCE_DIR}/include/spotty/api/InterfaceDescriptor.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/api/SettingsSchema.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/api/SpottyApiExport.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/CsvDetector.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/DataCodec.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/DataGenerator.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/FileUtils.h"

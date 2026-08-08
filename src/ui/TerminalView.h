@@ -6,6 +6,7 @@
 
 #include "theme/AnsiPalette.h"
 
+#include <spotty/data/CsvDetector.h>
 #include <spotty/data/HighlightRules.h>
 #include <terminal/TerminalBuffer.h>
 
@@ -93,6 +94,19 @@ public:
      */
     void setShowLineNumbers(bool show);
     bool showLineNumbers() const { return m_showLineNumbers; }
+
+    /**
+     * \brief Скрывать из вывода строки, состоящие из чисел через разделитель.
+     *
+     * Это фильтр **показа**, а не потока: строки по-прежнему попадают в буфер, их видят
+     * поиск, график и журнал. Вырезать их из потока значило бы лишить данных того, ради
+     * кого их и присылают.
+     */
+    void setCsvFilterEnabled(bool enabled);
+    bool csvFilterEnabled() const { return m_csvFilterEnabled; }
+
+    /// \brief Разделитель полей для распознавания данных.
+    void setCsvSeparator(QChar separator);
 
     /**
      * \brief Показывать метку времени относительно предыдущей строки, а не абсолютную.
@@ -338,6 +352,8 @@ private:
     ViewMode m_viewMode = ViewMode::Text;
     bool m_showTimestamps = false;
     bool m_showLineNumbers = false;
+    bool m_csvFilterEnabled = false;
+    CsvDetector m_csvDetector;
 
     /**
      * \brief Наибольшая встреченная ширина содержимого, знакомест.
