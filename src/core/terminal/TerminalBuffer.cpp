@@ -232,9 +232,23 @@ void TerminalBuffer::appendSystemMessage(const QString &message)
 
     const qint64 lineNumber = nextLineNumber();
 
+    // Сообщения самой программы отмечаются двумя независимыми признаками: звёздочкой в
+    // начале строки и курсивом. Курсив один читается плохо на моноширинном шрифте и
+    // исчезает вовсе при копировании вывода наружу; звёздочка одна теряется среди данных,
+    // которые вполне могут начинаться с той же звёздочки. Вместе они отвечают на вопрос
+    // «это устройство сказало или Spotty» и на экране, и в буфере обмена.
+    //
+    // Направление DataDirection::System остаётся третьим признаком — по нему строка
+    // красится своим цветом. Но цвет не может быть единственным носителем смысла
+    // (WCAG 2.2, 1.4.1), и до этой правки он им и был.
+    const QString text = QStringLiteral("* ") + message;
+
+    TextStyle style;
+    style.italic = true;
+
     Line line;
-    line.text = message;
-    line.runs.append(StyleRun{0, int(message.size()), TextStyle{}});
+    line.text = text;
+    line.runs.append(StyleRun{0, int(text.size()), style});
     line.wallClock = QDateTime::currentDateTime();
     line.direction = DataDirection::System;
     line.complete = true;
