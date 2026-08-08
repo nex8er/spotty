@@ -384,6 +384,51 @@ namespace {
  * \note Делается при каждом показе, а не однажды: контейнер перечитывает настройки стиля
  *       при каждой его смене, то есть и при смене темы.
  */
+/**
+ * \brief Подогнать высоту раскрытого списка под его содержимое.
+ *
+ * Собственная рамка у QComboBox переводит список в «менюшный» режим (см. комментарий к
+ * applyComboPopupLook ниже), а тот добавляет к окну поля PM_MenuVMargin сверху и снизу.
+ * Нескольких лишних пикселей хватает, чтобы содержимое перестало помещаться, и над списком
+ * из пяти пунктов появлялись стрелки прокрутки — при том, что прокручивать там нечего.
+ *
+ * Подгонка делается по факту, а не расчётом: высота строки зависит от отступов из таблицы
+ * стилей, от кегля и от системы, и любое число, записанное здесь, разошлось бы с
+ * действительностью на первой же правке QSS.
+ *
+ * Длинные списки не трогаем: там прокрутка законна и нужна.
+ */
+void fitComboPopupToContents(QFrame *frame)
+{
+    auto *combo = qobject_cast<QComboBox *>(frame->parentWidget());
+    auto *view = frame->findChild<QAbstractItemView *>();
+    if (!combo || !view)
+        return;
+
+    const int rows = combo->count();
+    if (rows <= 0 || rows > combo->maxVisibleItems())
+        return;
+
+    int content = 0;
+    for (int row = 0; row < rows; ++row)
+        content += view->sizeHintForRow(row);
+    if (content <= 0)
+        return;
+
+    const QMargins frameMargins = frame->contentsMargins();
+    const QMargins viewMargins = view->contentsMargins();
+    const int wanted = content + frameMargins.top() + frameMargins.bottom()
+        + viewMargins.top() + viewMargins.bottom() + 2 * frame->lineWidth();
+
+    // Прокрутку снимаем только вместе с подгонкой высоты: выключить её, оставив список
+    // низким, значило бы сделать нижние пункты недостижимыми вовсе.
+    view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    if (frame->height() != wanted)
+        frame->resize(frame->width(), wanted);
+}
+
 void applyComboPopupLook(QWidget *window, const ThemeColors &colors)
 {
     auto *frame = qobject_cast<QFrame *>(window);
@@ -412,6 +457,8 @@ void applyComboPopupLook(QWidget *window, const ThemeColors &colors)
         child->setPalette(palette);
         child->setAutoFillBackground(true);
     }
+
+    fitComboPopupToContents(frame);
 }
 
 } // namespace
