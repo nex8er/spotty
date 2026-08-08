@@ -34,13 +34,18 @@ constexpr int kDefaultChunk = 512;
 
 /// \brief Как перекодировать файл перед отправкой.
 enum Encoding {
-    Raw = 0,   ///< Как есть, байт в байт.
-    Base64,    ///< Base64 без переносов.
-    Base64Wrap ///< Base64 строками фиксированной ширины.
+    Raw = 0,    ///< Как есть, байт в байт.
+    Base64,     ///< Base64 без переносов.
+    Base64Wrap, ///< Base64 строками фиксированной ширины.
+    Hex,        ///< Шестнадцатеричные пары через пробел.
+    HexWrap,    ///< Они же строками по шестнадцать байт.
 };
 
 /// \brief Ширина строки base64 при переносе — как в MIME.
 constexpr int kBase64LineWidth = 76;
+
+/// \brief Байт в строке для HexWrap. Та же ширина, что у дампа в терминале.
+constexpr int kHexBytesPerLine = 16;
 
 } // namespace
 
@@ -72,6 +77,8 @@ FileSendPanel::FileSendPanel(IPanelHost *panelHost, QWidget *parent)
     m_encoding->addItem(tr("Raw bytes"), Raw);
     m_encoding->addItem(tr("Base64"), Base64);
     m_encoding->addItem(tr("Base64, wrapped"), Base64Wrap);
+    m_encoding->addItem(tr("Hex"), Hex);
+    m_encoding->addItem(tr("Hex, 16 bytes per line"), HexWrap);
     form->addRow(tr("Encoding"), m_encoding);
 
     m_chunkSize = new QSpinBox(this);
@@ -169,6 +176,28 @@ bool FileSendPanel::prepare()
         m_payload.reserve(encoded.size() + encoded.size() / kBase64LineWidth * 2);
         for (qsizetype i = 0; i < encoded.size(); i += kBase64LineWidth) {
             m_payload += encoded.mid(i, kBase64LineWidth);
+            m_payload += "\r\n";
+        }
+        break;
+    }
+
+    case Hex:
+        // Пары через пробел, в верхнем регистре: так их принимает большинство загрузчиков
+        // и так же показывает HEX-дамп самого Spotty — одно и то же представление в обе
+        // стороны легче сверять глазами.
+        m_payload = raw.toHex(' ').toUpper();
+        break;
+
+    case HexWrap: {
+        // Шестнадцать байт в строке — та же ширина, что у дампа в терминале. Совпадение
+        // не случайно: отправленное и принятое кладут рядом и сверяют построчно.
+        const QByteArray hex = raw.toHex(' ').toUpper();
+        m_payload.clear();
+        m_payload.reserve(hex.size() + hex.size() / (kHexBytesPerLine * 3) * 2);
+        for (qsizetype byte = 0; byte < raw.size(); byte += kHexBytesPerLine) {
+            const qsizetype count = qMin<qsizetype>(kHexBytesPerLine, raw.size() - byte);
+            // Каждый байт занимает три знака («AB »), у последнего в строке пробела нет.
+            m_payload += hex.mid(byte * 3, count * 3 - 1);
             m_payload += "\r\n";
         }
         break;
