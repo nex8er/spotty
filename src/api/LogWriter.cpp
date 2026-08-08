@@ -133,6 +133,14 @@ bool LogWriter::start(const QString &interfaceName, const QString &alias)
 
 void LogWriter::stop()
 {
+    // Придержанный хвост дописывается до закрытия файла. Последняя строка обычно и есть
+    // та, ради которой лог включали, — терять её при остановке недопустимо.
+    if (m_file && !m_pending.isEmpty()) {
+        m_file->write(m_pending);
+        m_bytesWritten += m_pending.size();
+    }
+    m_pending.clear();
+
     if (!m_file)
         return;
 
@@ -148,6 +156,45 @@ void LogWriter::stop()
     Q_EMIT recordingStopped(path);
 }
 
+void LogWriter::setCsvMode(CsvMode mode)
+{
+    m_csvMode = mode;
+}
+
+void LogWriter::setCsvSeparator(QChar separator)
+{
+    m_csvDetector.setSeparator(separator);
+}
+
+QByteArray LogWriter::selectLines(const QByteArray &data)
+{
+    // Отбор построчный, а поток приходит порциями произвольной длины: судьбу половины
+    // строки решить нельзя, не увидев вторую. Незавершённый хвост придерживается до
+    // следующей порции.
+    m_pending += data;
+
+    QByteArray kept;
+    qsizetype start = 0;
+    while (true) {
+        const qsizetype end = m_pending.indexOf('\n', start);
+        if (end < 0)
+            break;
+
+        const QByteArray line = m_pending.mid(start, end - start + 1);
+        start = end + 1;
+
+        // Сравнивается текст без завершающих \r\n, а записывается строка целиком:
+        // журнал должен сохранить исходные окончания строк.
+        const QString text = QString::fromUtf8(line).trimmed();
+        const bool isData = m_csvDetector.isDataLine(text);
+        if ((m_csvMode == CsvMode::OnlyData) == isData)
+            kept += line;
+    }
+
+    m_pending.remove(0, start);
+    return kept;
+}
+
 void LogWriter::write(const QByteArray &data, DataDirection direction)
 {
     if (!m_file || data.isEmpty())
@@ -155,7 +202,12 @@ void LogWriter::write(const QByteArray &data, DataDirection direction)
     if (direction == DataDirection::Tx && !m_includeTx)
         return;
 
-    const QByteArray payload = m_filterAnsi ? stripAnsi(data) : data;
+    QByteArray payload = m_filterAnsi ? stripAnsi(data) : data;
+    if (payload.isEmpty())
+        return;
+
+    if (m_csvMode != CsvMode::All)
+        payload = selectLines(payload);
     if (payload.isEmpty())
         return;
 

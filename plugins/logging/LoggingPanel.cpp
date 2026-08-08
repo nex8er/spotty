@@ -10,6 +10,13 @@
 #include <spotty/ui/MdiCodepoints.h>
 
 #include <QApplication>
+#include <QDesktopServices>
+#include <QFormLayout>
+#include <QMenu>
+#include <QMessageBox>
+#include <QStorageInfo>
+#include <QTimer>
+#include <QComboBox>
 #include <QCheckBox>
 #include <QClipboard>
 #include <QDrag>
@@ -36,7 +43,17 @@ constexpr auto kKeyFilterAnsi = "filterAnsi";
 constexpr auto kKeyIncludeTx = "includeTx";
 constexpr auto kKeyAutoStart = "autoStart";
 
+constexpr auto kKeyCsvMode = "csvMode";
 constexpr auto kDefaultTemplate = "{alias}_{date}_{time}";
+
+/// \brief Период бега точек в надписи о записи, мс.
+constexpr int kCaptionTickMs = 400;
+
+/// \brief Сколько файлов обходить при подсчёте занятого места.
+constexpr int kUsageScanLimit = 500;
+
+/// \brief Ниже этого остатка на диске показывается предупреждение.
+constexpr qint64 kLowDiskSpaceBytes = 512LL * 1024 * 1024;
 
 } // namespace
 
@@ -130,11 +147,16 @@ LoggingPanel::LoggingPanel(IPanelHost *panelHost, QWidget *parent)
     m_recordButton->setCheckable(true);
     m_recordButton->setIconSize(QSize(kToolGlyphSize, kToolGlyphSize));
 
+    // Рядом с кнопкой прежде было пусто, и полоса выглядела недоделанной: кружок в углу
+    // ничего не сообщал ни о состоянии, ни о том, что произойдёт по нажатию.
+    m_captionLabel = new QLabel(this);
+
     m_sizeLabel = new QLabel(this);
     m_sizeLabel->setObjectName(QStringLiteral("hintLabel"));
 
     controlRow->addWidget(m_recordButton);
-    controlRow->addWidget(m_sizeLabel, 1);
+    controlRow->addWidget(m_captionLabel, 1);
+    controlRow->addWidget(m_sizeLabel);
     layout->addLayout(controlRow);
 
     m_fileLabel = new QLabel(this);
@@ -154,6 +176,18 @@ LoggingPanel::LoggingPanel(IPanelHost *panelHost, QWidget *parent)
     layout->addWidget(m_filterAnsi);
     layout->addWidget(m_includeTx);
 
+    // Настройка своя, не общая с терминалом: там телеметрию прячут, чтобы читать
+    // сообщения, а в журнал её как раз чаще всего и пишут — и наоборот.
+    auto *csvForm = new QFormLayout;
+    m_csvMode = new QComboBox(this);
+    m_csvMode->addItem(tr("Everything"), int(LogWriter::CsvMode::All));
+    m_csvMode->addItem(tr("Messages only"), int(LogWriter::CsvMode::ExcludeData));
+    m_csvMode->addItem(tr("Telemetry only"), int(LogWriter::CsvMode::OnlyData));
+    m_csvMode->setToolTip(tr("Telemetry is a line made only of numbers separated by the "
+                             "delimiter set in Settings."));
+    csvForm->addRow(tr("Record"), m_csvMode);
+    layout->addLayout(csvForm);
+
     // --- Список файлов ---------------------------------------------------------------
 
     auto *listTitle = new QLabel(tr("Recent logs"), this);
@@ -163,7 +197,12 @@ LoggingPanel::LoggingPanel(IPanelHost *panelHost, QWidget *parent)
     m_files = new LogFileList(this);
     m_files->setToolTip(tr("Click to view in the terminal. Drag out or press Ctrl+C to "
                            "copy the file itself."));
+    m_files->setContextMenuPolicy(Qt::CustomContextMenu);
     layout->addWidget(m_files, 1);
+
+    m_usageLabel = new QLabel(this);
+    m_usageLabel->setObjectName(QStringLiteral("hintLabel"));
+    layout->addWidget(m_usageLabel);
 
     // --- Связывание ------------------------------------------------------------------
 
@@ -201,6 +240,22 @@ LoggingPanel::LoggingPanel(IPanelHost *panelHost, QWidget *parent)
     connect(&m_writer, &LogWriter::errorOccurred, this, [this](const QString &message) {
         host()->showStatusMessage(message);
         updateRecordingUi();
+    });
+
+    connect(m_csvMode, &QComboBox::currentIndexChanged, this, [this] {
+        m_writer.setCsvMode(LogWriter::CsvMode(m_csvMode->currentData().toInt()));
+        host()->setValue(QLatin1String(kKeyCsvMode), m_csvMode->currentData().toInt());
+    });
+    connect(m_files, &QWidget::customContextMenuRequested, this, &LoggingPanel::showFileMenu);
+
+    // Точки в надписи бегут, пока идёт запись. Статичная надпись «Идёт запись» не
+    // отличает работающую запись от зависшей программы, а движение отвечает на этот
+    // вопрос без единого слова.
+    m_captionTimer = new QTimer(this);
+    m_captionTimer->setInterval(kCaptionTickMs);
+    connect(m_captionTimer, &QTimer::timeout, this, [this] {
+        m_captionPhase = (m_captionPhase + 1) % 4;
+        updateRecordingCaption();
     });
 
     host()->setShortcuts({PanelShortcut{
@@ -241,6 +296,12 @@ void LoggingPanel::reloadFromSettings()
     m_filterAnsi->setChecked(filterAnsi);
     m_includeTx->setChecked(includeTx);
 
+    const int csvMode = host()->value(QLatin1String(kKeyCsvMode),
+                                      int(LogWriter::CsvMode::All)).toInt();
+    const QSignalBlocker csvBlocker(m_csvMode);
+    m_csvMode->setCurrentIndex(qMax(0, m_csvMode->findData(csvMode)));
+    m_writer.setCsvMode(LogWriter::CsvMode(csvMode));
+
     refreshFileList();
 }
 
@@ -276,6 +337,100 @@ void LoggingPanel::toggleRecording()
         m_recordButton->setChecked(false);
 }
 
+void LoggingPanel::updateRecordingCaption()
+{
+    if (!m_writer.isRecording()) {
+        m_captionLabel->setText(m_interfaceOpen ? tr("Start recording")
+                                                : tr("Recording unavailable"));
+        return;
+    }
+
+    // Бегущие точки — признак того, что запись жива, а не просто была начата. Три точки
+    // и пауза: без паузы надпись меняет ширину каждый тик и подрагивает.
+    m_captionLabel->setText(tr("Recording") + QString(m_captionPhase, u'.'));
+}
+
+void LoggingPanel::showFileMenu(const QPoint &position)
+{
+    const QString path = selectedFilePath();
+    if (path.isEmpty())
+        return;
+
+    QMenu menu(this);
+
+    menu.addAction(tr("View in terminal"), this,
+                   [this, path] { host()->showDocument(path, QFileInfo(path).fileName()); });
+
+    // Название пункта платформенное: «Показать в Finder» на macOS и «Показать в
+    // проводнике» на прочих системах — человек ищет то слово, которое видит в своей
+    // системе, а не общее «открыть каталог».
+#if defined(Q_OS_MACOS)
+    const QString revealName = tr("Reveal in Finder");
+#elif defined(Q_OS_WIN)
+    const QString revealName = tr("Show in Explorer");
+#else
+    const QString revealName = tr("Open containing folder");
+#endif
+    menu.addAction(revealName, this, [path] {
+        // Открываем каталог, а не файл: файл открылся бы текстовым редактором, а просили
+        // показать, где он лежит.
+        QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath()));
+    });
+
+    menu.addAction(tr("Copy path"), this,
+                   [path] { QApplication::clipboard()->setText(path); });
+
+    menu.addSeparator();
+
+    QAction *remove = menu.addAction(tr("Delete"), this, [this, path] {
+        // Удаление файла необратимо, и подтверждение здесь обязательно: список плотный,
+        // промах мышью на строку стоит дёшево, а лог бывает единственным свидетельством
+        // происшедшего.
+        const auto answer = QMessageBox::question(
+            window(), tr("Delete log"),
+            tr("Delete %1 permanently?").arg(QFileInfo(path).fileName()));
+        if (answer != QMessageBox::Yes)
+            return;
+        if (QFile::remove(path)) {
+            refreshFileList();
+        } else {
+            host()->showStatusMessage(tr("Cannot delete %1").arg(QFileInfo(path).fileName()));
+        }
+    });
+    // Файл, в который идёт запись, удалить нельзя: писать стало бы некуда, а запись
+    // продолжалась бы в никуда до первой ошибки.
+    remove->setEnabled(path != m_writer.currentFilePath());
+
+    menu.exec(m_files->mapToGlobal(position));
+}
+
+QString LoggingPanel::selectedFilePath() const
+{
+    const QListWidgetItem *item = m_files->currentItem();
+    return item ? item->data(Qt::UserRole).toString() : QString();
+}
+
+void LoggingPanel::updateDiskUsage()
+{
+    const QStringList logs = m_writer.recentLogs(kUsageScanLimit);
+    qint64 total = 0;
+    for (const QString &path : logs)
+        total += QFileInfo(path).size();
+
+    m_usageLabel->setText(tr("%n file(s)", nullptr, int(logs.size()))
+                          + QStringLiteral(", ") + Formatting::byteCount(total));
+
+    // Предупреждение о месте — до начала записи, а не после того, как диск кончился:
+    // прерванная на середине запись теряет ровно ту часть, ради которой её включали.
+    const QStorageInfo storage(m_writer.directory());
+    if (storage.isValid() && storage.bytesAvailable() > 0
+        && storage.bytesAvailable() < kLowDiskSpaceBytes) {
+        m_usageLabel->setText(m_usageLabel->text() + QStringLiteral("  ⚠ ")
+                              + tr("only %1 free")
+                                    .arg(Formatting::byteCount(storage.bytesAvailable())));
+    }
+}
+
 void LoggingPanel::updateRecordingUi()
 {
     const bool recording = m_writer.isRecording();
@@ -297,6 +452,12 @@ void LoggingPanel::updateRecordingUi()
     // Запись имеет смысл только при открытом канале: писать нечего, и имя файла было бы
     // не из чего составить.
     m_recordButton->setEnabled(recording || m_interfaceOpen);
+
+    if (recording && !m_captionTimer->isActive())
+        m_captionTimer->start();
+    else if (!recording && m_captionTimer->isActive())
+        m_captionTimer->stop();
+    updateRecordingCaption();
 }
 
 void LoggingPanel::channelStateChanged(ChannelState state)
@@ -331,6 +492,8 @@ void LoggingPanel::refreshFileList()
                              .arg(path, Formatting::byteCount(info.size()),
                                   info.lastModified().toString(Qt::ISODate)));
     }
+
+    updateDiskUsage();
 }
 
 } // namespace spotty

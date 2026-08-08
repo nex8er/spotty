@@ -8,6 +8,7 @@
 // Для SDK это невозможно: буфер живёт в spotty-core, куда плагину дороги нет.
 #include <spotty/api/DataDirection.h>
 #include <spotty/api/SpottyApiExport.h>
+#include <spotty/data/CsvDetector.h>
 
 #include <QObject>
 #include <QString>
@@ -62,6 +63,27 @@ public:
     void setFilterAnsi(bool filter);
     bool filterAnsi() const { return m_filterAnsi; }
 
+    /**
+     * \enum CsvMode
+     * \brief Что делать со строками телеметрии.
+     *
+     * Настройка своя, независимая от терминала: там телеметрию прячут, чтобы читать
+     * сообщения, а в журнал её как раз чаще всего и пишут — и наоборот. Одна общая
+     * настройка на два потребителя означала бы, что человек не может получить ни того,
+     * ни другого.
+     */
+    enum class CsvMode {
+        All,         ///< Писать всё.
+        ExcludeData, ///< Только сообщения: телеметрия в файл не попадает.
+        OnlyData,    ///< Только телеметрия: готовый набор для разбора.
+    };
+
+    void setCsvMode(CsvMode mode);
+    CsvMode csvMode() const { return m_csvMode; }
+
+    /// \brief Разделитель полей для распознавания телеметрии.
+    void setCsvSeparator(QChar separator);
+
     /// \brief Записывать ли отправленное вместе с принятым.
     void setIncludeTx(bool include);
     bool includeTx() const { return m_includeTx; }
@@ -109,9 +131,24 @@ private:
     /// \brief Подставить значения в шаблон имени.
     QString resolveFileName(const QString &interfaceName, const QString &alias) const;
 
+    /// \brief Оставить из порции только те строки, что подходят под #m_csvMode.
+    QByteArray selectLines(const QByteArray &data);
+
     QString m_directory;
     QString m_template = QStringLiteral("{alias}_{date}_{time}");
+
     bool m_filterAnsi = true;
+    CsvMode m_csvMode = CsvMode::All;
+    CsvDetector m_csvDetector;
+
+    /**
+     * \brief Незавершённая строка, придержанная до перевода строки.
+     *
+     * Отбор идёт построчно, а данные приходят порциями произвольной длины: решить судьбу
+     * половины строки нельзя, не увидев вторую. Хвост дописывается при остановке записи —
+     * иначе последняя строка терялась бы ровно тогда, когда лог и нужен.
+     */
+    QByteArray m_pending;
     bool m_includeTx = true;
 
     QFile *m_file = nullptr;

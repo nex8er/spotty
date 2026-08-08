@@ -10,6 +10,8 @@
 #include <QListWidget>
 
 class QCheckBox;
+class QComboBox;
+class QTimer;
 class QLabel;
 class QMimeData;
 class QToolButton;
@@ -79,9 +81,28 @@ private:
     /// \brief Прочитать своё из настроек и раздать записывателю.
     void reloadFromSettings();
 
+    /// \brief Обновить бегущие точки в надписи «идёт запись».
+    void updateRecordingCaption();
+
+    /// \brief Меню по правой кнопке над списком файлов.
+    void showFileMenu(const QPoint &position);
+
+    /// \brief Обновить строку об общем объёме логов на диске.
+    void updateDiskUsage();
+
+    /// \return Путь к выделенному файлу либо пустая строка.
+    QString selectedFilePath() const;
+
     LogWriter m_writer;
 
     QToolButton *m_recordButton = nullptr;
+    QLabel *m_captionLabel = nullptr;  ///< «Начать запись» / «Идёт запись…».
+    QComboBox *m_csvMode = nullptr;    ///< Что делать с телеметрией.
+    QLabel *m_usageLabel = nullptr;    ///< Общий объём логов на диске.
+
+    /// \brief Тикает, пока идёт запись; двигает точки в надписи.
+    QTimer *m_captionTimer = nullptr;
+    int m_captionPhase = 0;
     QLabel *m_fileLabel = nullptr;
     QLabel *m_sizeLabel = nullptr;
     QCheckBox *m_filterAnsi = nullptr;
