@@ -114,7 +114,7 @@ ThemeMetrics buildMetrics()
     m.radius = 4;
     m.cardRadius = 6;
     m.padV = 5;
-    m.gap = 8;
+    m.gap = 4;
     m.scrollBarWidth = 12;
 #elif defined(Q_OS_MACOS)
     // Кегль не трогаем: системный шрифт macOS уже 13 pt, и его меняет настройка
@@ -123,8 +123,9 @@ ThemeMetrics buildMetrics()
     m.radius = 5;
     m.cardRadius = 8;
     m.padV = 4;
-    // macOS расставляет блоки просторнее: те же 8 px там читаются как слипшиеся.
-    m.gap = 10;
+    // macOS расставляет блоки просторнее — но соотношение сохраняется и после того, как
+    // владелец попросил вдвое более тесную компоновку: 5 против 4 на прочих системах.
+    m.gap = 5;
     m.scrollBarWidth = 11;
 #else
     m.fontPointSize = 0;
