@@ -76,6 +76,7 @@ constexpr auto kKeySplitter = "window/mainSplitter";
 constexpr auto kKeyPanelId = "window/panelId";
 constexpr auto kKeyPanelIndexLegacy = "window/panelIndex";
 constexpr auto kKeyTerminalSplitter = "window/terminalSplitter";
+constexpr auto kKeySidePanel = "window/sidePanelVisible";
 constexpr auto kKeyInterface = "session/interfaceId";
 
 /// \brief Прежний порядок панелей — для переноса kKeyPanelIndexLegacy в kKeyPanelId.
@@ -197,7 +198,8 @@ void MainWindow::buildUi()
 
     // --- Панель слева во всю высоту ---------------------------------------------------
     m_splitter = new QSplitter(Qt::Horizontal, this);
-    m_splitter->addWidget(buildSidePanel());
+    m_sidePanel = buildSidePanel();
+    m_splitter->addWidget(m_sidePanel);
     m_splitter->addWidget(rightColumn);
     m_splitter->setStretchFactor(0, 0);
     m_splitter->setStretchFactor(1, 1);
@@ -587,6 +589,18 @@ void MainWindow::buildMenus()
     m_actions.insert(QStringLiteral("send.focus"),
                      viewMenu->addAction(tr("Focus &send bar"), this,
                                          [this] { m_sendBar->focusInput(); }));
+
+    // Боковая панель занимает треть окна, а нужна не всегда: при чтении длинных строк
+    // терминалу требуется вся ширина. Прежде её можно было только схлопнуть мышью,
+    // ухватив разделитель, и вернуть тем же движением — обратимо, но неочевидно.
+    auto *sidePanelAction = viewMenu->addAction(tr("Side &panel"));
+    sidePanelAction->setCheckable(true);
+    sidePanelAction->setChecked(true);
+    connect(sidePanelAction, &QAction::toggled, this, [this](bool visible) {
+        m_sidePanel->setVisible(visible);
+        m_context.settings->setValue(QLatin1String(kKeySidePanel), visible);
+    });
+    m_actions.insert(QStringLiteral("view.sidePanel"), sidePanelAction);
 
     // «Найти» и «Начать запись» отсюда ушли: они принадлежат панелям поиска и журнала, а
     // те объявляют свои сочетания сами через IPanelHost::setShortcuts(). Прежде окно
@@ -1080,6 +1094,15 @@ void MainWindow::restoreWindowState()
         m_terminalSplitter->restoreState(terminalSplitter);
         if (m_terminalSplitter->sizes().size() != saved.size())
             m_terminalSplitter->setSizes(saved);
+    }
+
+    // Видимость боковой панели восстанавливается до её содержимого: скрытая панель не
+    // должна мигнуть на экране при запуске.
+    const bool sidePanelVisible = store->value(QLatin1String(kKeySidePanel), true).toBool();
+    m_sidePanel->setVisible(sidePanelVisible);
+    if (QAction *action = m_actions.value(QStringLiteral("view.sidePanel"))) {
+        const QSignalBlocker blocker(action);
+        action->setChecked(sidePanelVisible);
     }
 
     QString panelId = store->value(QLatin1String(kKeyPanelId)).toString();

@@ -217,6 +217,7 @@ private:
     TerminalView *m_terminal = nullptr;
     SendBar *m_sendBar = nullptr;
     QSplitter *m_splitter = nullptr;
+    QWidget *m_sidePanel = nullptr; ///< Боковая панель целиком: рейка и стопка страниц.
     QStackedWidget *m_panelStack = nullptr;
     QVBoxLayout *m_railLayout = nullptr; ///< Раскладка рейки; кнопки вставляются в неё.
     QToolButton *m_settingsRailButton = nullptr; ///< Открывает диалог настроек; внизу рейки.

@@ -104,6 +104,8 @@ QList<ShortcutAction> SettingsDialog::builtinShortcutActions()
         {QStringLiteral("terminal.timestamps"), tr("Toggle timestamps"),
          QStringLiteral("Ctrl+T")},
         {QStringLiteral("send.focus"), tr("Focus send bar"), QStringLiteral("Ctrl+E")},
+        {QStringLiteral("view.sidePanel"), tr("Show / hide the side panel"),
+         QStringLiteral("Ctrl+B")},
     };
 }
 
