@@ -291,6 +291,16 @@ void MainWindow::buildUi()
             m_context.session->send(data);
     });
 
+    // Просьба сохранить набранное рассылается всем хостам: кто умеет её принять, тот и
+    // примет. Окно не знает, какая панель этим занимается, и знать не должно.
+    connect(m_sendBar, &SendBar::makeMacroRequested, this,
+            [this](const QString &text, int format, int termination) {
+                for (PanelHostImpl *host : std::as_const(m_hosts)) {
+                    host->notifySendBarSave(text, DataCodec::Format(format),
+                                            DataCodec::Termination(termination));
+                }
+            });
+
     connect(m_sendBar, &SendBar::optionsChanged, this, [this] {
         m_settings.sendFormat = int(m_sendBar->format());
         m_settings.sendTermination = int(m_sendBar->termination());

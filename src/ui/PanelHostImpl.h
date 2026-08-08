@@ -95,6 +95,8 @@ public:
     void notifyThemeChanged();
     void notifySettingsReset();
     void notifyAboutToClose();
+    void notifySendBarSave(const QString &text, DataCodec::Format format,
+                           DataCodec::Termination termination);
     /// @}
 
     /**

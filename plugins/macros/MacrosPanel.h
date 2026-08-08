@@ -90,6 +90,9 @@ private:
     void sendMacro(int index);
 
     void addMacro();
+    /// \brief Номера выделенных строк по возрастанию.
+    QList<int> selectedRows() const;
+
     void removeSelected();
     void duplicateSelected();
     void importMacros();
@@ -97,6 +100,9 @@ private:
 
     /// \brief Меню по правой кнопке: на строке — правка, на пустом месте — создание.
     void showContextMenu(const QPoint &position);
+
+    /// \brief Период повтора: из пресета либо набранный руками.
+    int selectedPeriodMs() const;
 
     void startPeriodic();
     void stopPeriodic();

@@ -9,7 +9,10 @@
 
 #include <HistoryStore.h>
 
+#include <QAction>
 #include <QComboBox>
+#include <QContextMenuEvent>
+#include <QMenu>
 #include <QFontMetrics>
 #include <QHBoxLayout>
 #include <QKeyEvent>
@@ -275,6 +278,24 @@ void SendBar::completeFromHistory(bool backwards)
                                .arg(m_completionMatches.size()),
                            m_input);
     }
+}
+
+void SendBar::contextMenuEvent(QContextMenuEvent *event)
+{
+    // Своё меню строится поверх штатного меню поля ввода, а не вместо него: вырезать
+    // «Копировать» и «Вставить» ради одного своего пункта было бы обменом полезного на
+    // удобное.
+    QMenu *menu = m_input->createStandardContextMenu();
+
+    menu->addSeparator();
+    QAction *makeMacro = menu->addAction(tr("Save as macro"));
+    makeMacro->setEnabled(!m_input->text().isEmpty());
+    connect(makeMacro, &QAction::triggered, this, [this] {
+        Q_EMIT makeMacroRequested(m_input->text(), int(format()), int(termination()));
+    });
+
+    menu->exec(event->globalPos());
+    delete menu;
 }
 
 bool SendBar::eventFilter(QObject *watched, QEvent *event)

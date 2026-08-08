@@ -68,6 +68,15 @@ Q_SIGNALS:
     /// \brief Изменился формат или терминация — стоит запомнить в настройках.
     void optionsChanged();
 
+    /**
+     * \brief Пользователь просит сохранить набранное как макрос.
+     *
+     * Полоса отправки не знает о макросах — они живут в плагине, и связывать её с ним
+     * напрямую значило бы вернуть в окно ту самую поимённую связь, от которой ушли.
+     * Окно передаёт просьбу тому, кто её примет.
+     */
+    void makeMacroRequested(const QString &text, int format, int termination);
+
 private:
     /// \brief Закодировать введённое и отправить.
     void submit();
@@ -90,6 +99,9 @@ private:
 
     /// \brief Обработчик клавиш поля ввода.
     bool eventFilter(QObject *watched, QEvent *event) override;
+
+protected:
+    void contextMenuEvent(QContextMenuEvent *event) override;
 
     HistoryStore *m_history;
 

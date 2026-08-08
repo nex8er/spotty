@@ -15,6 +15,8 @@
 #include <QSaveFile>
 #include <QSet>
 
+#include <algorithm>
+
 namespace spotty {
 
 /// \brief Категория журналирования: `spotty.macros`.
@@ -256,11 +258,22 @@ bool MacroStore::importFrom(const QString &filePath, int *added)
     return count > 0 || array.isEmpty();
 }
 
-bool MacroStore::exportTo(const QString &filePath) const
+bool MacroStore::exportTo(const QString &filePath, const QList<int> &rows) const
 {
     QJsonArray array;
-    for (const Macro &macro : m_macros)
-        array.append(macroToJson(macro));
+    if (rows.isEmpty()) {
+        for (const Macro &macro : m_macros)
+            array.append(macroToJson(macro));
+    } else {
+        // Порядок сохраняется исходный, а не порядок выделения: набор, выгруженный
+        // вразнобой, при обратном чтении перемешал бы горячие клавиши.
+        QList<int> sorted = rows;
+        std::sort(sorted.begin(), sorted.end());
+        for (const int row : std::as_const(sorted)) {
+            if (row >= 0 && row < m_macros.size())
+                array.append(macroToJson(m_macros.at(row)));
+        }
+    }
 
     QJsonObject root;
     root.insert(QStringLiteral("macros"), array);

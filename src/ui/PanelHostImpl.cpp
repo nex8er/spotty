@@ -371,4 +371,10 @@ void PanelHostImpl::notifyAboutToClose()
     Q_EMIT aboutToClose();
 }
 
+void PanelHostImpl::notifySendBarSave(const QString &text, DataCodec::Format format,
+                                      DataCodec::Termination termination)
+{
+    Q_EMIT sendBarSaveRequested(text, format, termination);
+}
+
 } // namespace spotty

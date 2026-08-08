@@ -114,8 +114,15 @@ public:
      */
     bool importFrom(const QString &filePath, int *added = nullptr);
 
-    /// \brief Записать текущий набор в отдельный файл.
-    bool exportTo(const QString &filePath) const;
+    /**
+     * \brief Выгрузить макросы в отдельный файл.
+     * \param filePath Куда писать.
+     * \param rows Номера строк для выгрузки; пустой список — выгрузить все.
+     *
+     * Выборочная выгрузка нужна затем же, зачем и файл на пресет: поделиться половиной
+     * набора, не вычищая из него остальное руками.
+     */
+    bool exportTo(const QString &filePath, const QList<int> &rows = {}) const;
 
     /**
      * \brief Свободное сочетание клавиш для нового макроса.

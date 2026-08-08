@@ -20,7 +20,10 @@
 #include <QInputDialog>
 #include <QLabel>
 #include <QMenu>
+#include <QIntValidator>
 #include <QMessageBox>
+
+#include <algorithm>
 #include <QSignalBlocker>
 #include <QTableWidget>
 #include <QTimer>
@@ -75,6 +78,14 @@ constexpr DataCodec::Termination kTerminations[] = {
 };
 
 /// \brief Подпись периода: миллисекунды до секунды, дальше секунды.
+/// \name Пределы периода повторной отправки, мс
+/// Ниже единицы период не имеет смысла — гранулярность таймеров операционной системы
+/// начинается там же. Выше часа повтор перестаёт быть повтором.
+/// @{
+constexpr int kMinPeriodMs = 1;
+constexpr int kMaxPeriodMs = 3'600'000;
+/// @}
+
 QString periodLabel(int milliseconds)
 {
     if (milliseconds < 1000)
@@ -133,7 +144,9 @@ MacrosPanel::MacrosPanel(IPanelHost *panelHost, QWidget *parent)
     m_table->setColumnWidth(ColumnSend, kSendColumnWidth);
     m_table->verticalHeader()->setVisible(false);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_table->setSelectionMode(QAbstractItemView::SingleSelection);
+    // Множественное выделение: удалять и выгружать по одному набор из двадцати команд
+    // утомительно, а другого способа поделиться половиной набора нет.
+    m_table->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_table->setContextMenuPolicy(Qt::CustomContextMenu);
     // Делегат ловит настоящее нажатие: набирать «Ctrl+Shift+F5» посимвольно человек
     // ошибётся, а несуществующее сочетание так записать вовсе нельзя.
@@ -177,6 +190,14 @@ MacrosPanel::MacrosPanel(IPanelHost *panelHost, QWidget *parent)
     for (const int period : kPeriodsMs)
         m_periodInterval->addItem(periodLabel(period), period);
     m_periodInterval->setCurrentIndex(9); // 1 с
+    // Список остаётся, но становится редактируемым: пресеты покрывают обычные случаи, а
+    // «каждые 1700 мс под цикл опроса устройства» в список не впишешь — таких значений
+    // столько же, сколько устройств.
+    m_periodInterval->setEditable(true);
+    m_periodInterval->setInsertPolicy(QComboBox::NoInsert);
+    m_periodInterval->setValidator(
+        new QIntValidator(kMinPeriodMs, kMaxPeriodMs, m_periodInterval));
+    m_periodInterval->setToolTip(tr("Pick a preset or type the period in milliseconds"));
 
     m_periodicButton = new QToolButton(periodicBox);
     m_periodicButton->setCheckable(true);
@@ -269,6 +290,25 @@ MacrosPanel::MacrosPanel(IPanelHost *panelHost, QWidget *parent)
         else
             stopPeriodic();
     });
+
+    // Обратное действие к «положить макрос в строку отправки»: набрал команду, проверил
+    // её, сохранил как макрос — не переписывая заново в таблицу.
+    connect(host(), &IPanelHost::sendBarSaveRequested, this,
+            [this](const QString &text, DataCodec::Format format,
+                   DataCodec::Termination termination) {
+                Macro macro;
+                macro.payload = text;
+                macro.format = format;
+                macro.termination = termination;
+                macro.shortcut = m_store.suggestShortcut();
+
+                m_store.macros().append(macro);
+                m_store.save();
+                reloadMacros();
+
+                host()->activatePanel(QStringLiteral("macros"));
+                host()->showStatusMessage(tr("Saved as a macro: %1").arg(text));
+            });
 
     connect(host(), &IPanelHost::shortcutActivated, this, [this](const QString &id) {
         // Идентификаторы выданы в rebuildShortcuts() как "macros.macroN".
@@ -493,13 +533,39 @@ void MacrosPanel::addMacro()
     m_table->editItem(m_table->item(row, ColumnCommand));
 }
 
+QList<int> MacrosPanel::selectedRows() const
+{
+    QList<int> rows;
+    const QList<QModelIndex> indexes = m_table->selectionModel()->selectedRows();
+    rows.reserve(indexes.size());
+    for (const QModelIndex &index : indexes)
+        rows.append(index.row());
+    std::sort(rows.begin(), rows.end());
+    return rows;
+}
+
 void MacrosPanel::removeSelected()
 {
-    const int row = m_table->currentRow();
-    if (row < 0 || row >= m_store.macros().size())
+    const QList<int> rows = selectedRows();
+    if (rows.isEmpty())
         return;
 
-    m_store.macros().removeAt(row);
+    if (rows.size() > 1) {
+        // Одну строку удаляют не глядя и легко возвращают набором заново; десяток —
+        // это уже потеря работы, и спросить дешевле, чем восстанавливать.
+        const auto answer = QMessageBox::question(
+            window(), tr("Delete macros"),
+            tr("Delete %n selected macro(s)?", nullptr, int(rows.size())));
+        if (answer != QMessageBox::Yes)
+            return;
+    }
+
+    // С конца: удаление сверху сдвинуло бы номера всех строк ниже, и следующий индекс
+    // указывал бы уже на чужой макрос.
+    for (auto it = rows.crbegin(); it != rows.crend(); ++it) {
+        if (*it >= 0 && *it < m_store.macros().size())
+            m_store.macros().removeAt(*it);
+    }
     m_store.save();
     reloadMacros();
 }
@@ -547,14 +613,23 @@ void MacrosPanel::exportMacros()
         return;
     }
 
+    // Выделенные, если выделено больше одного; иначе весь набор. Выгружать один
+    // случайно подсвеченный макрос вместо набора никто не просит, а выделить десяток и
+    // получить их отдельным файлом — просят.
+    const QList<int> rows = selectedRows();
+    const QList<int> selection = rows.size() > 1 ? rows : QList<int>{};
+
     const QString suggested =
         QStringLiteral("%1.json").arg(m_presetCombo->currentText());
     const QString path = QFileDialog::getSaveFileName(
-        this, tr("Export macros"), suggested, tr("Macro files (*.json)"));
+        this, selection.isEmpty() ? tr("Export macros")
+                                  : tr("Export %n selected macro(s)", nullptr,
+                                       int(selection.size())),
+        suggested, tr("Macro files (*.json)"));
     if (path.isEmpty())
         return;
 
-    if (!m_store.exportTo(path))
+    if (!m_store.exportTo(path, selection))
         QMessageBox::warning(this, tr("Export macros"), tr("Could not write %1.").arg(path));
     else
         host()->showStatusMessage(tr("Exported to %1").arg(path));
@@ -583,6 +658,15 @@ void MacrosPanel::showContextMenu(const QPoint &position)
     const Macro &macro = m_store.macros().at(row);
 
     menu.addAction(tr("Send now"), this, [this, row] { sendMacro(row); });
+
+    // Положить в строку отправки, не отправляя: команду перед отправкой часто нужно
+    // поправить — сменить адрес, номер регистра, — а править её в таблице значило бы
+    // испортить сам макрос.
+    menu.addAction(tr("Put into the send bar"), this, [this, row] {
+        const Macro &macro = m_store.macros().at(row);
+        host()->composeInSendBar(macro.payload, macro.format);
+    });
+
     menu.addSeparator();
     menu.addAction(tr("Duplicate"), this, &MacrosPanel::duplicateSelected);
     menu.addAction(tr("Delete"), this, &MacrosPanel::removeSelected);
@@ -623,6 +707,20 @@ void MacrosPanel::showContextMenu(const QPoint &position)
     menu.exec(m_table->viewport()->mapToGlobal(position));
 }
 
+int MacrosPanel::selectedPeriodMs() const
+{
+    // Пункт списка несёт значение в данных, набранное руками — только в тексте. Читаем
+    // сначала данные: у выбранного пункта текст переведён («1 с»), и разбирать его
+    // числом значило бы зависеть от языка интерфейса.
+    const QVariant data = m_periodInterval->currentData();
+    if (data.isValid() && m_periodInterval->findText(m_periodInterval->currentText()) >= 0)
+        return data.toInt();
+
+    bool ok = false;
+    const int typed = m_periodInterval->currentText().toInt(&ok);
+    return ok ? qBound(kMinPeriodMs, typed, kMaxPeriodMs) : data.toInt();
+}
+
 void MacrosPanel::startPeriodic()
 {
     if (m_periodicMacro->currentIndex() < 0 || !m_sendEnabled) {
@@ -633,7 +731,7 @@ void MacrosPanel::startPeriodic()
     m_periodicStartedMs = QDateTime::currentMSecsSinceEpoch();
     m_periodicCount = 0;
 
-    m_periodicTimer->start(m_periodInterval->currentData().toInt());
+    m_periodicTimer->start(selectedPeriodMs());
     updateIcons();
 }
 
@@ -647,7 +745,7 @@ void MacrosPanel::stopPeriodic()
 
 void MacrosPanel::updateActualInterval()
 {
-    const int requested = m_periodInterval->currentData().toInt();
+    const int requested = selectedPeriodMs();
 
     // Показываем фактический период только там, где он расходится с заданным: на
     // периодах от 10 мс таймер попадает точно, и лишняя цифра только отвлекала бы.
