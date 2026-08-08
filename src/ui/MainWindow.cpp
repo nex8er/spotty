@@ -311,6 +311,11 @@ QWidget *MainWindow::buildTerminalToolbar()
     m_hexButton = makeButton(tr("Show data as a hexadecimal dump"), true);
     m_timestampButton = makeButton(tr("Show timestamps"), true);
     m_directionButton = makeButton(tr("Show transmit and receive marks"), true);
+    // Эхо — тоже про содержимое вывода, а не про действие над ним, поэтому кнопка стоит
+    // в левой группе рядом с прочими переключателями показа. Прежде её не было вовсе:
+    // настройка жила только в диалоге, хотя выключают её как раз по ходу работы — когда
+    // устройство отвечает на каждую команду и собственные посылки удваивают вывод.
+    m_echoButton = makeButton(tr("Echo sent data into the terminal"), true);
     m_clearButton = makeButton(tr("Clear the terminal"), false);
     m_followButton = makeButton(tr("Follow output"), true);
     m_followButton->setChecked(true);
@@ -329,6 +334,12 @@ QWidget *MainWindow::buildTerminalToolbar()
     connect(m_directionButton, &QToolButton::toggled, this, [this](bool show) {
         m_terminal->setShowDirection(show);
         m_settings.showDirection = show;
+        m_settings.save(*m_context.settings);
+    });
+    connect(m_echoButton, &QToolButton::toggled, this, [this](bool enabled) {
+        if (m_context.session)
+            m_context.session->setEchoEnabled(enabled);
+        m_settings.localEcho = enabled;
         m_settings.save(*m_context.settings);
     });
     connect(m_clearButton, &QToolButton::clicked, this, [this] {
@@ -353,6 +364,7 @@ QWidget *MainWindow::buildTerminalToolbar()
     layout->addWidget(m_hexButton);
     layout->addWidget(m_timestampButton);
     layout->addWidget(m_directionButton);
+    layout->addWidget(m_echoButton);
     layout->addStretch(1);
     layout->addWidget(m_followButton);
     layout->addWidget(m_clearButton);
@@ -614,9 +626,11 @@ void MainWindow::applySettings()
     const QSignalBlocker hexBlocker(m_hexButton);
     const QSignalBlocker timestampBlocker(m_timestampButton);
     const QSignalBlocker directionBlocker(m_directionButton);
+    const QSignalBlocker echoBlocker(m_echoButton);
     m_hexButton->setChecked(m_settings.viewMode == QLatin1String("hex"));
     m_timestampButton->setChecked(m_settings.showTimestamps);
     m_directionButton->setChecked(m_settings.showDirection);
+    m_echoButton->setChecked(m_settings.localEcho);
 
     if (m_context.session) {
         m_context.session->buffer()->setMaxLines(m_settings.maxLines);
@@ -1001,6 +1015,7 @@ void MainWindow::updateIcons()
     m_hexButton->setIcon(MdiIcons::icon(mdi::Hexadecimal, kToolGlyphSize));
     m_timestampButton->setIcon(MdiIcons::icon(mdi::ClockOutline, kToolGlyphSize));
     m_directionButton->setIcon(MdiIcons::icon(mdi::SwapHorizontal, kToolGlyphSize));
+    m_echoButton->setIcon(MdiIcons::icon(mdi::Keyboard, kToolGlyphSize));
     m_clearButton->setIcon(MdiIcons::icon(mdi::Broom, kToolGlyphSize));
     m_followButton->setIcon(MdiIcons::icon(mdi::ArrowCollapseDown, kToolGlyphSize));
 }

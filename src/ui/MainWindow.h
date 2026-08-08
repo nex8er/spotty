@@ -253,6 +253,7 @@ private:
     QToolButton *m_hexButton = nullptr;
     QToolButton *m_timestampButton = nullptr;
     QToolButton *m_directionButton = nullptr;
+    QToolButton *m_echoButton = nullptr;
     QToolButton *m_clearButton = nullptr;
     QToolButton *m_followButton = nullptr;
 
