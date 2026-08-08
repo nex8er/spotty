@@ -427,6 +427,166 @@ TRANSLATIONS = {
     "%1 ms": "%1 мс",
     "%1 s": "%1 с",
     "just now": "только что",
+    # --- Панель терминала и режимы вывода (0.2.0) ---
+    "What the output area shows": "Что показано в области вывода",
+    "One interface": "Один интерфейс",
+    "Two interfaces": "Два интерфейса",
+    "Show line numbers": "Показывать номера строк",
+    "Line numbers": "Номера строк",
+    "Hide telemetry lines: values separated by the delimiter set in Settings":
+        "Скрывать телеметрию: числа через разделитель, заданный в настройках",
+    "Side &panel": "&Боковая панель",
+    "Show / hide the side panel": "Показать или скрыть боковую панель",
+
+    # --- Строка состояния ---
+    "RX %1   TX %2": "Принято %1   Отправлено %2",
+    "Time since the interface was opened": "Сколько открыт интерфейс",
+
+    # --- Настройки телеметрии ---
+    "Telemetry delimiter": "Разделитель телеметрии",
+    "Lines made only of numbers separated by this character can be hidden from the "
+    "terminal with the toolbar button. They still reach the chart, the search and the log.":
+        "Строки из одних чисел через этот знак можно скрыть из терминала кнопкой в панели. "
+        "В график, поиск и журнал они при этом попадают.",
+
+    # --- Строка отправки ---
+    "%1 of %2 — Tab for next": "%1 из %2 — Tab дальше",
+    "%1 of %2": "%1 из %2",
+    "Save as macro": "Сохранить как макрос",
+    "Put into the send bar": "Положить в строку отправки",
+    "Saved as a macro: %1": "Сохранено макросом: %1",
+    "Macro: %1": "Макрос: %1",
+    "Delete macros": "Удаление макросов",
+    "Pick a preset or type the period in milliseconds":
+        "Выберите готовый период или введите его в миллисекундах",
+    "Find...": "Найти…",
+
+    # --- Журналирование ---
+    "Record": "Записывать",
+    "Recording": "Идёт запись",
+    "Recording unavailable": "Запись недоступна",
+    "Everything": "Всё",
+    "Messages only": "Только сообщения",
+    "Telemetry only": "Только телеметрию",
+    "Telemetry is a line made only of numbers separated by the delimiter set in Settings.":
+        "Телеметрия — строка из одних чисел через разделитель, заданный в настройках.",
+    "View in terminal": "Показать в терминале",
+    "Reveal in Finder": "Показать в Finder",
+    "Show in Explorer": "Показать в проводнике",
+    "Open containing folder": "Открыть каталог",
+    "Copy path": "Скопировать путь",
+    "Delete log": "Удаление лога",
+    "Delete %1 permanently?": "Удалить %1 безвозвратно?",
+    "Cannot delete %1": "Не удалось удалить %1",
+    "only %1 free": "свободно всего %1",
+    "Files": "Файлы",
+    "Contents": "Содержимое",
+    "Leave empty to use the default location.": "Пусто — каталог по умолчанию.",
+    "Placeholders: {interface}, {alias}, {date}, {time}.":
+        "Подстановки: {interface}, {alias}, {date}, {time}.",
+    "Colour codes make the file hard to read outside a terminal.":
+        "Цветовые коды мешают читать файл вне терминала.",
+
+    # --- Генератор ---
+    "Sine": "Синус",
+    "Square wave": "Меандр",
+    "Triangle wave": "Треугольник",
+    "Sawtooth wave": "Пила",
+    "Wave period": "Период формы",
+    "Amplitude": "Амплитуда",
+    " packets": " посылок",
+    "Period counted in packets, not milliseconds: the send interval is not kept exactly "
+    "by the operating system, and a shape tied to the clock would drift.":
+        "Период считается в посылках, а не в миллисекундах: интервал отправки система не "
+        "выдерживает точно, и форма, привязанная к часам, поплыла бы.",
+
+    # --- График ---
+    "Chart": "График",
+    "CSV chart": "График CSV",
+    "Spotty — chart": "Spotty — график",
+    "Plots numeric lines from the output, such as \"12.5,3,-7\".":
+        "Строит график по числовым строкам вывода — например, «12.5,3,-7».",
+    "Waiting for numeric lines in the output": "Ждём числовые строки в выводе",
+    "Series": "Ряд",
+    "Series colour": "Цвет ряда",
+    "Column %1": "Колонка %1",
+    "Separator": "Разделитель",
+    "Comma": "Запятая",
+    "Semicolon": "Точка с запятой",
+    "Tab": "Табуляция",
+    "Window": "Окно",
+    " points": " точек",
+    "X axis": "Ось X",
+    "Time": "Время",
+    "Which column supplies X. Time is honest when the device does not send a coordinate "
+    "of its own.":
+        "Какая колонка даёт X. Время честнее, когда устройство не шлёт свою координату.",
+    "Pause": "Пауза",
+    "PAUSED": "ПАУЗА",
+    "Freezes the picture, not the data: collecting continues.":
+        "Замораживает картинку, но не сбор: накопление продолжается.",
+    "Open in window": "Открыть в окне",
+    "Last": "Последнее",
+    "Min": "Мин",
+    "Max": "Макс",
+    "Avg": "Среднее",
+    "Export CSV": "Выгрузить CSV",
+    "Save PNG": "Сохранить PNG",
+    "Clear": "Очистить",
+    "Export chart data": "Выгрузка данных графика",
+    "Save chart image": "Сохранение снимка графика",
+    "CSV files (*.csv)": "Файлы CSV (*.csv)",
+    "PNG images (*.png)": "Изображения PNG (*.png)",
+    "There is nothing to export yet.": "Пока нечего выгружать.",
+    "Could not write %1": "Не удалось записать %1",
+    "Saved to %1": "Сохранено в %1",
+
+    # --- Отправка файла ---
+    "Send file": "Отправка файла",
+    "Sends a file to the interface in chunks, optionally encoded as base64.":
+        "Отправляет файл в интерфейс порциями, при желании перекодировав в base64.",
+    "No file selected": "Файл не выбран",
+    "Encoding": "Кодирование",
+    "Raw bytes": "Как есть",
+    "Base64, wrapped": "Base64 с переносами",
+    "Hex, 16 bytes per line": "Hex, по 16 байт в строке",
+    "Chunk": "Порция",
+    "Terminator": "Завершитель",
+    "Appended after the whole payload. Escapes: \\r \\n \\t":
+        "Дописывается после всего содержимого. Escape-последовательности: \\r \\n \\t",
+    "Cancel": "Отмена",
+    "Cancelled after %1.": "Отменено после %1.",
+    "Cannot open the file: %1": "Не удалось открыть файл: %1",
+    "The file is empty.": "Файл пуст.",
+    "Open the interface first.": "Сначала откройте интерфейс.",
+    "Sending %1 (%2)": "Отправка %1 (%2)",
+    "Sent %1.": "Отправлено %1.",
+    "File sent.": "Файл отправлен.",
+    "File transfer interrupted.": "Передача файла прервана.",
+    "The interface closed after %1 — the file was sent only partially.":
+        "Интерфейс закрылся после %1 — файл отправлен не целиком.",
+
+    # --- Раздел «Plugins» в настройках ---
+    "Plugins": "Плагины",
+    "Plugin": "Плагин",
+    "Details": "Подробности",
+    "Panels and data": "Панели и обработка данных",
+    "Rejected": "Отклонены",
+    "Searched directories": "Просмотренные каталоги",
+    "None — plugins are built into the executable.":
+        "Нет — плагины вкомпилированы в исполняемый файл.",
+    "Not a Spotty plugin of any known kind.": "Не плагин Spotty ни одного известного вида.",
+    "Panel plugin reports an empty id.": "Панельный плагин сообщает пустой идентификатор.",
+    "Another panel plugin already provides id \"%1\".":
+        "Идентификатор «%1» уже занят другим панельным плагином.",
+    "Panel id \"%1\" is already taken.": "Идентификатор панели «%1» уже занят.",
+    "Plugin \"%1\" declares a panel with an empty id.":
+        "Плагин «%1» объявил панель с пустым идентификатором.",
+    "Built against panel API version %1, this build expects %2.":
+        "Собран для версии панельного API %1, эта сборка ожидает %2.",
+
+    # --- Прочее ---
+    "Start / stop recording": "Начать или остановить запись",
 }
 
 #: Переводы форм множественного числа: source -> (одна, несколько, много).
@@ -437,6 +597,15 @@ PLURALS = {
     "%n h ago": ("%n час назад", "%n часа назад", "%n часов назад"),
     "%n d ago": ("%n день назад", "%n дня назад", "%n дней назад"),
     "%n line(s)": ("%n строка", "%n строки", "%n строк"),
+    "%n file(s)": ("%n файл", "%n файла", "%n файлов"),
+    "%n series": ("%n ряд", "%n ряда", "%n рядов"),
+    "%n point(s)": ("%n точка", "%n точки", "%n точек"),
+    "Delete %n selected macro(s)?": ("Удалить выделенный макрос?",
+                                     "Удалить %n выделенных макроса?",
+                                     "Удалить %n выделенных макросов?"),
+    "Export %n selected macro(s)": ("Выгрузить выделенный макрос",
+                                    "Выгрузить %n выделенных макроса",
+                                    "Выгрузить %n выделенных макросов"),
     "%n error(s)": ("%n ошибка", "%n ошибки", "%n ошибок"),
     "  ·  %n error(s)": ("  ·  %n ошибка", "  ·  %n ошибки", "  ·  %n ошибок"),
     "%n packet(s) sent": ("отправлена %n посылка", "отправлено %n посылки",

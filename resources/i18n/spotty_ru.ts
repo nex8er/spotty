@@ -21,6 +21,178 @@
     </message>
 </context>
 <context>
+    <name>spotty::CsvChartPanel</name>
+    <message>
+        <source>Chart</source>
+        <translation>График</translation>
+    </message>
+    <message>
+        <source>Plots numeric lines from the output, such as &quot;12.5,3,-7&quot;.</source>
+        <translation>Строит график по числовым строкам вывода — например, «12.5,3,-7».</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>Пауза</translation>
+    </message>
+    <message>
+        <source>Freezes the picture, not the data: collecting continues.</source>
+        <translation>Замораживает картинку, но не сбор: накопление продолжается.</translation>
+    </message>
+    <message>
+        <source>Open in window</source>
+        <translation>Открыть в окне</translation>
+    </message>
+    <message>
+        <source>Comma</source>
+        <translation>Запятая</translation>
+    </message>
+    <message>
+        <source>Semicolon</source>
+        <translation>Точка с запятой</translation>
+    </message>
+    <message>
+        <source>Tab</source>
+        <translation>Табуляция</translation>
+    </message>
+    <message>
+        <source>Space</source>
+        <translation>Ноль</translation>
+    </message>
+    <message>
+        <source>Separator</source>
+        <translation>Разделитель</translation>
+    </message>
+    <message>
+        <source> points</source>
+        <translation> точек</translation>
+    </message>
+    <message>
+        <source>Window</source>
+        <translation>Окно</translation>
+    </message>
+    <message>
+        <source>Which column supplies X. Time is honest when the device does not send a coordinate of its own.</source>
+        <translation>Какая колонка даёт X. Время честнее, когда устройство не шлёт свою координату.</translation>
+    </message>
+    <message>
+        <source>X axis</source>
+        <translation>Ось X</translation>
+    </message>
+    <message>
+        <source>Series</source>
+        <translation>Ряд</translation>
+    </message>
+    <message>
+        <source>Colour</source>
+        <translation>Цвет</translation>
+    </message>
+    <message>
+        <source>Last</source>
+        <translation>Последнее</translation>
+    </message>
+    <message>
+        <source>Min</source>
+        <translation>Мин</translation>
+    </message>
+    <message>
+        <source>Max</source>
+        <translation>Макс</translation>
+    </message>
+    <message>
+        <source>Avg</source>
+        <translation>Среднее</translation>
+    </message>
+    <message>
+        <source>Export CSV</source>
+        <translation>Выгрузить CSV</translation>
+    </message>
+    <message>
+        <source>Save PNG</source>
+        <translation>Сохранить PNG</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Очистить</translation>
+    </message>
+    <message>
+        <source>Series colour</source>
+        <translation>Цвет ряда</translation>
+    </message>
+    <message>
+        <source>Double-click to change</source>
+        <translation>Двойной щелчок меняет цвет</translation>
+    </message>
+    <message>
+        <source>Time</source>
+        <translation>Время</translation>
+    </message>
+    <message>
+        <source>Spotty — chart</source>
+        <translation>Spotty — график</translation>
+    </message>
+    <message>
+        <source>There is nothing to export yet.</source>
+        <translation>Пока нечего выгружать.</translation>
+    </message>
+    <message>
+        <source>Export chart data</source>
+        <translation>Выгрузка данных графика</translation>
+    </message>
+    <message>
+        <source>CSV files (*.csv)</source>
+        <translation>Файлы CSV (*.csv)</translation>
+    </message>
+    <message>
+        <source>Could not write %1</source>
+        <translation>Не удалось записать %1</translation>
+    </message>
+    <message>
+        <source>Exported to %1</source>
+        <translation>Экспортировано в %1</translation>
+    </message>
+    <message>
+        <source>Save chart image</source>
+        <translation>Сохранение снимка графика</translation>
+    </message>
+    <message>
+        <source>PNG images (*.png)</source>
+        <translation>Изображения PNG (*.png)</translation>
+    </message>
+    <message>
+        <source>Saved to %1</source>
+        <translation>Сохранено в %1</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::CsvChartPlugin</name>
+    <message>
+        <source>Chart</source>
+        <translation>График</translation>
+    </message>
+    <message>
+        <source>CSV chart</source>
+        <translation>График CSV</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::CsvChartView</name>
+    <message>
+        <source>Waiting for numeric lines in the output</source>
+        <translation>Ждём числовые строки в выводе</translation>
+    </message>
+    <message>
+        <source>PAUSED</source>
+        <translation>ПАУЗА</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::CsvSeries</name>
+    <message>
+        <source>Column %1</source>
+        <translation>Колонка %1</translation>
+    </message>
+</context>
+<context>
     <name>spotty::DataCodec</name>
     <message>
         <source>Not valid Base64.</source>
@@ -70,8 +242,144 @@
         <translation>Текст ASCII</translation>
     </message>
     <message>
+        <source>Sine</source>
+        <translation>Синус</translation>
+    </message>
+    <message>
+        <source>Square wave</source>
+        <translation>Меандр</translation>
+    </message>
+    <message>
+        <source>Triangle wave</source>
+        <translation>Треугольник</translation>
+    </message>
+    <message>
+        <source>Sawtooth wave</source>
+        <translation>Пила</translation>
+    </message>
+    <message>
         <source>Packet counter</source>
         <translation>Счётчик посылок</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::FileSendPanel</name>
+    <message>
+        <source>Send file</source>
+        <translation>Отправка файла</translation>
+    </message>
+    <message>
+        <source>Sends a file to the interface in chunks, optionally encoded as base64.</source>
+        <translation>Отправляет файл в интерфейс порциями, при желании перекодировав в base64.</translation>
+    </message>
+    <message>
+        <source>No file selected</source>
+        <translation>Файл не выбран</translation>
+    </message>
+    <message>
+        <source>Browse...</source>
+        <translation>Обзор...</translation>
+    </message>
+    <message>
+        <source>Raw bytes</source>
+        <translation>Как есть</translation>
+    </message>
+    <message>
+        <source>Base64</source>
+        <translation>Base64</translation>
+    </message>
+    <message>
+        <source>Base64, wrapped</source>
+        <translation>Base64 с переносами</translation>
+    </message>
+    <message>
+        <source>Hex</source>
+        <translation>Hex</translation>
+    </message>
+    <message>
+        <source>Hex, 16 bytes per line</source>
+        <translation>Hex, по 16 байт в строке</translation>
+    </message>
+    <message>
+        <source>Encoding</source>
+        <translation>Кодирование</translation>
+    </message>
+    <message>
+        <source> bytes</source>
+        <translation> байт</translation>
+    </message>
+    <message>
+        <source>Chunk</source>
+        <translation>Порция</translation>
+    </message>
+    <message>
+        <source>Appended after the whole payload. Escapes: \r \n \t</source>
+        <translation>Дописывается после всего содержимого. Escape-последовательности: 
+ 
+ 	</translation>
+    </message>
+    <message>
+        <source>Terminator</source>
+        <translation>Завершитель</translation>
+    </message>
+    <message>
+        <source>Cannot open the file: %1</source>
+        <translation>Не удалось открыть файл: %1</translation>
+    </message>
+    <message>
+        <source>The file is empty.</source>
+        <translation>Файл пуст.</translation>
+    </message>
+    <message>
+        <source>Cancelled after %1.</source>
+        <translation>Отменено после %1.</translation>
+    </message>
+    <message>
+        <source>Open the interface first.</source>
+        <translation>Сначала откройте интерфейс.</translation>
+    </message>
+    <message>
+        <source>Sending %1 (%2)</source>
+        <translation>Отправка %1 (%2)</translation>
+    </message>
+    <message>
+        <source>Sent %1.</source>
+        <translation>Отправлено %1.</translation>
+    </message>
+    <message>
+        <source>File sent.</source>
+        <translation>Файл отправлен.</translation>
+    </message>
+    <message>
+        <source>%1 of %2</source>
+        <translation>%1 из %2</translation>
+    </message>
+    <message>
+        <source>The interface closed after %1 — the file was sent only partially.</source>
+        <translation>Интерфейс закрылся после %1 — файл отправлен не целиком.</translation>
+    </message>
+    <message>
+        <source>File transfer interrupted.</source>
+        <translation>Передача файла прервана.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отмена</translation>
+    </message>
+    <message>
+        <source>Send</source>
+        <translation>Отправка</translation>
+    </message>
+    <message>
+        <source>The interface is not open.</source>
+        <translation>Интерфейс не открыт.</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::FileSendPlugin</name>
+    <message>
+        <source>Send file</source>
+        <translation>Отправка файла</translation>
     </message>
 </context>
 <context>
@@ -152,6 +460,22 @@
         <translation>Значение байта</translation>
     </message>
     <message>
+        <source> packets</source>
+        <translation> посылок</translation>
+    </message>
+    <message>
+        <source>Period counted in packets, not milliseconds: the send interval is not kept exactly by the operating system, and a shape tied to the clock would drift.</source>
+        <translation>Период считается в посылках, а не в миллисекундах: интервал отправки система не выдерживает точно, и форма, привязанная к часам, поплыла бы.</translation>
+    </message>
+    <message>
+        <source>Wave period</source>
+        <translation>Период формы</translation>
+    </message>
+    <message>
+        <source>Amplitude</source>
+        <translation>Амплитуда</translation>
+    </message>
+    <message>
         <source>%1 ms</source>
         <translation>%1 мс</translation>
     </message>
@@ -190,6 +514,13 @@
     <message>
         <source>Stop</source>
         <translation>Стоп</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::GeneratorPlugin</name>
+    <message>
+        <source>Generator</source>
+        <translation>Генератор</translation>
     </message>
 </context>
 <context>
@@ -381,6 +712,26 @@
         <translation>Записывать отправленное</translation>
     </message>
     <message>
+        <source>Everything</source>
+        <translation>Всё</translation>
+    </message>
+    <message>
+        <source>Messages only</source>
+        <translation>Только сообщения</translation>
+    </message>
+    <message>
+        <source>Telemetry only</source>
+        <translation>Только телеметрию</translation>
+    </message>
+    <message>
+        <source>Telemetry is a line made only of numbers separated by the delimiter set in Settings.</source>
+        <translation>Телеметрия — строка из одних чисел через разделитель, заданный в настройках.</translation>
+    </message>
+    <message>
+        <source>Record</source>
+        <translation>Записывать</translation>
+    </message>
+    <message>
         <source>Recent logs</source>
         <translation>Последние логи</translation>
     </message>
@@ -393,8 +744,64 @@
         <translation>Запись в %1</translation>
     </message>
     <message>
+        <source>Start / stop recording</source>
+        <translation>Начать или остановить запись</translation>
+    </message>
+    <message>
         <source>Select an interface before recording.</source>
         <translation>Выберите интерфейс перед началом записи.</translation>
+    </message>
+    <message>
+        <source>Recording unavailable</source>
+        <translation>Запись недоступна</translation>
+    </message>
+    <message>
+        <source>Recording</source>
+        <translation>Идёт запись</translation>
+    </message>
+    <message>
+        <source>View in terminal</source>
+        <translation>Показать в терминале</translation>
+    </message>
+    <message>
+        <source>Reveal in Finder</source>
+        <translation>Показать в Finder</translation>
+    </message>
+    <message>
+        <source>Show in Explorer</source>
+        <translation>Показать в проводнике</translation>
+    </message>
+    <message>
+        <source>Open containing folder</source>
+        <translation>Открыть каталог</translation>
+    </message>
+    <message>
+        <source>Copy path</source>
+        <translation>Скопировать путь</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Удалить</translation>
+    </message>
+    <message>
+        <source>Delete log</source>
+        <translation>Удаление лога</translation>
+    </message>
+    <message>
+        <source>Delete %1 permanently?</source>
+        <translation>Удалить %1 безвозвратно?</translation>
+    </message>
+    <message>
+        <source>Cannot delete %1</source>
+        <translation>Не удалось удалить %1</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n file(s)</source>
+        <translation><numerusform>%n файл</numerusform><numerusform>%n файла</numerusform><numerusform>%n файлов</numerusform></translation>
+    </message>
+    <message>
+        <source>only %1 free</source>
+        <translation>свободно всего %1</translation>
     </message>
     <message>
         <source>Stop recording</source>
@@ -409,6 +816,53 @@
 %2, %3</source>
         <translation>%1
 %2, %3</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::LoggingPlugin</name>
+    <message>
+        <source>Logging</source>
+        <translation>Логирование</translation>
+    </message>
+    <message>
+        <source>Log directory</source>
+        <translation>Каталог логов</translation>
+    </message>
+    <message>
+        <source>Files</source>
+        <translation>Файлы</translation>
+    </message>
+    <message>
+        <source>Leave empty to use the default location.</source>
+        <translation>Пусто — каталог по умолчанию.</translation>
+    </message>
+    <message>
+        <source>File name</source>
+        <translation>Имя файла</translation>
+    </message>
+    <message>
+        <source>Placeholders: {interface}, {alias}, {date}, {time}.</source>
+        <translation>Подстановки: {interface}, {alias}, {date}, {time}.</translation>
+    </message>
+    <message>
+        <source>Strip ANSI escape sequences</source>
+        <translation>Убирать коды ANSI</translation>
+    </message>
+    <message>
+        <source>Contents</source>
+        <translation>Содержимое</translation>
+    </message>
+    <message>
+        <source>Colour codes make the file hard to read outside a terminal.</source>
+        <translation>Цветовые коды мешают читать файл вне терминала.</translation>
+    </message>
+    <message>
+        <source>Include sent data</source>
+        <translation>Записывать отправленное</translation>
+    </message>
+    <message>
+        <source>Start recording when the interface opens</source>
+        <translation>Начинать запись при открытии интерфейса</translation>
     </message>
 </context>
 <context>
@@ -504,6 +958,26 @@
         <translation>Добавить макрос</translation>
     </message>
     <message>
+        <source>Pick a preset or type the period in milliseconds</source>
+        <translation>Выберите готовый период или введите его в миллисекундах</translation>
+    </message>
+    <message>
+        <source>Saved as a macro: %1</source>
+        <translation>Сохранено макросом: %1</translation>
+    </message>
+    <message>
+        <source>Macro: %1</source>
+        <translation>Макрос: %1</translation>
+    </message>
+    <message>
+        <source>Delete macros</source>
+        <translation>Удаление макросов</translation>
+    </message>
+    <message numerus="yes">
+        <source>Delete %n selected macro(s)?</source>
+        <translation><numerusform>Удалить выделенный макрос?</numerusform><numerusform>Удалить %n выделенных макроса?</numerusform><numerusform>Удалить %n выделенных макросов?</numerusform></translation>
+    </message>
+    <message>
         <source>Macro files (*.json)</source>
         <translation>Файлы макросов (*.json)</translation>
     </message>
@@ -522,6 +996,10 @@
     <message>
         <source>There is nothing to export.</source>
         <translation>Экспортировать нечего.</translation>
+    </message>
+    <message numerus="yes">
+        <source>Export %n selected macro(s)</source>
+        <translation><numerusform>Выгрузить выделенный макрос</numerusform><numerusform>Выгрузить %n выделенных макроса</numerusform><numerusform>Выгрузить %n выделенных макросов</numerusform></translation>
     </message>
     <message>
         <source>Could not write %1.</source>
@@ -542,6 +1020,10 @@
     <message>
         <source>Export macros...</source>
         <translation>Экспортировать...</translation>
+    </message>
+    <message>
+        <source>Put into the send bar</source>
+        <translation>Положить в строку отправки</translation>
     </message>
     <message>
         <source>Duplicate</source>
@@ -619,23 +1101,14 @@ Double-click to edit, right-click for options</source>
     </message>
 </context>
 <context>
-    <name>spotty::MainWindow</name>
+    <name>spotty::MacrosPlugin</name>
     <message>
         <source>Macros</source>
         <translation>Макросы</translation>
     </message>
-    <message>
-        <source>Logging</source>
-        <translation>Логирование</translation>
-    </message>
-    <message>
-        <source>Search</source>
-        <translation>Поиск</translation>
-    </message>
-    <message>
-        <source>Generator</source>
-        <translation>Генератор</translation>
-    </message>
+</context>
+<context>
+    <name>spotty::MainWindow</name>
     <message>
         <source>Back to live output</source>
         <translation>К живому выводу</translation>
@@ -657,12 +1130,36 @@ Double-click to edit, right-click for options</source>
         <translation>Показывать метки приёма и передачи</translation>
     </message>
     <message>
+        <source>Echo sent data into the terminal</source>
+        <translation>Отражать отправленное в терминале</translation>
+    </message>
+    <message>
+        <source>Show line numbers</source>
+        <translation>Показывать номера строк</translation>
+    </message>
+    <message>
+        <source>Hide telemetry lines: values separated by the delimiter set in Settings</source>
+        <translation>Скрывать телеметрию: числа через разделитель, заданный в настройках</translation>
+    </message>
+    <message>
         <source>Clear the terminal</source>
         <translation>Очистить терминал</translation>
     </message>
     <message>
         <source>Follow output</source>
         <translation>Следовать за выводом</translation>
+    </message>
+    <message>
+        <source>One interface</source>
+        <translation>Один интерфейс</translation>
+    </message>
+    <message>
+        <source>Two interfaces</source>
+        <translation>Два интерфейса</translation>
+    </message>
+    <message>
+        <source>What the output area shows</source>
+        <translation>Что показано в области вывода</translation>
     </message>
     <message>
         <source>&amp;File</source>
@@ -713,16 +1210,12 @@ Double-click to edit, right-click for options</source>
         <translation>О&amp;чистить терминал</translation>
     </message>
     <message>
-        <source>&amp;Find...</source>
-        <translation>&amp;Найти...</translation>
+        <source>Time since the interface was opened</source>
+        <translation>Сколько открыт интерфейс</translation>
     </message>
     <message>
         <source>Focus &amp;send bar</source>
         <translation>Фокус в &amp;строку отправки</translation>
-    </message>
-    <message>
-        <source>Start / stop &amp;recording</source>
-        <translation>Начать или остановить &amp;запись</translation>
     </message>
     <message>
         <source>&amp;Theme</source>
@@ -753,6 +1246,26 @@ Double-click to edit, right-click for options</source>
         <translation>&lt;b&gt;Spotty %1&lt;/b&gt;&lt;br&gt;Модульный терминал-монитор портов.&lt;br&gt;&lt;br&gt;Настройки: %2</translation>
     </message>
     <message>
+        <source>Open</source>
+        <translation>Открыт</translation>
+    </message>
+    <message>
+        <source>Opening</source>
+        <translation>Открывается</translation>
+    </message>
+    <message>
+        <source>Closed</source>
+        <translation>Закрыт</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>Недоступен</translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation>Ошибка</translation>
+    </message>
+    <message>
         <source>This log file is empty</source>
         <translation>Этот файл лога пуст</translation>
     </message>
@@ -773,12 +1286,12 @@ Double-click to edit, right-click for options</source>
         <translation>Выберите интерфейс наверху, чтобы увидеть здесь его вывод</translation>
     </message>
     <message>
-        <source>%1/s</source>
-        <translation>%1/с</translation>
+        <source>RX %1   TX %2</source>
+        <translation>Принято %1   Отправлено %2</translation>
     </message>
     <message>
-        <source>  ·  %1</source>
-        <translation>  ·  %1</translation>
+        <source>%1/s</source>
+        <translation>%1/с</translation>
     </message>
     <message numerus="yes">
         <source>%n error(s)</source>
@@ -793,16 +1306,16 @@ Double-click to edit, right-click for options</source>
         <translation>Настройки</translation>
     </message>
     <message>
+        <source>Side &amp;panel</source>
+        <translation>&amp;Боковая панель</translation>
+    </message>
+    <message>
         <source>The language and single-instance settings take effect after Spotty is restarted.</source>
         <translation>Язык и режим единственного экземпляра вступят в силу после перезапуска Spotty.</translation>
     </message>
     <message>
         <source>Settings, interfaces and history have been reset to defaults.</source>
         <translation>Настройки, интерфейсы и история сброшены к умолчаниям.</translation>
-    </message>
-    <message>
-        <source>RX %1  TX %2</source>
-        <translation>Принято %1  Отправлено %2</translation>
     </message>
     <message>
         <source>Control lines: uppercase means asserted</source>
@@ -818,7 +1331,34 @@ Double-click to edit, right-click for options</source>
     </message>
 </context>
 <context>
+    <name>spotty::PanelPluginRegistry</name>
+    <message>
+        <source>Built against panel API version %1, this build expects %2.</source>
+        <translation>Собран для версии панельного API %1, эта сборка ожидает %2.</translation>
+    </message>
+    <message>
+        <source>Panel plugin reports an empty id.</source>
+        <translation>Панельный плагин сообщает пустой идентификатор.</translation>
+    </message>
+    <message>
+        <source>Another panel plugin already provides id &quot;%1&quot;.</source>
+        <translation>Идентификатор «%1» уже занят другим панельным плагином.</translation>
+    </message>
+    <message>
+        <source>Plugin &quot;%1&quot; declares a panel with an empty id.</source>
+        <translation>Плагин «%1» объявил панель с пустым идентификатором.</translation>
+    </message>
+    <message>
+        <source>Panel id &quot;%1&quot; is already taken.</source>
+        <translation>Идентификатор панели «%1» уже занят.</translation>
+    </message>
+</context>
+<context>
     <name>spotty::PluginManager</name>
+    <message>
+        <source>Not a Spotty plugin of any known kind.</source>
+        <translation>Не плагин Spotty ни одного известного вида.</translation>
+    </message>
     <message>
         <source>Not a Spotty interface plugin.</source>
         <translation>Это не плагин интерфейса Spotty.</translation>
@@ -834,6 +1374,13 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Another plugin already provides id &quot;%1&quot;.</source>
         <translation>Идентификатор «%1» уже занят другим плагином.</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::SchemaForm</name>
+    <message>
+        <source>General</source>
+        <translation>Общие</translation>
     </message>
 </context>
 <context>
@@ -895,6 +1442,10 @@ Double-click to edit, right-click for options</source>
         <translation>Удалить правило</translation>
     </message>
     <message>
+        <source>Find...</source>
+        <translation>Найти…</translation>
+    </message>
+    <message>
         <source>Highlight colour</source>
         <translation>Цвет подсветки</translation>
     </message>
@@ -909,6 +1460,13 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Double-click to change</source>
         <translation>Двойной щелчок меняет цвет</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::SearchPlugin</name>
+    <message>
+        <source>Search</source>
+        <translation>Поиск</translation>
     </message>
 </context>
 <context>
@@ -932,6 +1490,14 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Open an interface to send data</source>
         <translation>Откройте интерфейс, чтобы отправлять данные</translation>
+    </message>
+    <message>
+        <source>%1 of %2 — Tab for next</source>
+        <translation>%1 из %2 — Tab дальше</translation>
+    </message>
+    <message>
+        <source>Save as macro</source>
+        <translation>Сохранить как макрос</translation>
     </message>
 </context>
 <context>
@@ -1064,16 +1630,8 @@ Double-click to edit, right-click for options</source>
         <translation>Переключить метки времени</translation>
     </message>
     <message>
-        <source>Focus search</source>
-        <translation>Фокус в поле поиска</translation>
-    </message>
-    <message>
         <source>Focus send bar</source>
         <translation>Фокус в строку отправки</translation>
-    </message>
-    <message>
-        <source>Start / stop logging</source>
-        <translation>Начать или остановить запись</translation>
     </message>
     <message>
         <source>Settings</source>
@@ -1092,8 +1650,8 @@ Double-click to edit, right-click for options</source>
         <translation>Отправка</translation>
     </message>
     <message>
-        <source>Logging</source>
-        <translation>Логирование</translation>
+        <source>Show / hide the side panel</source>
+        <translation>Показать или скрыть боковую панель</translation>
     </message>
     <message>
         <source>Data</source>
@@ -1106,6 +1664,10 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Interfaces</source>
         <translation>Интерфейсы</translation>
+    </message>
+    <message>
+        <source>Plugins</source>
+        <translation>Плагины</translation>
     </message>
     <message>
         <source>System</source>
@@ -1220,6 +1782,14 @@ Continue?</source>
         <translation>Отражать отправленное в терминале</translation>
     </message>
     <message>
+        <source>Telemetry delimiter</source>
+        <translation>Разделитель телеметрии</translation>
+    </message>
+    <message>
+        <source>Lines made only of numbers separated by this character can be hidden from the terminal with the toolbar button. They still reach the chart, the search and the log.</source>
+        <translation>Строки из одних чисел через этот знак можно скрыть из терминала кнопкой в панели. В график, поиск и журнал они при этом попадают.</translation>
+    </message>
+    <message>
         <source>ANSI colours</source>
         <translation>Цвета ANSI</translation>
     </message>
@@ -1254,38 +1824,6 @@ Continue?</source>
     <message>
         <source>History is kept in a plain text file next to the configuration and survives restarts.</source>
         <translation>История хранится текстовым файлом рядом с настройками и переживает перезапуск.</translation>
-    </message>
-    <message>
-        <source>Browse...</source>
-        <translation>Обзор...</translation>
-    </message>
-    <message>
-        <source>Log directory</source>
-        <translation>Каталог логов</translation>
-    </message>
-    <message>
-        <source>Directory</source>
-        <translation>Каталог</translation>
-    </message>
-    <message>
-        <source>File name</source>
-        <translation>Имя файла</translation>
-    </message>
-    <message>
-        <source>Placeholders: {alias}, {interface}, {date}, {time}</source>
-        <translation>Подстановки: {alias}, {interface}, {date}, {time}</translation>
-    </message>
-    <message>
-        <source>Strip ANSI escape sequences</source>
-        <translation>Убирать коды ANSI</translation>
-    </message>
-    <message>
-        <source>Include sent data</source>
-        <translation>Записывать отправленное</translation>
-    </message>
-    <message>
-        <source>Start recording when the interface opens</source>
-        <translation>Начинать запись при открытии интерфейса</translation>
     </message>
     <message>
         <source>Stream (split on line breaks)</source>
@@ -1332,6 +1870,30 @@ Continue?</source>
         <translation>Двоичный поток без переводов строк слипается в одну бесконечную строку. Разбиение по межбайтовой паузе — то, как размечает сообщения большинство двоичных протоколов поверх UART.</translation>
     </message>
     <message>
+        <source>Plugin</source>
+        <translation>Плагин</translation>
+    </message>
+    <message>
+        <source>Details</source>
+        <translation>Подробности</translation>
+    </message>
+    <message>
+        <source>Panels and data</source>
+        <translation>Панели и обработка данных</translation>
+    </message>
+    <message>
+        <source>Rejected</source>
+        <translation>Отклонены</translation>
+    </message>
+    <message>
+        <source>Searched directories</source>
+        <translation>Просмотренные каталоги</translation>
+    </message>
+    <message>
+        <source>None — plugins are built into the executable.</source>
+        <translation>Нет — плагины вкомпилированы в исполняемый файл.</translation>
+    </message>
+    <message>
         <source>Macro shortcuts are assigned in the Macros panel, on each macro.</source>
         <translation>Горячие клавиши макросов задаются в панели макросов, у каждого макроса.</translation>
     </message>
@@ -1349,6 +1911,10 @@ Continue?</source>
     <message>
         <source>Select All</source>
         <translation>Выделить всё</translation>
+    </message>
+    <message>
+        <source>Line numbers</source>
+        <translation>Номера строк</translation>
     </message>
     <message>
         <source>Scroll to Bottom</source>
