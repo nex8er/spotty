@@ -71,9 +71,22 @@ public:
     Session(PluginManager *plugins, InterfaceRegistry *registry, QObject *parent = nullptr);
     ~Session() override;
 
-    /// \brief Буфер терминала. Живёт столько же, сколько сессия.
-    TerminalBuffer *buffer() { return &m_buffer; }
-    const TerminalBuffer *buffer() const { return &m_buffer; }
+    /// \brief Буфер терминала: свой либо назначенный общим.
+    TerminalBuffer *buffer() { return m_buffer; }
+    const TerminalBuffer *buffer() const { return m_buffer; }
+
+    /**
+     * \brief Писать в чужой буфер вместо своего.
+     * \param buffer Общий буфер; `nullptr` возвращает сессию к собственному.
+     * \param source Номер, которым помечаются строки этой сессии.
+     *
+     * Нужно, когда два интерфейса показываются в одном окне: строки должны идти вперемешку
+     * по времени, а не двумя независимыми списками — ради этого их и смотрят вместе.
+     * Пометка источника позволяет отличить, кто что сказал.
+     *
+     * \warning Общий буфер обязан пережить сессию. Владеет им тот, кто его завёл.
+     */
+    void setSharedBuffer(TerminalBuffer *buffer, quint8 source);
 
     /// \brief Правило разбиения потока на строки.
     void setPacketizerMode(Packetizer::Mode mode);
@@ -225,7 +238,11 @@ private:
     /// \brief Цепочка преобразования, упорядоченная по паре (order, name).
     QList<FilterSlot> m_filters;
 
-    TerminalBuffer m_buffer;
+    /// \brief Собственный буфер. Используется, пока не назначен общий.
+    TerminalBuffer m_ownBuffer;
+
+    /// \brief Куда пишем: указывает на #m_ownBuffer либо на общий.
+    TerminalBuffer *m_buffer = &m_ownBuffer;
     Packetizer m_packetizer;
 
     QThread *m_thread = nullptr;

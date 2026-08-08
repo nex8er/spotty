@@ -27,6 +27,7 @@
 #include <QApplication>
 #include <QButtonGroup>
 #include <QCloseEvent>
+#include <QComboBox>
 #include <QFile>
 #include <QFileInfo>
 #include <QFontDatabase>
@@ -74,6 +75,8 @@ constexpr auto kKeyPanelId = "window/panelId";
 constexpr auto kKeyPanelIndexLegacy = "window/panelIndex";
 constexpr auto kKeyTerminalSplitter = "window/terminalSplitter";
 constexpr auto kKeySidePanel = "window/sidePanelVisible";
+constexpr auto kKeyViewMode = "window/viewMode";
+constexpr auto kKeyViewStrip = "window/viewStrip";
 constexpr auto kKeyInterface = "session/interfaceId";
 
 /// \brief Прежний порядок панелей — для переноса kKeyPanelIndexLegacy в kKeyPanelId.
@@ -136,6 +139,21 @@ QWidget *MainWindow::makeCard(QWidget *content)
 void MainWindow::buildUi()
 {
     m_interfaceBar = new InterfaceBar(m_context, this);
+
+    // Вторая полоса выбора и вторая сессия создаются сразу, но скрыты: держать их
+    // наготове дешевле, чем создавать при переключении режима и заново связывать все
+    // сигналы. Пустая сессия не открывает каналов и ничего не стоит.
+    m_secondBar = new InterfaceBar(m_context, this);
+    m_secondBar->hide();
+
+    if (m_context.plugins && m_context.registry) {
+        m_secondSession = new Session(m_context.plugins, m_context.registry, this);
+        m_secondSession->setEchoEnabled(false); // Эхо второго транспорта путало бы вывод.
+    }
+
+    // Общий буфер принадлежит окну: он переживает переключение режима, и обе сессии
+    // ссылаются на него, помечая свои строки номером источника.
+    m_sharedBuffer = new TerminalBuffer(this);
     m_terminal = new TerminalView(this);
     m_terminal->setObjectName(QStringLiteral("terminalView"));
     m_terminal->setBuffer(m_context.session ? m_context.session->buffer() : nullptr);
@@ -190,6 +208,9 @@ void MainWindow::buildUi()
     rightLayout->setContentsMargins(metrics.gap, metrics.gap, metrics.gap, metrics.gap);
     rightLayout->setSpacing(metrics.gap);
     rightLayout->addWidget(makeCard(m_interfaceBar));
+    m_secondBarCard = makeCard(m_secondBar);
+    m_secondBarCard->hide();
+    rightLayout->addWidget(m_secondBarCard);
     rightLayout->addWidget(m_terminalSplitter, 1);
     rightLayout->addWidget(makeCard(m_sendBar));
 
@@ -282,6 +303,33 @@ void MainWindow::buildUi()
 
     connect(m_interfaceBar, &InterfaceBar::toggleOpenRequested,
             this, &MainWindow::toggleConnection);
+
+    // Вторая полоса управляет второй сессией теми же тремя сигналами. Настройки
+    // интерфейса открываются тем же диалогом: устройство одно и то же, и второй диалог
+    // для него был бы вторым местом правки одних настроек.
+    if (m_secondSession) {
+        connect(m_secondBar, &InterfaceBar::interfaceSelected, this, [this](const QString &id) {
+            m_secondSession->setInterfaceId(id);
+            if (!id.isEmpty())
+                m_secondSession->open();
+        });
+        connect(m_secondBar, &InterfaceBar::toggleOpenRequested, this, [this] {
+            if (m_secondSession->isActive())
+                m_secondSession->close();
+            else
+                m_secondSession->open();
+        });
+        connect(m_secondBar, &InterfaceBar::settingsRequested, this,
+                [this](const QString &id) { showInterfaceSettings(id); });
+        connect(m_secondSession, &Session::stateChanged, this,
+                [this](ChannelState state, const QString &detail) {
+                    m_secondBar->setChannelState(state, detail);
+                });
+        connect(m_secondSession, &Session::errorOccurred, this, [this](const QString &message) {
+            statusBar()->showMessage(message, 8000);
+            m_secondBar->flagError(message);
+        });
+    }
     connect(m_interfaceBar, &InterfaceBar::settingsRequested, this, [this](const QString &id) {
         showInterfaceSettings(id);
     });
@@ -438,9 +486,29 @@ QWidget *MainWindow::buildTerminalToolbar()
     //
     // «Очистить» — крайняя справа, как и просил владелец. Она единственная здесь
     // необратима, и место в углу отделяет её от переключателей, которые жмут не глядя.
+    // Режим области вывода. Список, а не кнопки: три взаимоисключающих состояния читаются
+    // списком быстрее, чем тремя переключателями, из которых нажат один.
+    m_modeCombo = new QComboBox(bar);
+    m_modeCombo->addItem(tr("One interface"), QStringList{
+                                                  QString::number(int(ViewMode::SingleTransport)),
+                                                  QString()});
+    m_modeCombo->addItem(tr("Two interfaces"), QStringList{
+                                                   QString::number(int(ViewMode::DualTransport)),
+                                                   QString()});
+    m_modeCombo->setToolTip(tr("What the output area shows"));
+    // Пункты для полос плагинов добавляются позже, в buildPanelPlugins(): к этому моменту
+    // ни один плагин ещё не спрошен о том, что он объявляет.
+    connect(m_modeCombo, &QComboBox::currentIndexChanged, this, [this] {
+        const QStringList data = m_modeCombo->currentData().toStringList();
+        if (data.size() == 2)
+            applyViewMode(ViewMode(data.at(0).toInt()), data.at(1));
+    });
+
     auto *layout = new QHBoxLayout(bar);
     layout->setContentsMargins(8, 3, 8, 3);
     layout->setSpacing(2);
+    layout->addWidget(m_modeCombo);
+    layout->addSpacing(8);
     layout->addWidget(m_hexButton);
     layout->addWidget(m_timestampButton);
     layout->addWidget(m_directionButton);
@@ -539,6 +607,18 @@ void MainWindow::buildPanelPlugins()
         m_railPanels.first().button->setChecked(true);
         m_panelStack->setCurrentIndex(0);
     }
+
+    // Каждая полоса плагина даёт свой пункт в переключателе режима: показать её вместо
+    // терминала. Список строится из того, что объявили плагины, а не из зашитых названий.
+    for (const PanelPluginRegistry::PanelEntry &entry : registry->panels()) {
+        if (entry.descriptor.placement != PanelPlacement::Splitter
+            || entry.descriptor.visibleByDefault) {
+            continue;
+        }
+        m_modeCombo->addItem(entry.descriptor.title,
+                             QStringList{QString::number(int(ViewMode::PluginStrip)),
+                                         entry.descriptor.id});
+    }
 }
 
 void MainWindow::addRailPanel(const PanelDescriptor &descriptor, QWidget *widget,
@@ -575,8 +655,15 @@ void MainWindow::addSplitterPanel(const PanelDescriptor &descriptor, QWidget *wi
     const int terminalIndex = m_terminalSplitter->indexOf(m_terminalCard);
     const int at = descriptor.side == PanelSide::Above ? terminalIndex : terminalIndex + 1;
 
-    m_terminalSplitter->insertWidget(at, makeCard(widget));
+    QWidget *card = makeCard(widget);
+    m_terminalSplitter->insertWidget(at, card);
     m_terminalSplitter->setStretchFactor(at, 0);
+
+    // Скрытая по умолчанию полоса — это полоса, которую показывают переключателем режима,
+    // а не постоянный житель окна. До этой правки поле PanelDescriptor::visibleByDefault
+    // объявлялось в публичном ABI и не читалось никем.
+    card->setVisible(descriptor.visibleByDefault);
+    m_splitterPanels.insert(descriptor.id, card);
 }
 
 void MainWindow::buildMenus()
@@ -1001,6 +1088,49 @@ void MainWindow::applyChannelState(ChannelState state, const QString &detail)
         m_sendBar->focusInput();
 }
 
+void MainWindow::applyViewMode(ViewMode mode, const QString &stripId)
+{
+    const bool dual = mode == ViewMode::DualTransport;
+    const bool strip = mode == ViewMode::PluginStrip;
+
+    m_secondBarCard->setVisible(dual);
+
+    if (dual) {
+        // Обе сессии переводятся на общий буфер и метят строки своим номером. Терминал
+        // переключается на тот же буфер — иначе он остался бы смотреть в буфер первой
+        // сессии, куда больше никто не пишет.
+        if (m_context.session)
+            m_context.session->setSharedBuffer(m_sharedBuffer, 0);
+        if (m_secondSession)
+            m_secondSession->setSharedBuffer(m_sharedBuffer, 1);
+        m_terminal->setBuffer(m_sharedBuffer);
+        m_terminal->setShowSource(true);
+    } else {
+        // Возврат к одному транспорту закрывает второй канал: оставить его открытым,
+        // спрятав полосу выбора, значило бы держать занятым порт, о котором на экране
+        // нет ни следа.
+        if (m_secondSession) {
+            m_secondSession->close();
+            m_secondSession->setSharedBuffer(nullptr, 0);
+        }
+        if (m_context.session) {
+            m_context.session->setSharedBuffer(nullptr, 0);
+            m_terminal->setBuffer(m_context.session->buffer());
+        }
+        m_terminal->setShowSource(false);
+    }
+
+    // Полоса плагина занимает место терминала. Показывается ровно одна — та, что выбрана;
+    // остальные прячутся, иначе переключение между двумя графиками накапливало бы их в
+    // окне одну под другой.
+    for (auto it = m_splitterPanels.cbegin(); it != m_splitterPanels.cend(); ++it)
+        it.value()->setVisible(strip && it.key() == stripId);
+    m_terminalCard->setVisible(!strip);
+
+    m_context.settings->setValue(QLatin1String(kKeyViewMode), int(mode));
+    m_context.settings->setValue(QLatin1String(kKeyViewStrip), stripId);
+}
+
 void MainWindow::updatePlaceholder(ChannelState state)
 {
     // Просмотр записанного лога — своё, отдельное состояние: интерфейс там ни при чём, а
@@ -1244,6 +1374,20 @@ void MainWindow::restoreWindowState()
         const QSignalBlocker blocker(action);
         action->setChecked(sidePanelVisible);
     }
+
+    // Режим области вывода восстанавливается после того, как построены полосы плагинов:
+    // до этого выбирать было бы не из чего.
+    const int savedMode = store->value(QLatin1String(kKeyViewMode),
+                                       int(ViewMode::SingleTransport)).toInt();
+    const QString savedStrip = store->value(QLatin1String(kKeyViewStrip)).toString();
+    for (int i = 0; i < m_modeCombo->count(); ++i) {
+        const QStringList data = m_modeCombo->itemData(i).toStringList();
+        if (data.size() == 2 && data.at(0).toInt() == savedMode && data.at(1) == savedStrip) {
+            m_modeCombo->setCurrentIndex(i);
+            break;
+        }
+    }
+    applyViewMode(ViewMode(savedMode), savedStrip);
 
     QString panelId = store->value(QLatin1String(kKeyPanelId)).toString();
     if (panelId.isEmpty()) {

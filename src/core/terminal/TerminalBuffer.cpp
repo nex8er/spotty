@@ -251,6 +251,7 @@ void TerminalBuffer::appendSystemMessage(const QString &message)
     line.runs.append(StyleRun{0, int(text.size()), style});
     line.wallClock = QDateTime::currentDateTime();
     line.direction = DataDirection::System;
+    line.source = m_source;
     line.complete = true;
     m_lines.push_back(std::move(line));
 
@@ -264,6 +265,7 @@ void TerminalBuffer::startLine(DataDirection direction, qint64 monotonicNs)
     line.monotonicNs = monotonicNs;
     line.wallClock = QDateTime::currentDateTime();
     line.direction = direction;
+    line.source = m_source;
     // Байты, придержанные до появления строки, принадлежат именно ей.
     line.raw = m_pendingRaw;
     m_pendingRaw.clear();

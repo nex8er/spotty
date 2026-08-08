@@ -46,7 +46,9 @@ Session::Session(PluginManager *plugins, InterfaceRegistry *registry, QObject *p
     connect(m_registry, &InterfaceRegistry::interfaceDisappeared,
             this, &Session::onInterfaceDisappeared);
 
-    connect(&m_buffer, &TerminalBuffer::statisticsChanged,
+    // Подписка на собственный буфер. Общий, если он появится, принадлежит окну — оно и
+    // связывает его сигналы, иначе две сессии докладывали бы об одном и том же дважды.
+    connect(&m_ownBuffer, &TerminalBuffer::statisticsChanged,
             this, &Session::statisticsChanged);
 
     m_packetTimer = new QTimer(this);
@@ -59,7 +61,7 @@ Session::Session(PluginManager *plugins, InterfaceRegistry *registry, QObject *p
     m_rateTimer = new QTimer(this);
     m_rateTimer->setInterval(kRateIntervalMs);
     connect(m_rateTimer, &QTimer::timeout, this, [this] {
-        const qint64 total = m_buffer.bytesReceived();
+        const qint64 total = m_buffer->bytesReceived();
         m_receiveRateBps = double(total - m_bytesAtLastTick) * 1000.0 / kRateIntervalMs;
         m_bytesAtLastTick = total;
         Q_EMIT statisticsChanged();
@@ -78,7 +80,7 @@ void Session::setInterfaceId(const QString &id)
 
     close();
     m_interfaceId = id;
-    m_buffer.clear();
+    m_buffer->clear();
     setState(ChannelState::Closed);
 }
 
@@ -90,8 +92,8 @@ bool Session::isActive() const
 Session::Statistics Session::statistics() const
 {
     Statistics stats;
-    stats.bytesReceived = m_buffer.bytesReceived();
-    stats.bytesSent = m_buffer.bytesSent();
+    stats.bytesReceived = m_buffer->bytesReceived();
+    stats.bytesSent = m_buffer->bytesSent();
     stats.receiveRateBps = m_receiveRateBps;
     stats.errorCount = m_errorCount;
     return stats;
@@ -160,14 +162,14 @@ bool Session::createWorker()
 
     connect(m_worker, &ChannelWorker::openFailed, this, [this](const QString &message) {
         ++m_errorCount;
-        m_buffer.appendSystemMessage(message);
+        m_buffer->appendSystemMessage(message);
         setState(ChannelState::Error, message);
         Q_EMIT errorOccurred(message);
     });
 
     connect(m_worker, &ChannelWorker::errorOccurred, this, [this](const QString &message) {
         ++m_errorCount;
-        m_buffer.appendSystemMessage(message);
+        m_buffer->appendSystemMessage(message);
         Q_EMIT statisticsChanged();
         Q_EMIT errorOccurred(message);
     });
@@ -180,7 +182,7 @@ bool Session::createWorker()
 
     connect(m_worker, &ChannelWorker::bytesWritten, this, [this](const QByteArray &data) {
         if (m_echoEnabled)
-            m_buffer.append(data, DataDirection::Tx, 0, /*terminatesLine=*/true);
+            m_buffer->append(data, DataDirection::Tx, 0, /*terminatesLine=*/true);
         Q_EMIT dataLogged(data, DataDirection::Tx);
     });
 
@@ -252,13 +254,13 @@ void Session::open()
 
     setState(ChannelState::Opening);
     m_packetizer.reset();
-    m_bytesAtLastTick = m_buffer.bytesReceived();
+    m_bytesAtLastTick = m_buffer->bytesReceived();
     m_rateTimer->start();
 
     QMetaObject::invokeMethod(m_worker, "open", Qt::QueuedConnection,
                               Q_ARG(QVariantMap, settings));
 
-    m_buffer.appendSystemMessage(tr("--- %1 opened ---").arg(entry->displayName()));
+    m_buffer->appendSystemMessage(tr("--- %1 opened ---").arg(entry->displayName()));
     m_reopenWhenAvailable = true;
 }
 
@@ -277,7 +279,7 @@ void Session::close()
     handlePacketTimeout();
 
     destroyWorker();
-    m_buffer.appendSystemMessage(tr("--- closed ---"));
+    m_buffer->appendSystemMessage(tr("--- closed ---"));
     setState(ChannelState::Closed);
 }
 
@@ -301,6 +303,12 @@ void Session::send(const QByteArray &data)
 
     QMetaObject::invokeMethod(m_worker, "write", Qt::QueuedConnection,
                               Q_ARG(QByteArray, effective));
+}
+
+void Session::setSharedBuffer(TerminalBuffer *buffer, quint8 source)
+{
+    m_buffer = buffer ? buffer : &m_ownBuffer;
+    m_buffer->setSource(source);
 }
 
 void Session::addDataFilter(IDataFilter *filter, int order, const QString &name)
@@ -373,7 +381,7 @@ void Session::handleIncoming(const QByteArray &data, qint64 monotonicNs)
 
     const QList<Packetizer::Packet> packets = m_packetizer.feed(effective, monotonicNs);
     for (const Packetizer::Packet &packet : packets)
-        m_buffer.append(packet.data, DataDirection::Rx, monotonicNs, packet.terminatesLine);
+        m_buffer->append(packet.data, DataDirection::Rx, monotonicNs, packet.terminatesLine);
 
     // Ждать паузу имеет смысл только когда что-то накоплено и правило этого требует.
     if (m_packetizer.mode() == Packetizer::Mode::InterByteTimeout
@@ -386,7 +394,7 @@ void Session::handlePacketTimeout()
 {
     const Packetizer::Packet packet = m_packetizer.flush();
     if (!packet.data.isEmpty())
-        m_buffer.append(packet.data, DataDirection::Rx, 0, /*terminatesLine=*/true);
+        m_buffer->append(packet.data, DataDirection::Rx, 0, /*terminatesLine=*/true);
 }
 
 void Session::setState(ChannelState state, const QString &detail)
@@ -405,7 +413,7 @@ void Session::onInterfaceAppeared(const QString &id)
         return;
 
     qCInfo(lcSession) << "reopening" << id << "after it came back";
-    m_buffer.appendSystemMessage(tr("--- device is back, reopening ---"));
+    m_buffer->appendSystemMessage(tr("--- device is back, reopening ---"));
     open();
 }
 
@@ -421,7 +429,7 @@ void Session::onInterfaceDisappeared(const QString &id)
     destroyWorker();
     m_reopenWhenAvailable = shouldReopen;
 
-    m_buffer.appendSystemMessage(tr("--- device disconnected ---"));
+    m_buffer->appendSystemMessage(tr("--- device disconnected ---"));
     setState(ChannelState::Unavailable, tr("Device disconnected"));
 }
 

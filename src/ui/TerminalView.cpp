@@ -51,6 +51,9 @@ constexpr int kGutterGap = 1;
 /// \brief Ширина отметки направления, в знакоместах: «> », «< », «* ».
 constexpr int kDirectionWidth = 2;
 
+/// \brief Ширина колонки транспорта: буква и пробел.
+constexpr int kSourceWidth = 2;
+
 /// \brief Наименьшая ширина колонки номеров, знакомест под цифры.
 constexpr int kMinLineNumberDigits = 5;
 
@@ -431,6 +434,15 @@ void TerminalView::setCsvFilterEnabled(bool enabled)
     viewport()->update();
 }
 
+void TerminalView::setShowSource(bool show)
+{
+    if (m_showSource == show)
+        return;
+    m_showSource = show;
+    updateScrollBars();
+    viewport()->update();
+}
+
 void TerminalView::setCsvSeparator(QChar separator)
 {
     if (m_csvDetector.separator() == separator)
@@ -661,6 +673,8 @@ int TerminalView::lineNumberColumns() const
 int TerminalView::gutterWidth() const
 {
     int columns = lineNumberColumns();
+    if (m_showSource)
+        columns += kSourceWidth;
     if (m_showTimestamps)
         columns += timestampColumns();
     if (m_showDirection)
@@ -928,6 +942,15 @@ void TerminalView::paintEvent(QPaintEvent *event)
                                            .rightJustified(columns - 1, u' ');
                 painter.drawText(gutterX, textY, number);
                 gutterX += columns * m_charWidth;
+            }
+
+            if (m_showSource) {
+                // Буква, а не цвет: цветом уже размечено направление, и второй цветовой
+                // признак в той же колонке спорил бы с первым. Буква читается и на
+                // чёрно-белом снимке экрана.
+                painter.drawText(gutterX, textY,
+                                 QString(QChar(u'A' + line->source)));
+                gutterX += kSourceWidth * m_charWidth;
             }
 
             if (m_showTimestamps) {

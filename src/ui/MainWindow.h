@@ -23,6 +23,7 @@
 class QAction;
 class QButtonGroup;
 class QLabel;
+class QComboBox;
 class QSplitter;
 class QTimer;
 class QStackedWidget;
@@ -33,6 +34,7 @@ namespace spotty {
 
 struct PanelDescriptor;
 class InterfaceBar;
+class Session;
 class OverlayLayer;
 class PanelHostImpl;
 class SendBar;
@@ -187,6 +189,29 @@ private:
     void applyChannelState(ChannelState state, const QString &detail);
 
     /**
+     * \enum ViewMode
+     * \brief Что занимает область вывода.
+     */
+    enum class ViewMode {
+        SingleTransport = 0, ///< Один интерфейс — как было всегда.
+        DualTransport,       ///< Два интерфейса в общий буфер, строки помечены A и B.
+
+        /**
+         * \brief Вместо терминала — полоса плагина.
+         *
+         * Пунктов этого рода в списке столько, сколько плагинов объявило полосу в
+         * разделителе; сегодня это график. Жёстко назвать здесь «график» значило бы
+         * вписать в окно знание о конкретном плагине — ровно то, от чего ушли, переводя
+         * панели в плагины.
+         */
+        PluginStrip,
+    };
+
+    /// \brief Переключить режим области вывода.
+    /// \param stripId Идентификатор полосы для ViewMode::PluginStrip.
+    void applyViewMode(ViewMode mode, const QString &stripId = {});
+
+    /**
      * \brief Обновить подсказку на месте пустого вывода терминала.
      * \param state Состояние канала.
      *
@@ -216,6 +241,31 @@ private:
     AppSettings m_settings;
 
     InterfaceBar *m_interfaceBar = nullptr;
+
+    /// \name Второй транспорт
+    /// Появляется, когда выбран режим двух интерфейсов. Сессия создаётся сразу, а полоса
+    /// выбора прячется: держать вторую сессию наготове дешевле, чем создавать её на
+    /// переключении режима и заново связывать все сигналы.
+    /// @{
+    InterfaceBar *m_secondBar = nullptr;
+    Session *m_secondSession = nullptr;
+
+    /**
+     * \brief Общий буфер обоих транспортов.
+     *
+     * Владеет им окно, а не сессия: буфер переживает переключение режима, и обе сессии
+     * ссылаются на него, помечая свои строки номером источника.
+     */
+    TerminalBuffer *m_sharedBuffer = nullptr;
+
+    QComboBox *m_modeCombo = nullptr;
+
+    /// \brief Карточка второй полосы выбора; прячется вместе с ней.
+    QWidget *m_secondBarCard = nullptr;
+
+    /// \brief Карточки полос, объявленных плагинами, по идентификатору панели.
+    QHash<QString, QWidget *> m_splitterPanels;
+    /// @}
     TerminalView *m_terminal = nullptr;
     SendBar *m_sendBar = nullptr;
     QSplitter *m_splitter = nullptr;
