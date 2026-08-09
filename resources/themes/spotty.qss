@@ -674,6 +674,12 @@ QMenu#macroOptionMenu::indicator:checked {
     image: url(:/icons/check.svg);
 }
 
+/* У штатного меню QLineEdit есть своя колонка значков. Общий отступ меню добавлялся к
+   ней и оставлял между значком и подписью лишнее пустое место. */
+QMenu#sendInputMenu::item {
+    padding: 5px 5px;
+}
+
 QMenu::separator {
     height: 1px;
     background: @border;
