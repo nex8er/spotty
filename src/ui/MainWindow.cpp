@@ -205,7 +205,9 @@ void MainWindow::buildUi()
 
     auto *rightColumn = new QWidget(this);
     auto *rightLayout = new QVBoxLayout(rightColumn);
-    rightLayout->setContentsMargins(metrics.gap, metrics.gap, metrics.gap, metrics.gap);
+    // Слева поля нет: там стоит разделитель, и его ширина уже играет роль зазора. Поле
+    // прибавлялось бы к ней, и просвет у боковой панели выходил вдвое шире остальных.
+    rightLayout->setContentsMargins(0, metrics.gap, metrics.gap, metrics.gap);
     rightLayout->setSpacing(metrics.gap);
     rightLayout->addWidget(makeCard(m_interfaceBar));
     m_secondBarCard = makeCard(m_secondBar);
