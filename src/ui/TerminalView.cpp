@@ -74,14 +74,22 @@ constexpr int kMarkerRefreshMs = 250;
 /// \brief Насколько приглушается цвет правила подсветки под текстом.
 constexpr int kHighlightAlpha = 64;
 
-/// \brief Отметка направления обмена.
+/**
+ * \brief Отметка направления обмена.
+ *
+ * У сообщений самой программы отметки нет: звёздочку в начало такой строки ставит сам
+ * буфер (см. TerminalBuffer::appendSystemMessage) — там она переживает и выключенную
+ * колонку направления, и копирование в буфер обмена. Вторая звёздочка здесь давала бы
+ * «* * — loopback1 открыт —». Колонка при этом остаётся пустой, а не исчезает: текст
+ * системных строк должен стоять в той же позиции, что и текст данных.
+ */
 QString directionMark(DataDirection direction)
 {
     switch (direction) {
     case DataDirection::Tx:
         return QStringLiteral("< ");
     case DataDirection::System:
-        return QStringLiteral("* ");
+        return QStringLiteral("  ");
     case DataDirection::Rx:
         break;
     }
@@ -350,6 +358,7 @@ void TerminalView::setHexBytesPerRow(int bytes)
 void TerminalView::setHighlightRules(const HighlightRules &rules)
 {
     m_highlightRules = rules;
+    scheduleMarkerUpdate();
     viewport()->update();
 }
 
@@ -395,6 +404,7 @@ void TerminalView::setSearchPattern(const QString &pattern, bool regularExpressi
     if (m_filterEnabled)
         rebuildVisible();
 
+    scheduleMarkerUpdate();
     viewport()->update();
     Q_EMIT matchCountChanged(matchCount());
 }
@@ -684,10 +694,18 @@ int TerminalView::gutterWidth() const
     return columns * m_charWidth;
 }
 
-void TerminalView::updateScrollBars()
+void TerminalView::scheduleMarkerUpdate()
 {
+    // Отложенно и с объединением: обход буфера дорог, а поводов пересчитать метки много —
+    // новые строки, смена образца поиска, правка правил подсветки. Одиночный таймер
+    // сводит очередь поводов к одному обходу.
     if (m_markerTimer)
         m_markerTimer->start();
+}
+
+void TerminalView::updateScrollBars()
+{
+    scheduleMarkerUpdate();
 
     const int visibleRows = qMax(1, viewport()->height() / m_lineHeight);
 
