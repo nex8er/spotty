@@ -9,10 +9,7 @@
 
 #include <HistoryStore.h>
 
-#include <QAction>
 #include <QComboBox>
-#include <QContextMenuEvent>
-#include <QMenu>
 #include <QFontMetrics>
 #include <QHBoxLayout>
 #include <QKeyEvent>
@@ -94,6 +91,9 @@ SendBar::SendBar(HistoryStore *history, QWidget *parent)
     m_send = new QPushButton(tr("Send"), this);
     m_send->setDefault(true);
 
+    m_saveMacro = new QPushButton(tr("Save as macro"), this);
+    m_saveMacro->setEnabled(false);
+
     m_error = new QLabel(this);
     m_error->setObjectName(QStringLiteral("errorLabel"));
     m_error->hide();
@@ -105,10 +105,14 @@ SendBar::SendBar(HistoryStore *history, QWidget *parent)
     layout->addWidget(m_error);
     layout->addWidget(m_format);
     layout->addWidget(m_termination);
+    layout->addWidget(m_saveMacro);
     layout->addWidget(m_send);
 
     connect(m_send, &QPushButton::clicked, this, &SendBar::submit);
+    connect(m_saveMacro, &QPushButton::clicked, this, &SendBar::saveAsMacro);
     connect(m_input, &QLineEdit::returnPressed, this, &SendBar::submit);
+    connect(m_input, &QLineEdit::textChanged, m_saveMacro,
+            [this](const QString &text) { m_saveMacro->setEnabled(!text.isEmpty()); });
     connect(m_format, &QComboBox::currentIndexChanged, this, [this] {
         m_error->hide();
         Q_EMIT optionsChanged();
@@ -205,6 +209,13 @@ void SendBar::submit()
     m_input->clear();
 }
 
+void SendBar::saveAsMacro()
+{
+    const QString text = m_input->text();
+    if (!text.isEmpty())
+        Q_EMIT makeMacroRequested(text, int(format()), int(termination()));
+}
+
 void SendBar::stepHistory(int direction)
 {
     if (!m_history || m_history->entries().isEmpty())
@@ -278,24 +289,6 @@ void SendBar::completeFromHistory(bool backwards)
                                .arg(m_completionMatches.size()),
                            m_input);
     }
-}
-
-void SendBar::contextMenuEvent(QContextMenuEvent *event)
-{
-    // Своё меню строится поверх штатного меню поля ввода, а не вместо него: вырезать
-    // «Копировать» и «Вставить» ради одного своего пункта было бы обменом полезного на
-    // удобное.
-    QMenu *menu = m_input->createStandardContextMenu();
-
-    menu->addSeparator();
-    QAction *makeMacro = menu->addAction(tr("Save as macro"));
-    makeMacro->setEnabled(!m_input->text().isEmpty());
-    connect(makeMacro, &QAction::triggered, this, [this] {
-        Q_EMIT makeMacroRequested(m_input->text(), int(format()), int(termination()));
-    });
-
-    menu->exec(event->globalPos());
-    delete menu;
 }
 
 bool SendBar::eventFilter(QObject *watched, QEvent *event)
