@@ -280,9 +280,8 @@ TEST(TerminalBuffer, SystemMessageIsSeparateLine)
 
     ASSERT_EQ(buffer.lineCount(), 2);
     EXPECT_EQ(buffer.line(1)->direction, DataDirection::System);
-    // Звёздочка и курсив — два признака сверх направления: цвет не может быть
-    // единственным носителем смысла, а курсив теряется при копировании наружу.
-    EXPECT_EQ(buffer.line(1)->text, QStringLiteral("* --- opened ---"));
+    // Звёздочка рисуется в колонке направления и не должна попадать в копируемый текст.
+    EXPECT_EQ(buffer.line(1)->text, QStringLiteral("--- opened ---"));
     ASSERT_EQ(buffer.line(1)->runs.size(), 1);
     EXPECT_TRUE(buffer.line(1)->runs.first().style.italic);
 }

@@ -78,11 +78,8 @@ constexpr int kHighlightAlpha = 64;
 /**
  * \brief Отметка направления обмена.
  *
- * У сообщений самой программы отметки нет: звёздочку в начало такой строки ставит сам
- * буфер (см. TerminalBuffer::appendSystemMessage) — там она переживает и выключенную
- * колонку направления, и копирование в буфер обмена. Вторая звёздочка здесь давала бы
- * «* * — loopback1 открыт —». Колонка при этом остаётся пустой, а не исчезает: текст
- * системных строк должен стоять в той же позиции, что и текст данных.
+ * Системное сообщение получает ту же колонку, что и входящие и исходящие данные:
+ * звёздочка остаётся служебной меткой представления и не загрязняет копируемый текст.
  */
 QString directionMark(DataDirection direction)
 {
@@ -90,7 +87,7 @@ QString directionMark(DataDirection direction)
     case DataDirection::Tx:
         return QStringLiteral("< ");
     case DataDirection::System:
-        return QStringLiteral("  ");
+        return QStringLiteral("* ");
     case DataDirection::Rx:
         break;
     }
