@@ -143,8 +143,9 @@ void MainWindow::buildUi()
     // Вторая полоса выбора и вторая сессия создаются сразу, но скрыты: держать их
     // наготове дешевле, чем создавать при переключении режима и заново связывать все
     // сигналы. Пустая сессия не открывает каналов и ничего не стоит.
+    // Прячется только карточка. Скрыть здесь сам виджет значило бы оставить его скрытым
+    // навсегда: показ карточки не показывает явно спрятанного ребёнка.
     m_secondBar = new InterfaceBar(m_context, this);
-    m_secondBar->hide();
 
     if (m_context.plugins && m_context.registry) {
         m_secondSession = new Session(m_context.plugins, m_context.registry, this);
@@ -174,17 +175,6 @@ void MainWindow::buildUi()
     m_logViewBar->hide();
     connect(backButton, &QPushButton::clicked, this, &MainWindow::returnToLiveView);
 
-    // --- Блок терминала: кнопки показа и сам вывод одной карточкой -------------------
-    //
-    // Кнопки управляют именно этим выводом, поэтому живут внутри его рамки, а не отдельной
-    // полосой через всё окно: так видно, к чему они относятся.
-    auto *terminalBlock = new QWidget(this);
-    auto *terminalLayout = new QVBoxLayout(terminalBlock);
-    terminalLayout->setContentsMargins(0, 0, 0, 0);
-    terminalLayout->setSpacing(0);
-    terminalLayout->addWidget(buildTerminalToolbar());
-    terminalLayout->addWidget(m_logViewBar);
-    terminalLayout->addWidget(m_terminal, 1);
 
     // --- Правая колонка: интерфейс, терминал, отправка --------------------------------
     //
@@ -199,9 +189,24 @@ void MainWindow::buildUi()
     m_terminalSplitter = new QSplitter(Qt::Vertical, this);
     m_terminalSplitter->setHandleWidth(metrics.splitterHandle);
     m_terminalSplitter->setChildrenCollapsible(false);
-    m_terminalCard = makeCard(terminalBlock);
-    m_terminalSplitter->addWidget(m_terminalCard);
+    m_terminalSplitter->addWidget(m_terminal);
     m_terminalSplitter->setStretchFactor(0, 1);
+
+    // --- Область вывода: панель управления и то, что она показывает ---------------------
+    //
+    // Панель лежит **над** разделителем, а не внутри карточки терминала. Прежде она была
+    // частью терминала, и в режиме графика исчезала вместе с ним — вместе с
+    // переключателем режима, то есть выйти из графика было нечем.
+    //
+    // Карточка одна на всю область: и терминал, и полосы плагинов живут внутри её рамки,
+    // своих у них нет. Вложенные рамки читались бы как две границы подряд.
+    auto *outputBlock = new QWidget(this);
+    auto *outputLayout = new QVBoxLayout(outputBlock);
+    outputLayout->setContentsMargins(0, 0, 0, 0);
+    outputLayout->setSpacing(0);
+    outputLayout->addWidget(buildTerminalToolbar());
+    outputLayout->addWidget(m_logViewBar);
+    outputLayout->addWidget(m_terminalSplitter, 1);
 
     auto *rightColumn = new QWidget(this);
     auto *rightLayout = new QVBoxLayout(rightColumn);
@@ -213,7 +218,7 @@ void MainWindow::buildUi()
     m_secondBarCard = makeCard(m_secondBar);
     m_secondBarCard->hide();
     rightLayout->addWidget(m_secondBarCard);
-    rightLayout->addWidget(m_terminalSplitter, 1);
+    rightLayout->addWidget(makeCard(outputBlock), 1);
     rightLayout->addWidget(makeCard(m_sendBar));
 
     // --- Панель слева во всю высоту ---------------------------------------------------
@@ -506,7 +511,8 @@ QWidget *MainWindow::buildTerminalToolbar()
             applyViewMode(ViewMode(data.at(0).toInt()), data.at(1));
     });
 
-    auto *layout = new QHBoxLayout(bar);
+    m_toolbarLayout = new QHBoxLayout(bar);
+    QHBoxLayout *layout = m_toolbarLayout;
     layout->setContentsMargins(8, 3, 8, 3);
     layout->setSpacing(2);
     layout->addWidget(m_modeCombo);
@@ -654,18 +660,19 @@ void MainWindow::addSplitterPanel(const PanelDescriptor &descriptor, QWidget *wi
     // Порядок внутри разделителя: всё, что «сверху», идёт до терминала, остальное после.
     // Индекс терминала ищется каждый раз заново — панелей может быть несколько, и он
     // сдвигается по мере их добавления.
-    const int terminalIndex = m_terminalSplitter->indexOf(m_terminalCard);
+    const int terminalIndex = m_terminalSplitter->indexOf(m_terminal);
     const int at = descriptor.side == PanelSide::Above ? terminalIndex : terminalIndex + 1;
 
-    QWidget *card = makeCard(widget);
-    m_terminalSplitter->insertWidget(at, card);
+    // Своей карточки у полосы нет: рамку даёт общая карточка области вывода, и вторая
+    // внутри неё читалась бы как две границы подряд.
+    m_terminalSplitter->insertWidget(at, widget);
     m_terminalSplitter->setStretchFactor(at, 0);
 
     // Скрытая по умолчанию полоса — это полоса, которую показывают переключателем режима,
     // а не постоянный житель окна. До этой правки поле PanelDescriptor::visibleByDefault
     // объявлялось в публичном ABI и не читалось никем.
-    card->setVisible(descriptor.visibleByDefault);
-    m_splitterPanels.insert(descriptor.id, card);
+    widget->setVisible(descriptor.visibleByDefault);
+    m_splitterPanels.insert(descriptor.id, widget);
 }
 
 void MainWindow::buildMenus()
@@ -1125,12 +1132,57 @@ void MainWindow::applyViewMode(ViewMode mode, const QString &stripId)
     // Полоса плагина занимает место терминала. Показывается ровно одна — та, что выбрана;
     // остальные прячутся, иначе переключение между двумя графиками накапливало бы их в
     // окне одну под другой.
-    for (auto it = m_splitterPanels.cbegin(); it != m_splitterPanels.cend(); ++it)
-        it.value()->setVisible(strip && it.key() == stripId);
-    m_terminalCard->setVisible(!strip);
+    QWidget *shown = nullptr;
+    for (auto it = m_splitterPanels.cbegin(); it != m_splitterPanels.cend(); ++it) {
+        const bool visible = strip && it.key() == stripId;
+        it.value()->setVisible(visible);
+        if (visible)
+            shown = it.value();
+    }
+    m_terminal->setVisible(!strip);
+
+    // Переключатели показа вывода относятся к терминалу и в режиме полосы бессмысленны.
+    // Оставить их доступными значило бы обещать действия, которых не произойдёт.
+    for (QToolButton *button : {m_hexButton, m_timestampButton, m_directionButton,
+                                m_echoButton, m_lineNumberButton, m_csvFilterButton,
+                                m_followButton, m_clearButton}) {
+        button->setVisible(!strip);
+    }
+
+    showStripActions(shown);
 
     m_context.settings->setValue(QLatin1String(kKeyViewMode), int(mode));
     m_context.settings->setValue(QLatin1String(kKeyViewStrip), stripId);
+}
+
+void MainWindow::showStripActions(QWidget *strip)
+{
+    // Кнопки полосы берутся из её собственных QAction. Так окно не знает ни о графике, ни
+    // о любом другом плагине: виджет объявляет, чем им управляют, а панель это показывает.
+    // Заводить ради этого метод в IPanelHost незачем — QWidget::actions() уже есть.
+    qDeleteAll(m_stripButtons);
+    m_stripButtons.clear();
+
+    if (!strip)
+        return;
+
+    // Место — сразу за переключателем режима: это управление тем, что показано, и стоять
+    // оно должно рядом с выбором того, что показано. Позиция считается один раз и растёт
+    // с каждой кнопкой: вставка всех по одному и тому же индексу перевернула бы порядок,
+    // объявленный полосой, — пауза оказалась бы после очистки.
+    int at = m_toolbarLayout->indexOf(m_modeCombo) + 1;
+
+    for (QAction *action : strip->actions()) {
+        auto *button = new QToolButton(m_toolbarLayout->parentWidget());
+        button->setAutoRaise(true);
+        button->setDefaultAction(action);
+        button->setIconSize(QSize(kToolGlyphSize, kToolGlyphSize));
+        // Полоса управления узкая, и подпись рядом со значком её распирает; значок с
+        // подсказкой — тот же вид, что у остальных кнопок панели.
+        button->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        m_toolbarLayout->insertWidget(at++, button);
+        m_stripButtons.append(button);
+    }
 }
 
 void MainWindow::updatePlaceholder(ChannelState state)

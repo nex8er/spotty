@@ -6,6 +6,8 @@
 
 #include <QWidget>
 
+class QAction;
+
 namespace spotty {
 
 class CsvSeries;
@@ -41,6 +43,16 @@ public:
     /// \brief Сохранить снимок графика в файл PNG.
     bool saveImage(const QString &filePath);
 
+    /**
+     * \brief Объявить действия, которыми управляют графиком.
+     *
+     * Действия добавляются в сам виджет (QWidget::addAction), и приложение показывает их
+     * кнопками в панели управления областью вывода, когда полоса активна. Отдельного
+     * метода в IPanelHost для этого не нужно: QWidget::actions() уже есть, и знание о
+     * графике остаётся внутри графика.
+     */
+    void createActions();
+
 Q_SIGNALS:
     /// \brief Пауза переключена изнутри — двойным щелчком по полю графика.
     void pausedChanged(bool paused);
@@ -68,6 +80,8 @@ private:
 
     /// \brief Положение курсора в поле графика; -1, когда курсора нет.
     int m_cursorX = -1;
+
+    QAction *m_pauseAction = nullptr;
 };
 
 } // namespace spotty

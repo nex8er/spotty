@@ -8,6 +8,7 @@
 #include "CsvSeries.h"
 
 #include <spotty/ui/IPanelHost.h>
+#include <spotty/ui/MdiCodepoints.h>
 
 #include <QColorDialog>
 #include <QComboBox>
@@ -21,6 +22,7 @@
 #include <QSaveFile>
 #include <QSpinBox>
 #include <QTableWidget>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 namespace spotty {
@@ -32,12 +34,17 @@ constexpr auto kKeyPoints = "points";
 
 constexpr int kDefaultPoints = 200;
 
-/// \brief Колонки таблицы рядов.
+/**
+ * \brief Колонки таблицы рядов.
+ *
+ * Последнего значения здесь нет намеренно: панель узкая, семь колонок в неё не влезали и
+ * уезжали за край вместе с прокруткой. Текущее значение и так показывает перекрестие на
+ * самом графике, а таблица отвечает на другой вопрос — «в каких пределах гуляет ряд».
+ */
 enum Column {
     ColumnVisible = 0, ///< Флажок «показывать».
     ColumnName,
     ColumnColor,
-    ColumnLast,        ///< Последнее значение.
     ColumnMin,
     ColumnMax,
     ColumnAverage,
@@ -119,22 +126,43 @@ CsvChartPanel::CsvChartPanel(IPanelHost *panelHost, CsvSeries *series, QWidget *
     // Таблица рядов. Она же легенда: прежде кривые различались только цветом, что и WCAG
     // нарушает, и просто не позволяет понять, какая из них чья.
     m_table = new QTableWidget(0, ColumnCount, this);
-    m_table->setHorizontalHeaderLabels({QString(), tr("Series"), tr("Colour"), tr("Last"),
+    m_table->setHorizontalHeaderLabels({QString(), tr("Series"), tr("Colour"),
                                         tr("Min"), tr("Max"), tr("Avg")});
+    // Растягивается только имя ряда; остальные колонки ужимаются под содержимое. Иначе
+    // равные доли отдают под галочку и квадратик цвета столько же, сколько под число.
+    m_table->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(ColumnName, QHeaderView::Stretch);
+    m_table->horizontalHeader()->setStretchLastSection(false);
     m_table->verticalHeader()->setVisible(false);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    // Горизонтальная прокрутка запрещена: в узкой панели она появлялась всегда и прятала
+    // половину колонок. Числа при нехватке места сокращаются многоточием — увидеть, что
+    // значение не поместилось, лучше, чем не увидеть колонку вовсе.
+    m_table->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_table->setTextElideMode(Qt::ElideRight);
     layout->addWidget(m_table, 1);
 
+    // Кнопки значками, а не подписями: три подписи в узкой панели обрезались до
+    // «грузить С» и «кранить Р», что хуже, чем совсем без слов. Смысл несут подсказки.
     auto *exportRow = new QHBoxLayout;
     exportRow->setSpacing(4);
-    auto *csvButton = new QPushButton(tr("Export CSV"), this);
-    auto *pngButton = new QPushButton(tr("Save PNG"), this);
-    auto *clearButton = new QPushButton(tr("Clear"), this);
+
+    const auto makeTool = [this](char32_t glyph, const QString &tip) {
+        auto *button = new QToolButton(this);
+        button->setAutoRaise(true);
+        button->setIcon(host()->icon(glyph, 18));
+        button->setToolTip(tip);
+        return button;
+    };
+
+    auto *csvButton = makeTool(mdi::FileExport, tr("Export CSV"));
+    auto *pngButton = makeTool(mdi::ContentSave, tr("Save PNG"));
+    auto *clearButton = makeTool(mdi::Broom, tr("Clear"));
     exportRow->addWidget(csvButton);
     exportRow->addWidget(pngButton);
     exportRow->addWidget(clearButton);
+    exportRow->addStretch(1);
     layout->addLayout(exportRow);
 
     connect(m_separator, &QComboBox::currentIndexChanged, this, &CsvChartPanel::commit);
@@ -153,9 +181,9 @@ CsvChartPanel::CsvChartPanel(IPanelHost *panelHost, CsvSeries *series, QWidget *
     });
 
     connect(windowButton, &QPushButton::clicked, this, &CsvChartPanel::openInWindow);
-    connect(csvButton, &QPushButton::clicked, this, &CsvChartPanel::exportCsv);
-    connect(pngButton, &QPushButton::clicked, this, &CsvChartPanel::exportImage);
-    connect(clearButton, &QPushButton::clicked, this, [this] { m_series->clear(); });
+    connect(csvButton, &QToolButton::clicked, this, &CsvChartPanel::exportCsv);
+    connect(pngButton, &QToolButton::clicked, this, &CsvChartPanel::exportImage);
+    connect(clearButton, &QToolButton::clicked, this, [this] { m_series->clear(); });
 
     connect(m_series, &CsvSeries::seriesAdded, this, &CsvChartPanel::rebuildTable);
     connect(m_series, &CsvSeries::changed, this, &CsvChartPanel::refreshStatistics);
@@ -231,7 +259,7 @@ void CsvChartPanel::rebuildTable()
         color->setToolTip(tr("Double-click to change"));
         m_table->setItem(row, ColumnColor, color);
 
-        for (const int column : {ColumnLast, ColumnMin, ColumnMax, ColumnAverage})
+        for (const int column : {ColumnMin, ColumnMax, ColumnAverage})
             m_table->setItem(row, column, new QTableWidgetItem);
     }
 
@@ -258,11 +286,6 @@ void CsvChartPanel::refreshStatistics()
     m_populating = true;
     for (int row = 0; row < m_series->seriesCount(); ++row) {
         const CsvSeries::Series &series = m_series->series(row);
-        const QString last = series.values.isEmpty()
-                                 ? QString()
-                                 : QString::number(series.values.last(), 'g', 5);
-
-        m_table->item(row, ColumnLast)->setText(last);
         m_table->item(row, ColumnMin)
             ->setText(QString::number(m_series->minimumOf(row), 'g', 5));
         m_table->item(row, ColumnMax)

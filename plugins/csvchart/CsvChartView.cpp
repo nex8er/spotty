@@ -7,7 +7,9 @@
 #include "CsvSeries.h"
 
 #include <spotty/ui/IPanelHost.h>
+#include <spotty/ui/MdiCodepoints.h>
 
+#include <QAction>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
@@ -46,6 +48,28 @@ CsvChartView::CsvChartView(IPanelHost *host, CsvSeries *series, QWidget *parent)
         if (!m_paused)
             update();
     });
+
+    createActions();
+}
+
+void CsvChartView::createActions()
+{
+    m_pauseAction = new QAction(tr("Pause"), this);
+    m_pauseAction->setCheckable(true);
+    m_pauseAction->setIcon(m_host->icon(mdi::Pause, 18));
+    m_pauseAction->setToolTip(tr("Freezes the picture, not the data: collecting continues."));
+    connect(m_pauseAction, &QAction::toggled, this, &CsvChartView::setPaused);
+    // Пауза переключается и двойным щелчком по полю — кнопка обязана это отразить.
+    connect(this, &CsvChartView::pausedChanged, m_pauseAction, [this](bool paused) {
+        const QSignalBlocker blocker(m_pauseAction);
+        m_pauseAction->setChecked(paused);
+    });
+    addAction(m_pauseAction);
+
+    auto *clearAction = new QAction(tr("Clear"), this);
+    clearAction->setIcon(m_host->icon(mdi::Broom, 18));
+    connect(clearAction, &QAction::triggered, m_series, &CsvSeries::clear);
+    addAction(clearAction);
 }
 
 void CsvChartView::setPaused(bool paused)

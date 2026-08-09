@@ -28,6 +28,7 @@ class QSplitter;
 class QTimer;
 class QStackedWidget;
 class QToolButton;
+class QHBoxLayout;
 class QVBoxLayout;
 
 namespace spotty {
@@ -212,6 +213,15 @@ private:
     void applyViewMode(ViewMode mode, const QString &stripId = {});
 
     /**
+     * \brief Показать в панели управления кнопки активной полосы плагина.
+     * \param strip Полоса либо `nullptr`, чтобы убрать прежние.
+     *
+     * Кнопки берутся из QWidget::actions() самой полосы: так окну не нужно знать ни о
+     * графике, ни о любом другом плагине.
+     */
+    void showStripActions(QWidget *strip);
+
+    /**
      * \brief Обновить подсказку на месте пустого вывода терминала.
      * \param state Состояние канала.
      *
@@ -277,8 +287,11 @@ private:
     /// \brief Вертикальный разделитель: полосы плагинов и сам терминал.
     QSplitter *m_terminalSplitter = nullptr;
 
-    /// \brief Карточка терминала внутри разделителя; относительно неё встают полосы.
-    QWidget *m_terminalCard = nullptr;
+    /// \brief Кнопки, пришедшие от показанной полосы плагина; чистятся при смене режима.
+    QList<QToolButton *> m_stripButtons;
+
+    /// \brief Куда они вставляются в панели управления.
+    QHBoxLayout *m_toolbarLayout = nullptr;
 
     /// \brief Слой поверх области вывода; ребёнок viewport терминала.
     OverlayLayer *m_overlay = nullptr;
