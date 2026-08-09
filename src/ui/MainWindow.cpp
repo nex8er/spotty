@@ -366,6 +366,7 @@ void MainWindow::buildUi()
         connect(m_secondSession, &Session::stateChanged, this,
                 [this](ChannelState state, const QString &detail) {
                     m_secondBar->setChannelState(state, detail);
+                    updateSendAvailability();
                 });
         connect(m_secondSession, &Session::errorOccurred, this, [this](const QString &message) {
             statusBar()->showMessage(message, 8000);
@@ -376,10 +377,19 @@ void MainWindow::buildUi()
         showInterfaceSettings(id);
     });
 
-    connect(m_sendBar, &SendBar::sendRequested, this, [this](const QByteArray &data) {
-        if (m_context.session)
-            m_context.session->send(data);
-    });
+    connect(m_sendBar, &SendBar::sendRequested,
+            this, [this](const QByteArray &data, SendBar::SendTarget target) {
+                if (target == SendBar::SendTarget::InterfaceA
+                    || target == SendBar::SendTarget::Both) {
+                    if (m_context.session)
+                        m_context.session->send(data);
+                }
+                if ((target == SendBar::SendTarget::InterfaceB
+                     || target == SendBar::SendTarget::Both)
+                    && m_secondSession) {
+                    m_secondSession->send(data);
+                }
+            });
 
     // Просьба сохранить набранное рассылается всем хостам: кто умеет её принять, тот и
     // примет. Окно не знает, какая панель этим занимается, и знать не должно.
@@ -394,6 +404,10 @@ void MainWindow::buildUi()
     connect(m_sendBar, &SendBar::optionsChanged, this, [this] {
         m_settings.sendFormat = int(m_sendBar->format());
         m_settings.sendTermination = int(m_sendBar->termination());
+        m_settings.save(*m_context.settings);
+    });
+    connect(m_sendBar, &SendBar::sendTargetChanged, this, [this](SendBar::SendTarget target) {
+        m_settings.sendTarget = int(target);
         m_settings.save(*m_context.settings);
     });
 
@@ -897,6 +911,7 @@ void MainWindow::applySettings()
 
     m_sendBar->setFormat(DataCodec::Format(m_settings.sendFormat));
     m_sendBar->setTermination(DataCodec::Termination(m_settings.sendTermination));
+    m_sendBar->setSendTarget(SendBar::SendTarget(m_settings.sendTarget));
 
     applyShortcuts();
 }
@@ -1129,7 +1144,7 @@ void MainWindow::applyChannelState(ChannelState state, const QString &detail)
         m_uptimeLabel->clear();
     }
     updateUptime();
-    m_sendBar->setSendEnabled(open);
+    updateSendAvailability();
     updatePlaceholder(state);
 
     // Панели узнают о состоянии через свои хосты: окну незачем знать, какая из них что
@@ -1145,6 +1160,8 @@ void MainWindow::applyViewMode(ViewMode mode, const QString &stripId)
 {
     const bool dual = mode == ViewMode::DualTransport;
     const bool strip = mode == ViewMode::PluginStrip;
+    m_dualTransport = dual;
+    m_sendBar->setDualTransport(dual);
 
     m_secondBarCard->setVisible(dual);
 
@@ -1197,6 +1214,16 @@ void MainWindow::applyViewMode(ViewMode mode, const QString &stripId)
 
     m_context.settings->setValue(QLatin1String(kKeyViewMode), int(mode));
     m_context.settings->setValue(QLatin1String(kKeyViewStrip), stripId);
+    updateSendAvailability();
+}
+
+void MainWindow::updateSendAvailability()
+{
+    const bool interfaceA = m_context.session
+                            && m_context.session->state() == ChannelState::Open;
+    const bool interfaceB = m_secondSession
+                            && m_secondSession->state() == ChannelState::Open;
+    m_sendBar->setInterfaceAvailability(interfaceA, m_dualTransport && interfaceB);
 }
 
 void MainWindow::showStripActions(QWidget *strip)

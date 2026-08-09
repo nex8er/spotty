@@ -10,6 +10,7 @@
 #include <HistoryStore.h>
 
 #include <QAction>
+#include <QActionGroup>
 #include <QComboBox>
 #include <QContextMenuEvent>
 #include <QMenu>
@@ -120,7 +121,7 @@ SendBar::SendBar(HistoryStore *history, QWidget *parent)
     if (m_history)
         m_historyIndex = int(m_history->entries().size());
 
-    setSendEnabled(false);
+    setInterfaceAvailability(false, false);
 }
 
 DataCodec::Format SendBar::format() const
@@ -147,12 +148,38 @@ void SendBar::setTermination(DataCodec::Termination termination)
         m_termination->setCurrentIndex(index);
 }
 
-void SendBar::setSendEnabled(bool enabled)
+void SendBar::setDualTransport(bool enabled)
 {
+    if (m_dualTransport == enabled)
+        return;
+
+    m_dualTransport = enabled;
+    setInterfaceAvailability(m_interfaceAAvailable, m_interfaceBAvailable);
+}
+
+void SendBar::setInterfaceAvailability(bool interfaceA, bool interfaceB)
+{
+    m_interfaceAAvailable = interfaceA;
+    m_interfaceBAvailable = interfaceB;
+
+    const bool enabled = interfaceA || (m_dualTransport && interfaceB);
     m_send->setEnabled(enabled);
     m_input->setEnabled(enabled);
     m_input->setPlaceholderText(enabled ? tr("Data to send")
                                         : tr("Open an interface to send data"));
+}
+
+void SendBar::setSendTarget(SendTarget target)
+{
+    if (target != SendTarget::InterfaceA && target != SendTarget::InterfaceB
+        && target != SendTarget::Both) {
+        target = SendTarget::InterfaceA;
+    }
+    if (m_sendTarget == target)
+        return;
+
+    m_sendTarget = target;
+    Q_EMIT sendTargetChanged(m_sendTarget);
 }
 
 void SendBar::focusInput()
@@ -195,7 +222,7 @@ void SendBar::submit()
         return;
 
     showError({});
-    Q_EMIT sendRequested(data);
+    Q_EMIT sendRequested(data, m_dualTransport ? m_sendTarget : SendTarget::InterfaceA);
 
     if (m_history && !text.isEmpty()) {
         m_history->append(text);
@@ -289,6 +316,28 @@ void SendBar::showInputContextMenu(const QPoint &globalPosition)
     // удобное.
     const auto menu = std::unique_ptr<QMenu>(m_input->createStandardContextMenu());
     menu->setObjectName(QStringLiteral("sendInputMenu"));
+
+    if (m_dualTransport) {
+        QMenu *targetMenu = menu->addMenu(tr("Send to"));
+        QActionGroup targetGroup(targetMenu);
+        targetGroup.setExclusive(true);
+
+        const auto addTarget = [this, targetMenu, &targetGroup](const QString &title,
+                                                                  SendTarget target,
+                                                                  bool available) {
+            QAction *action = targetMenu->addAction(title);
+            action->setCheckable(true);
+            action->setChecked(m_sendTarget == target);
+            action->setEnabled(available);
+            targetGroup.addAction(action);
+            connect(action, &QAction::triggered, this,
+                    [this, target] { setSendTarget(target); });
+        };
+        addTarget(tr("Interface A"), SendTarget::InterfaceA, m_interfaceAAvailable);
+        addTarget(tr("Interface B"), SendTarget::InterfaceB, m_interfaceBAvailable);
+        addTarget(tr("Both"), SendTarget::Both,
+                  m_interfaceAAvailable && m_interfaceBAvailable);
+    }
 
     menu->addSeparator();
     QAction *makeMacro = menu->addAction(tr("Save as macro"));

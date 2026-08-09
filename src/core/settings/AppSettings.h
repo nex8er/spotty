@@ -109,6 +109,9 @@ struct AppSettings
     /// \brief Терминация по умолчанию, значение spotty::DataCodec::Termination (CR+LF).
     int sendTermination = 3;
 
+    /// \brief Получатель в режиме двух интерфейсов: 0 — A, 1 — B, 2 — оба.
+    int sendTarget = 0;
+
     /// \brief Сколько записей хранить в истории отправки.
     int historySize = 500;
 

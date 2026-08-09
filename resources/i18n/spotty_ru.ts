@@ -744,10 +744,6 @@
         <translation>Последние логи</translation>
     </message>
     <message>
-        <source>Click to view in the terminal. Drag out or press Ctrl+C to copy the file itself.</source>
-        <translation>Щелчок открывает файл в терминале. Перетаскивание или Ctrl+C копируют сам файл.</translation>
-    </message>
-    <message>
         <source>Recording to %1</source>
         <translation>Запись в %1</translation>
     </message>
@@ -772,36 +768,12 @@
         <translation>Показать в терминале</translation>
     </message>
     <message>
-        <source>Reveal in Finder</source>
-        <translation>Показать в Finder</translation>
-    </message>
-    <message>
         <source>Show in Explorer</source>
         <translation>Показать в проводнике</translation>
     </message>
     <message>
-        <source>Open containing folder</source>
-        <translation>Открыть каталог</translation>
-    </message>
-    <message>
         <source>Copy path</source>
         <translation>Скопировать путь</translation>
-    </message>
-    <message>
-        <source>Delete</source>
-        <translation>Удалить</translation>
-    </message>
-    <message>
-        <source>Delete log</source>
-        <translation>Удаление лога</translation>
-    </message>
-    <message>
-        <source>Delete %1 permanently?</source>
-        <translation>Удалить %1 безвозвратно?</translation>
-    </message>
-    <message>
-        <source>Cannot delete %1</source>
-        <translation>Не удалось удалить %1</translation>
     </message>
     <message numerus="yes">
         <source>%n file(s)</source>
@@ -822,6 +794,34 @@
     <message>
         <source>Start recording</source>
         <translation>Начать запись</translation>
+    </message>
+    <message>
+        <source>Use the context menu to view in the terminal. Drag out or press Ctrl+C to copy the file itself.</source>
+        <translation>Открывайте файл в терминале через контекстное меню. Перетаскивание или Ctrl+C копируют сам файл.</translation>
+    </message>
+    <message>
+        <source>Copy file</source>
+        <translation>Скопировать файл</translation>
+    </message>
+    <message>
+        <source>Delete selected</source>
+        <translation>Удалить выбранные</translation>
+    </message>
+    <message>
+        <source>Delete logs</source>
+        <translation>Удаление логов</translation>
+    </message>
+    <message numerus="yes">
+        <source>Delete %n selected log file(s) permanently?</source>
+        <translation><numerusform>Удалить выбранный файл журнала без возможности восстановления?</numerusform><numerusform>Удалить %n выбранных файла журнала без возможности восстановления?</numerusform><numerusform>Удалить %n выбранных файлов журнала без возможности восстановления?</numerusform></translation>
+    </message>
+    <message numerus="yes">
+        <source>Deleted %n log file(s).</source>
+        <translation><numerusform>Удалён %n файл журнала.</numerusform><numerusform>Удалено %n файла журнала.</numerusform><numerusform>Удалено %n файлов журнала.</numerusform></translation>
+    </message>
+    <message>
+        <source>Could not delete: %1</source>
+        <translation>Не удалось удалить: %1</translation>
     </message>
     <message>
         <source>%1
@@ -1522,6 +1522,22 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>%1 of %2 — Tab for next</source>
         <translation>%1 из %2 — Tab дальше</translation>
+    </message>
+    <message>
+        <source>Send to</source>
+        <translation>Отправить в</translation>
+    </message>
+    <message>
+        <source>Interface A</source>
+        <translation>Интерфейс A</translation>
+    </message>
+    <message>
+        <source>Interface B</source>
+        <translation>Интерфейс B</translation>
+    </message>
+    <message>
+        <source>Both</source>
+        <translation>Оба</translation>
     </message>
     <message>
         <source>Save as macro</source>

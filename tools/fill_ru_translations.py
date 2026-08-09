@@ -160,6 +160,10 @@ TRANSLATIONS = {
         "История хранится текстовым файлом рядом с настройками и переживает перезапуск.",
     "Focus &send bar": "Фокус в &строку отправки",
     "Focus send bar": "Фокус в строку отправки",
+    "Send to": "Отправить в",
+    "Interface A": "Интерфейс A",
+    "Interface B": "Интерфейс B",
+    "Both": "Оба",
     "The interface is not open.": "Интерфейс не открыт.",
     "No interface selected.": "Интерфейс не выбран.",
     "Fill in the required settings to open this interface.":
@@ -231,6 +235,13 @@ TRANSLATIONS = {
     "Start recording when the interface opens":
         "Начинать запись при открытии интерфейса",
     "Recent logs": "Последние логи",
+    "Use the context menu to view in the terminal. Drag out or press Ctrl+C to copy the file itself.":
+        "Открывайте файл в терминале через контекстное меню. Перетаскивание или Ctrl+C "
+        "копируют сам файл.",
+    "Copy file": "Скопировать файл",
+    "Delete selected": "Удалить выбранные",
+    "Delete logs": "Удаление логов",
+    "Could not delete: %1": "Не удалось удалить: %1",
     "Recording to %1": "Запись в %1",
     "Click to view in the terminal. Drag out or press Ctrl+C to copy the file itself.":
         "Щелчок открывает файл в терминале. Перетаскивание или Ctrl+C копируют сам файл.",
@@ -616,6 +627,13 @@ PLURALS = {
                           "отправлено %n посылок"),
     "%n macro(s) imported": ("импортирован %n макрос", "импортировано %n макроса",
                              "импортировано %n макросов"),
+    "Delete %n selected log file(s) permanently?":
+        ("Удалить выбранный файл журнала без возможности восстановления?",
+         "Удалить %n выбранных файла журнала без возможности восстановления?",
+         "Удалить %n выбранных файлов журнала без возможности восстановления?"),
+    "Deleted %n log file(s).": ("Удалён %n файл журнала.",
+                                 "Удалено %n файла журнала.",
+                                 "Удалено %n файлов журнала."),
     "Could not send %n byte(s).": ("Не удалось отправить %n байт.",
                                    "Не удалось отправить %n байта.",
                                    "Не удалось отправить %n байт."),

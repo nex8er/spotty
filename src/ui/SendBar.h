@@ -37,6 +37,13 @@ class SendBar : public QWidget
     Q_OBJECT
 
 public:
+    /// \brief Получатель данных в режиме двух интерфейсов.
+    enum class SendTarget {
+        InterfaceA,
+        InterfaceB,
+        Both,
+    };
+
     /**
      * \brief Конструктор.
      * \param history Хранилище истории. Виджет им не владеет; может быть `nullptr`.
@@ -49,8 +56,14 @@ public:
     DataCodec::Termination termination() const;
     void setTermination(DataCodec::Termination termination);
 
-    /// \brief Разрешить отправку. Выключается, когда канал закрыт.
-    void setSendEnabled(bool enabled);
+    /// \brief Переключить доступность выбора получателя для режима двух интерфейсов.
+    void setDualTransport(bool enabled);
+
+    /// \brief Указать, в какие открытые интерфейсы сейчас можно отправлять.
+    void setInterfaceAvailability(bool interfaceA, bool interfaceB);
+
+    void setSendTarget(SendTarget target);
+    SendTarget sendTarget() const { return m_sendTarget; }
 
     /// \brief Передать фокус полю ввода.
     void focusInput();
@@ -63,7 +76,10 @@ Q_SIGNALS:
      * \brief Пользователь отправляет данные.
      * \param data Уже закодированные байты вместе с терминацией.
      */
-    void sendRequested(const QByteArray &data);
+    void sendRequested(const QByteArray &data, SendTarget target);
+
+    /// \brief Пользователь сменил получателя в режиме двух интерфейсов.
+    void sendTargetChanged(SendTarget target);
 
     /// \brief Изменился формат или терминация — стоит запомнить в настройках.
     void optionsChanged();
@@ -110,6 +126,11 @@ private:
     QComboBox *m_termination = nullptr;
     QPushButton *m_send = nullptr;
     QLabel *m_error = nullptr;
+
+    bool m_dualTransport = false;
+    bool m_interfaceAAvailable = false;
+    bool m_interfaceBAvailable = false;
+    SendTarget m_sendTarget = SendTarget::InterfaceA;
 
     /**
      * \brief Позиция в истории при переборе.

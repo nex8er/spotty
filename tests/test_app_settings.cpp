@@ -27,6 +27,7 @@ TEST(AppSettings, DefaultsOnEmptyStore)
     EXPECT_EQ(settings.maxLines, 20000);
     EXPECT_EQ(settings.hexBytesPerRow, 16);
     EXPECT_EQ(settings.sendTermination, 3);
+    EXPECT_EQ(settings.sendTarget, 0);
     EXPECT_TRUE(settings.localEcho);
 
     // Открытие порта дёргает DTR и перехватывает порт у другой программы: делать это молча
@@ -58,6 +59,7 @@ TEST(AppSettings, RoundTripThroughStore)
     original.ansiPalette = QStringList(16, QStringLiteral("#112233"));
     original.sendFormat = 1;
     original.sendTermination = 2;
+    original.sendTarget = 2;
     original.historySize = 42;
     original.packetizerMode = 2;
     original.packetizerTimeoutMs = 55;
@@ -93,6 +95,7 @@ TEST(AppSettings, RoundTripThroughStore)
     EXPECT_EQ(restored.ansiPalette, original.ansiPalette);
     EXPECT_EQ(restored.sendFormat, original.sendFormat);
     EXPECT_EQ(restored.sendTermination, original.sendTermination);
+    EXPECT_EQ(restored.sendTarget, original.sendTarget);
     EXPECT_EQ(restored.historySize, original.historySize);
     EXPECT_EQ(restored.packetizerMode, original.packetizerMode);
     EXPECT_EQ(restored.packetizerTimeoutMs, original.packetizerTimeoutMs);

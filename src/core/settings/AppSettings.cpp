@@ -38,6 +38,7 @@ constexpr auto kAnsiPalette = "terminal/ansiPalette";
 
 constexpr auto kSendFormat = "send/format";
 constexpr auto kSendTermination = "send/termination";
+constexpr auto kSendTarget = "send/target";
 constexpr auto kHistorySize = "send/historySize";
 
 
@@ -87,6 +88,7 @@ AppSettings AppSettings::load(const SettingsStore &store)
     settings.sendFormat = store.value(QLatin1String(kSendFormat), settings.sendFormat).toInt();
     settings.sendTermination =
         store.value(QLatin1String(kSendTermination), settings.sendTermination).toInt();
+    settings.sendTarget = store.value(QLatin1String(kSendTarget), settings.sendTarget).toInt();
     settings.historySize =
         store.value(QLatin1String(kHistorySize), settings.historySize).toInt();
 
@@ -133,6 +135,7 @@ void AppSettings::save(SettingsStore &store) const
 
     store.setValue(QLatin1String(kSendFormat), sendFormat);
     store.setValue(QLatin1String(kSendTermination), sendTermination);
+    store.setValue(QLatin1String(kSendTarget), sendTarget);
     store.setValue(QLatin1String(kHistorySize), historySize);
 
 

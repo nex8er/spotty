@@ -251,6 +251,9 @@ private:
     /// \param stripId Идентификатор полосы для ViewMode::PluginStrip.
     void applyViewMode(ViewMode mode, const QString &stripId = {});
 
+    /// \brief Учесть открытые интерфейсы при доступности строки отправки.
+    void updateSendAvailability();
+
     /**
      * \brief Показать в панели управления кнопки активной полосы плагина.
      * \param strip Полоса либо `nullptr`, чтобы убрать прежние.
@@ -311,6 +314,7 @@ private:
 
     /// \brief Карточка второй полосы выбора; прячется вместе с ней.
     QWidget *m_secondBarCard = nullptr;
+    bool m_dualTransport = false;
 
     /// \brief Карточки полос, объявленных плагинами, по идентификатору панели.
     QHash<QString, QWidget *> m_splitterPanels;
