@@ -50,6 +50,18 @@ namespace spotty {
 namespace {
 
 constexpr int kPanelGlyphSize = 20;
+
+/**
+ * \brief Наименьшая ширина содержимого боковой панели, px.
+ *
+ * Задаётся стопке страниц, а не панели целиком: рейка значков остаётся видимой и в
+ * свёрнутом виде, и предел, заданный панели, не дал бы ей сузиться до одной рейки.
+ * Значение подобрано по самой тесной панели — таблице правил подсветки с тремя колонками.
+ */
+constexpr int kPanelStackMinWidth = 260;
+
+/// \brief Ширина боковой панели при первом запуске, px.
+constexpr int kDefaultSidePanelWidth = 320;
 constexpr int kToolGlyphSize = 18;
 
 /**
@@ -75,6 +87,10 @@ constexpr auto kKeyPanelId = "window/panelId";
 constexpr auto kKeyPanelIndexLegacy = "window/panelIndex";
 constexpr auto kKeyTerminalSplitter = "window/terminalSplitter";
 constexpr auto kKeySidePanel = "window/sidePanelVisible";
+// Ширина развёрнутой панели хранится отдельно от состояния разделителя: в свёрнутом виде
+// разделитель знает лишь ширину рейки, и выбранная пользователем ширина терялась бы при
+// каждом закрытии панели.
+constexpr auto kKeySidePanelWidth = "window/sidePanelWidth";
 constexpr auto kKeyViewMode = "window/viewMode";
 constexpr auto kKeyViewStrip = "window/viewStrip";
 constexpr auto kKeyInterface = "session/interfaceId";
@@ -228,9 +244,22 @@ void MainWindow::buildUi()
     m_splitter->addWidget(rightColumn);
     m_splitter->setStretchFactor(0, 0);
     m_splitter->setStretchFactor(1, 1);
-    // Панель должна полностью схлопываться: при работе с длинными строками терминалу
-    // нужна вся ширина окна.
-    m_splitter->setChildrenCollapsible(true);
+    // Схлопывать панель мышью незачем: за это отвечают кнопки рейки, и они оставляют её
+    // саму на месте. Схлопнутая же разделителем панель исчезает целиком, вместе с
+    // единственным способом вернуть её обратно, — состояние, из которого нет выхода.
+    m_splitter->setChildrenCollapsible(false);
+
+    // Ширину, выбранную мышью, запоминаем сразу: сохранить её при выходе нельзя — к тому
+    // моменту панель может быть свёрнута, и разделитель будет знать лишь ширину рейки.
+    connect(m_splitter, &QSplitter::splitterMoved, this, [this] {
+        if (!m_sidePanelExpanded)
+            return;
+        const QList<int> sizes = m_splitter->sizes();
+        if (sizes.isEmpty())
+            return;
+        m_sidePanelWidth = sizes.first();
+        m_context.settings->setValue(QLatin1String(kKeySidePanelWidth), m_sidePanelWidth);
+    });
     // Захват шире рисуемой линии. Прежний однопиксельный разделитель поймать курсором
     // почти невозможно: промах не делает ничего, и разделитель выглядит неработающим.
     m_splitter->setHandleWidth(metrics.splitterHandle);
@@ -534,11 +563,14 @@ QWidget *MainWindow::buildSidePanel()
 {
     auto *panel = new QWidget(this);
     panel->setObjectName(QStringLiteral("sidePanel"));
-    panel->setMinimumWidth(300);
 
+    // Наименьшая ширина у стопки страниц, а не у панели целиком: свёрнутая панель — это
+    // одна рейка, и предел, заданный панели, не дал бы ей сузиться до неё.
+    auto *rail = new QWidget(panel);
+    m_panelRail = rail;
     // Вертикальная рейка значков вместо полосы вкладок: она читается при любой ширине
     // панели и не вносит в оформление лишних рамок.
-    auto *rail = new QWidget(panel);
+    //
     // Линия между рейкой и содержимым панели (правило #panelRail в QSS): без неё при
     // узкой панели столбец значков и её содержимое сливаются в один столбец кнопок.
     rail->setObjectName(QStringLiteral("panelRail"));
@@ -547,6 +579,7 @@ QWidget *MainWindow::buildSidePanel()
     m_railLayout->setSpacing(4);
 
     m_panelStack = new QStackedWidget(panel);
+    m_panelStack->setMinimumWidth(kPanelStackMinWidth);
 
     // Страницы добавит buildPanelPlugins() — к этому моменту ни терминала, ни строки
     // отправки ещё нет, а хост панели подписывается на них в конструкторе.
@@ -649,8 +682,14 @@ void MainWindow::addRailPanel(const PanelDescriptor &descriptor, QWidget *widget
     // Перед растяжкой и кнопкой настроек, которые уже стоят в конце рейки.
     m_railLayout->insertWidget(index, button);
 
-    connect(button, &QToolButton::clicked, this,
-            [this, index] { m_panelStack->setCurrentIndex(index); });
+    // Кнопка рейки и открывает панель, и закрывает её: повторное нажатие по уже открытой
+    // сворачивает. Так рейка становится единственным местом, где панель переключают, —
+    // не приходится помнить, что закрывают её где-то ещё.
+    connect(button, &QToolButton::clicked, this, [this, index] {
+        const bool wasCurrent = m_panelStack->currentIndex() == index;
+        m_panelStack->setCurrentIndex(index);
+        setSidePanelExpanded(!(wasCurrent && m_sidePanelExpanded));
+    });
 
     m_railPanels.append({descriptor.id, widget, button});
 }
@@ -743,15 +782,14 @@ void MainWindow::buildMenus()
                                          [this] { m_sendBar->focusInput(); }));
 
     // Боковая панель занимает треть окна, а нужна не всегда: при чтении длинных строк
-    // терминалу требуется вся ширина. Прежде её можно было только схлопнуть мышью,
-    // ухватив разделитель, и вернуть тем же движением — обратимо, но неочевидно.
+    // терминалу требуется вся ширина. Свёрнутая панель оставляет рейку значков — и
+    // потому, что через неё панель возвращают, и потому, что исчезающий вместе с панелью
+    // столбец кнопок сдвигал бы всё окно при каждом переключении.
     auto *sidePanelAction = viewMenu->addAction(tr("Side &panel"));
     sidePanelAction->setCheckable(true);
     sidePanelAction->setChecked(true);
-    connect(sidePanelAction, &QAction::toggled, this, [this](bool visible) {
-        m_sidePanel->setVisible(visible);
-        m_context.settings->setValue(QLatin1String(kKeySidePanel), visible);
-    });
+    connect(sidePanelAction, &QAction::toggled, this,
+            [this](bool expanded) { setSidePanelExpanded(expanded); });
     m_actions.insert(QStringLiteral("view.sidePanel"), sidePanelAction);
 
     // «Найти» и «Начать запись» отсюда ушли: они принадлежат панелям поиска и журнала, а
@@ -1422,12 +1460,14 @@ void MainWindow::restoreWindowState()
 
     // Видимость боковой панели восстанавливается до её содержимого: скрытая панель не
     // должна мигнуть на экране при запуске.
-    const bool sidePanelVisible = store->value(QLatin1String(kKeySidePanel), true).toBool();
-    m_sidePanel->setVisible(sidePanelVisible);
-    if (QAction *action = m_actions.value(QStringLiteral("view.sidePanel"))) {
-        const QSignalBlocker blocker(action);
-        action->setChecked(sidePanelVisible);
-    }
+    // Ширина читается до состояния: свёрнутая панель к ней не обратится, зато первое же
+    // разворачивание вернёт именно ту, что выбрал пользователь, а не умолчание.
+    m_sidePanelWidth = store->value(QLatin1String(kKeySidePanelWidth), 0).toInt();
+    if (m_sidePanelWidth <= 0 && !m_splitter->sizes().isEmpty())
+        m_sidePanelWidth = m_splitter->sizes().first();
+
+    const bool sidePanelExpanded = store->value(QLatin1String(kKeySidePanel), true).toBool();
+    setSidePanelExpanded(sidePanelExpanded);
 
     // Режим области вывода восстанавливается после того, как построены полосы плагинов:
     // до этого выбирать было бы не из чего.
@@ -1457,20 +1497,80 @@ void MainWindow::restoreWindowState()
     }
 
     // Панель могла исчезнуть вместе со снятым плагином — тогда остаётся первая по порядку,
-    // уже выбранная в buildPanelPlugins().
+    // уже выбранная в buildPanelPlugins(). Именно selectRailPanel(), а не activatePanel():
+    // последний разворачивает панель, и свёрнутая при выходе раскрывалась бы при каждом
+    // запуске.
     if (!panelId.isEmpty())
-        activatePanel(panelId);
+        selectRailPanel(panelId);
 }
 
-void MainWindow::activatePanel(const QString &panelId)
+bool MainWindow::selectRailPanel(const QString &panelId)
 {
     for (int i = 0; i < m_railPanels.size(); ++i) {
         if (m_railPanels.at(i).id != panelId)
             continue;
         m_railPanels.at(i).button->setChecked(true);
         m_panelStack->setCurrentIndex(i);
-        return;
+        return true;
     }
+    return false;
+}
+
+void MainWindow::activatePanel(const QString &panelId)
+{
+    // Выбор страницы и разворачивание разделены намеренно. Плагин, просящий показать свою
+    // панель, вправе её раскрыть — иначе «Найти» переключало бы невидимую страницу и
+    // выглядело неработающим. Восстановление состояния при запуске такого права не имеет:
+    // оно лишь возвращает выбранную страницу, и свёрнутая панель обязана остаться
+    // свёрнутой.
+    if (selectRailPanel(panelId))
+        setSidePanelExpanded(true);
+}
+
+void MainWindow::setSidePanelExpanded(bool expanded)
+{
+    const bool changed = m_sidePanelExpanded != expanded;
+
+    // Ширину запоминаем до сворачивания: после него разделитель знает только ширину рейки.
+    if (!expanded && m_sidePanelExpanded) {
+        const QList<int> sizes = m_splitter->sizes();
+        if (!sizes.isEmpty() && sizes.first() > m_panelRail->sizeHint().width())
+            m_sidePanelWidth = sizes.first();
+    }
+
+    m_sidePanelExpanded = expanded;
+    m_panelStack->setVisible(expanded);
+
+    if (expanded) {
+        m_sidePanel->setMinimumWidth(0);
+        m_sidePanel->setMaximumWidth(QWIDGETSIZE_MAX);
+
+        const int total = m_splitter->width() - m_splitter->handleWidth();
+        const int width = qBound(m_panelStack->minimumWidth() + m_panelRail->sizeHint().width(),
+                                 m_sidePanelWidth > 0 ? m_sidePanelWidth : kDefaultSidePanelWidth,
+                                 qMax(1, total / 2));
+        m_splitter->setSizes({width, total - width});
+    } else {
+        // Ширина рейки закрепляется с обеих сторон, а не задаётся разделителю размером:
+        // иначе свёрнутую панель можно растянуть мышью, и появится пустая полоса рядом со
+        // столбцом значков — состояние, которого в интерфейсе нет.
+        const int railWidth = m_panelRail->sizeHint().width();
+        m_sidePanel->setMinimumWidth(railWidth);
+        m_sidePanel->setMaximumWidth(railWidth);
+    }
+
+    // Кнопка открытой страницы остаётся нажатой и в свёрнутом виде: она показывает, куда
+    // вернёт следующее нажатие. Пустая рейка об этом не говорит ничем.
+    if (!changed)
+        return;
+
+    if (QAction *action = m_actions.value(QStringLiteral("view.sidePanel"))) {
+        const QSignalBlocker blocker(action);
+        action->setChecked(expanded);
+    }
+
+    m_context.settings->setValue(QLatin1String(kKeySidePanel), expanded);
+    m_context.settings->setValue(QLatin1String(kKeySidePanelWidth), m_sidePanelWidth);
 }
 
 void MainWindow::composeInSendBar(const QString &text, DataCodec::Format format)
