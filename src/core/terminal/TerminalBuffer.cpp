@@ -142,20 +142,21 @@ const TerminalBuffer::Line *TerminalBuffer::line(qint64 lineNumber) const
 }
 
 void TerminalBuffer::append(const QByteArray &data, DataDirection direction,
-                            qint64 monotonicNs, bool terminatesLine)
+                            qint64 monotonicNs, bool terminatesLine, quint8 source)
 {
     if (data.isEmpty())
         return;
 
     // Смена направления закрывает текущую строку: иначе отправленное и принятое слиплись
     // бы в одну строку и метка направления перестала бы что-либо значить.
-    if (m_hasOpenLine && direction != m_currentDirection) {
+    if (m_hasOpenLine && (direction != m_currentDirection || source != m_currentSource)) {
         if (Line *line = currentLine())
             line->complete = true;
         m_hasOpenLine = false;
         m_cursorColumn = 0;
     }
     m_currentDirection = direction;
+    m_currentSource = source;
 
     if (direction == DataDirection::Rx)
         m_bytesReceived += data.size();
@@ -221,7 +222,7 @@ void TerminalBuffer::append(const QByteArray &data, DataDirection direction,
     Q_EMIT statisticsChanged();
 }
 
-void TerminalBuffer::appendSystemMessage(const QString &message)
+void TerminalBuffer::appendSystemMessage(const QString &message, quint8 source)
 {
     if (m_hasOpenLine) {
         if (Line *line = currentLine())
@@ -251,7 +252,7 @@ void TerminalBuffer::appendSystemMessage(const QString &message)
     line.runs.append(StyleRun{0, int(text.size()), style});
     line.wallClock = QDateTime::currentDateTime();
     line.direction = DataDirection::System;
-    line.source = m_source;
+    line.source = source;
     line.complete = true;
     m_lines.push_back(std::move(line));
 
@@ -265,7 +266,7 @@ void TerminalBuffer::startLine(DataDirection direction, qint64 monotonicNs)
     line.monotonicNs = monotonicNs;
     line.wallClock = QDateTime::currentDateTime();
     line.direction = direction;
-    line.source = m_source;
+    line.source = m_currentSource;
     // Байты, придержанные до появления строки, принадлежат именно ей.
     line.raw = m_pendingRaw;
     m_pendingRaw.clear();

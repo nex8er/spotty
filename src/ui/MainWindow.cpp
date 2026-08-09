@@ -165,7 +165,6 @@ void MainWindow::buildUi()
 
     if (m_context.plugins && m_context.registry) {
         m_secondSession = new Session(m_context.plugins, m_context.registry, this);
-        m_secondSession->setEchoEnabled(false); // Эхо второго транспорта путало бы вывод.
     }
 
     // Общий буфер принадлежит окну: он переживает переключение режима, и обе сессии
@@ -504,6 +503,8 @@ QWidget *MainWindow::buildTerminalToolbar()
     connect(m_echoButton, &QToolButton::toggled, this, [this](bool enabled) {
         if (m_context.session)
             m_context.session->setEchoEnabled(enabled);
+        if (m_secondSession)
+            m_secondSession->setEchoEnabled(enabled);
         m_settings.localEcho = enabled;
         m_settings.save(*m_context.settings);
     });
@@ -908,6 +909,8 @@ void MainWindow::applySettings()
             QByteArray::fromHex(m_settings.packetizerDelimiterHex.toLatin1()));
         m_context.session->setPacketizerFixedLength(m_settings.packetizerFixedLength);
     }
+    if (m_secondSession)
+        m_secondSession->setEchoEnabled(m_settings.localEcho);
 
     m_sendBar->setFormat(DataCodec::Format(m_settings.sendFormat));
     m_sendBar->setTermination(DataCodec::Termination(m_settings.sendTermination));

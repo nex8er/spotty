@@ -262,6 +262,8 @@ private:
     bool m_reopenWhenAvailable = false;
 
     bool m_echoEnabled = true;
+    /// \brief Номер сессии в общем буфере; у собственного буфера всегда ноль.
+    quint8 m_source = 0;
     qint64 m_errorCount = 0;
 
     /// \brief Таймер межбайтовой паузы для Packetizer::Mode::InterByteTimeout.

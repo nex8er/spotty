@@ -99,36 +99,28 @@ public:
     void setEncoding(QStringConverter::Encoding encoding);
 
     /**
-     * \brief Номер транспорта, которым помечаются добавляемые строки.
-     *
-     * Задаётся сессией один раз. Передавать источник аргументом append() было бы честнее,
-     * но он приходит из того же места, что и всё остальное содержимое порции, и лишний
-     * параметр у метода, вызываемого из четырёх мест, ничего не уточняет.
-     */
-    void setSource(quint8 source) { m_source = source; }
-    quint8 source() const { return m_source; }
-
-    /**
      * \brief Добавить данные в буфер.
      * \param data Байты как пришли.
      * \param direction Откуда они.
      * \param monotonicNs Момент по монотонным часам.
      * \param terminatesLine Завершить строку после этих данных — так пакетизатор
      *        сообщает, что пакет кончился, даже если перевода строки в нём не было.
+     * \param source Номер транспорта, которому принадлежат данные.
      *
      * Смена направления всегда завершает текущую строку: отправленное и принятое не
      * должны смешиваться в одной строке, иначе метка направления теряет смысл.
      */
     void append(const QByteArray &data, DataDirection direction, qint64 monotonicNs,
-                bool terminatesLine = false);
+                bool terminatesLine = false, quint8 source = 0);
 
     /**
      * \brief Добавить сообщение самой программы отдельной строкой.
      *
      * Не проходит через разбор ANSI: текст задаём мы сами, и управляющих
      * последовательностей в нём быть не может.
+     * \param source Номер транспорта, к которому относится сообщение.
      */
-    void appendSystemMessage(const QString &message);
+    void appendSystemMessage(const QString &message, quint8 source = 0);
 
     /// \brief Очистить буфер. Сквозная нумерация при этом продолжается.
     void clear();
@@ -209,8 +201,8 @@ private:
     /// \brief Положение курсора в текущей строке. Меняется возвратом каретки и забоем.
     int m_cursorColumn = 0;
 
-    /// \brief Номер транспорта, которым помечаются новые строки.
-    quint8 m_source = 0;
+    /// \brief Номер транспорта, которому принадлежит открытая или следующая строка.
+    quint8 m_currentSource = 0;
 
     /// \brief Есть ли незавершённая строка, в которую пишем.
     bool m_hasOpenLine = false;

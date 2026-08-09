@@ -248,6 +248,37 @@ TEST(Session, ReceivedDataLandsInTheBuffer)
     EXPECT_EQ(fixture.session.buffer()->line(before)->text, QStringLiteral("hello"));
 }
 
+TEST(Session, SharedBufferKeepsSourceAndEchoForBothInterfaces)
+{
+    Fixture first;
+    Fixture second;
+    TerminalBuffer shared;
+
+    first.session.setSharedBuffer(&shared, 0);
+    second.session.setSharedBuffer(&shared, 1);
+    ASSERT_TRUE(first.openDevice());
+    ASSERT_TRUE(second.openDevice());
+    shared.clear();
+
+    ASSERT_TRUE(first.receive(QByteArrayLiteral("from-a\n")));
+    ASSERT_TRUE(second.receive(QByteArrayLiteral("from-b\n")));
+    ASSERT_EQ(shared.lineCount(), 2);
+    EXPECT_EQ(shared.line(0)->source, 0);
+    EXPECT_EQ(shared.line(0)->text, QStringLiteral("from-a"));
+    EXPECT_EQ(shared.line(1)->source, 1);
+    EXPECT_EQ(shared.line(1)->text, QStringLiteral("from-b"));
+
+    first.session.send(QByteArrayLiteral("echo-a"));
+    ASSERT_TRUE(waitFor([&] { return shared.lineCount() == 3; }));
+    EXPECT_EQ(shared.line(2)->direction, DataDirection::Tx);
+    EXPECT_EQ(shared.line(2)->source, 0);
+
+    second.session.send(QByteArrayLiteral("echo-b"));
+    ASSERT_TRUE(waitFor([&] { return shared.lineCount() == 4; }));
+    EXPECT_EQ(shared.line(3)->direction, DataDirection::Tx);
+    EXPECT_EQ(shared.line(3)->source, 1);
+}
+
 TEST(Session, DataLoggedSignalCarriesRawBytes)
 {
     Fixture fixture;
