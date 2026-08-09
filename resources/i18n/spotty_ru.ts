@@ -87,10 +87,6 @@
         <translation>Цвет</translation>
     </message>
     <message>
-        <source>Last</source>
-        <translation>Последнее</translation>
-    </message>
-    <message>
         <source>Min</source>
         <translation>Мин</translation>
     </message>
@@ -176,6 +172,18 @@
 </context>
 <context>
     <name>spotty::CsvChartView</name>
+    <message>
+        <source>Pause</source>
+        <translation>Пауза</translation>
+    </message>
+    <message>
+        <source>Freezes the picture, not the data: collecting continues.</source>
+        <translation>Замораживает картинку, но не сбор: накопление продолжается.</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Очистить</translation>
+    </message>
     <message>
         <source>Waiting for numeric lines in the output</source>
         <translation>Ждём числовые строки в выводе</translation>
@@ -797,7 +805,11 @@
     </message>
     <message numerus="yes">
         <source>%n file(s)</source>
-        <translation><numerusform>%n файл</numerusform><numerusform>%n файла</numerusform><numerusform>%n файлов</numerusform></translation>
+        <translation>
+            <numerusform>%n файл</numerusform>
+            <numerusform>%n файла</numerusform>
+            <numerusform>%n файлов</numerusform>
+        </translation>
     </message>
     <message>
         <source>only %1 free</source>
@@ -975,7 +987,11 @@
     </message>
     <message numerus="yes">
         <source>Delete %n selected macro(s)?</source>
-        <translation><numerusform>Удалить выделенный макрос?</numerusform><numerusform>Удалить %n выделенных макроса?</numerusform><numerusform>Удалить %n выделенных макросов?</numerusform></translation>
+        <translation>
+            <numerusform>Удалить выделенный макрос?</numerusform>
+            <numerusform>Удалить %n выделенных макроса?</numerusform>
+            <numerusform>Удалить %n выделенных макросов?</numerusform>
+        </translation>
     </message>
     <message>
         <source>Macro files (*.json)</source>
@@ -999,7 +1015,11 @@
     </message>
     <message numerus="yes">
         <source>Export %n selected macro(s)</source>
-        <translation><numerusform>Выгрузить выделенный макрос</numerusform><numerusform>Выгрузить %n выделенных макроса</numerusform><numerusform>Выгрузить %n выделенных макросов</numerusform></translation>
+        <translation>
+            <numerusform>Выгрузить выделенный макрос</numerusform>
+            <numerusform>Выгрузить %n выделенных макроса</numerusform>
+            <numerusform>Выгрузить %n выделенных макросов</numerusform>
+        </translation>
     </message>
     <message>
         <source>Could not write %1.</source>
