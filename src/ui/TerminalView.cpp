@@ -52,7 +52,7 @@ constexpr int kGutterGap = 1;
 /// \brief Ширина отметки направления, в знакоместах: «> », «< », «* ».
 constexpr int kDirectionWidth = 2;
 
-/// \brief Ширина колонки транспорта: буква и пробел.
+/// \brief Ширина колонки транспорта: буква и двоеточие.
 constexpr int kSourceWidth = 2;
 
 /// \brief Наименьшая ширина колонки номеров, знакомест под цифры.
@@ -1009,7 +1009,7 @@ void TerminalView::paintEvent(QPaintEvent *event)
                 // признак в той же колонке спорил бы с первым. Буква читается и на
                 // чёрно-белом снимке экрана.
                 painter.drawText(gutterX, textY,
-                                 QString(QChar(u'A' + line->source)));
+                                 QString(QChar(u'A' + line->source)) + u':');
                 gutterX += kSourceWidth * m_charWidth;
             }
 
