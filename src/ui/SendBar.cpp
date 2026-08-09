@@ -21,6 +21,8 @@
 #include <QPushButton>
 #include <QToolTip>
 
+#include <memory>
+
 namespace spotty {
 
 namespace {
@@ -280,12 +282,12 @@ void SendBar::completeFromHistory(bool backwards)
     }
 }
 
-void SendBar::contextMenuEvent(QContextMenuEvent *event)
+void SendBar::showInputContextMenu(const QPoint &globalPosition)
 {
     // Своё меню строится поверх штатного меню поля ввода, а не вместо него: вырезать
     // «Копировать» и «Вставить» ради одного своего пункта было бы обменом полезного на
     // удобное.
-    QMenu *menu = m_input->createStandardContextMenu();
+    const auto menu = std::unique_ptr<QMenu>(m_input->createStandardContextMenu());
 
     menu->addSeparator();
     QAction *makeMacro = menu->addAction(tr("Save as macro"));
@@ -294,13 +296,21 @@ void SendBar::contextMenuEvent(QContextMenuEvent *event)
         Q_EMIT makeMacroRequested(m_input->text(), int(format()), int(termination()));
     });
 
-    menu->exec(event->globalPos());
-    delete menu;
+    menu->exec(globalPosition);
 }
 
 bool SendBar::eventFilter(QObject *watched, QEvent *event)
 {
-    if (watched != m_input || event->type() != QEvent::KeyPress)
+    if (watched != m_input)
+        return QWidget::eventFilter(watched, event);
+
+    if (event->type() == QEvent::ContextMenu) {
+        auto *contextEvent = static_cast<QContextMenuEvent *>(event);
+        showInputContextMenu(contextEvent->globalPos());
+        return true;
+    }
+
+    if (event->type() != QEvent::KeyPress)
         return QWidget::eventFilter(watched, event);
 
     auto *keyEvent = static_cast<QKeyEvent *>(event);

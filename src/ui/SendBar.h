@@ -97,11 +97,11 @@ private:
     /// \brief Показать или убрать сообщение об ошибке кодирования.
     void showError(const QString &message);
 
-    /// \brief Обработчик клавиш поля ввода.
-    bool eventFilter(QObject *watched, QEvent *event) override;
+    /// \brief Открыть меню ввода по глобальной позиции курсора.
+    void showInputContextMenu(const QPoint &globalPosition);
 
-protected:
-    void contextMenuEvent(QContextMenuEvent *event) override;
+    /// \brief Обработчик клавиш и контекстного меню поля ввода.
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
     HistoryStore *m_history;
 
