@@ -1454,14 +1454,6 @@ Double-click to edit, right-click for options</source>
         <translation>Правила подсветки</translation>
     </message>
     <message>
-        <source>Pattern</source>
-        <translation>Выражение</translation>
-    </message>
-    <message>
-        <source>Colour</source>
-        <translation>Цвет</translation>
-    </message>
-    <message>
         <source>Add rule</source>
         <translation>Добавить правило</translation>
     </message>
@@ -1476,6 +1468,14 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Highlight colour</source>
         <translation>Цвет подсветки</translation>
+    </message>
+    <message>
+        <source>For example: ^(WARN|ERROR).*[0-9]+$</source>
+        <translation>Например: ^(WARN|ERROR).*[0-9]+$</translation>
+    </message>
+    <message>
+        <source>%1 of %2</source>
+        <translation>%1 из %2</translation>
     </message>
     <message numerus="yes">
         <source>%n line(s)</source>

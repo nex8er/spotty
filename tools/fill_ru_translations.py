@@ -255,6 +255,7 @@ TRANSLATIONS = {
     "Previous match": "Предыдущее совпадение",
     "Regular expression": "Регулярное выражение",
     "Case sensitive": "Учитывать регистр",
+    "For example: ^(WARN|ERROR).*[0-9]+$": "Например: ^(WARN|ERROR).*[0-9]+$",
     "Whole words": "Слова целиком",
     "Show only matching lines": "Только совпавшие строки",
     "Hides everything that does not match, instead of just highlighting it.":

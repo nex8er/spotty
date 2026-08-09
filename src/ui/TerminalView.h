@@ -191,6 +191,12 @@ public:
     int matchCount() const;
 
     /**
+     * \brief Порядковый номер текущего совпадения, считая с единицы.
+     * \return 0, если поиск не задан или переход ни разу не делали.
+     */
+    int currentMatch() const;
+
+    /**
      * \brief Что показать вместо пустого поля вывода.
      * \param text Одна короткая фраза; пустая строка убирает подсказку.
      *
@@ -221,8 +227,8 @@ Q_SIGNALS:
     /// \brief Изменилось слежение за выводом — панель может показать это кнопкой.
     void followTailChanged(bool following);
 
-    /// \brief Изменилось число совпадений с образцом поиска.
-    void matchCountChanged(int count);
+    /// \brief Изменился набор совпадений или положение в нём.
+    void matchCountChanged(int currentMatch, int totalMatches);
 
     /**
      * \brief Пользователь изменил кегль колесом с Ctrl.

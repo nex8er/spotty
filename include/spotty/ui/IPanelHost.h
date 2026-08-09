@@ -235,7 +235,18 @@ public:
     virtual void setFilterEnabled(bool enabled) = 0;
     virtual void findNext() = 0;
     virtual void findPrevious() = 0;
+
+    /// \brief Сколько строк совпало с образцом поиска.
     virtual int matchCount() const = 0;
+
+    /**
+     * \brief Порядковый номер текущего совпадения, считая с единицы.
+     * \return 0, если поиск не задан или переход ни разу не делали.
+     *
+     * Вместе с matchCount() даёт «23 из 435». Одного числа мало: сотня совпадений без
+     * указания, где ты среди них, не отвечает ни на один вопрос, ради которого искали.
+     */
+    virtual int currentMatch() const = 0;
 
     /// @}
     /// \name Чтение разобранных строк
@@ -296,7 +307,15 @@ Q_SIGNALS:
 
     void channelStateChanged(spotty::ChannelState state);
     void themeChanged();
-    void matchCountChanged(int count);
+    /**
+     * \brief Набор совпадений или положение в нём изменились.
+     * \param currentMatch Номер текущего совпадения с единицы; 0 — перехода не было.
+     * \param totalMatches Всего совпавших строк.
+     *
+     * Оба числа в одном сигнале, а не в двух: «23 из 435» — это один факт, и разнесённый
+     * по двум уведомлениям он неизбежно показывался бы промежуточным состоянием.
+     */
+    void matchCountChanged(int currentMatch, int totalMatches);
 
     /// \param shortcutId Полный идентификатор вида `"<pluginId>.<id>"`.
     void shortcutActivated(const QString &shortcutId);

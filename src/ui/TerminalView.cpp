@@ -425,7 +425,7 @@ void TerminalView::setSearchPattern(const QString &pattern, bool regularExpressi
 
     scheduleMarkerUpdate();
     viewport()->update();
-    Q_EMIT matchCountChanged(matchCount());
+    Q_EMIT matchCountChanged(currentMatch(), matchCount());
 }
 
 void TerminalView::setFilterEnabled(bool enabled)
@@ -774,6 +774,26 @@ void TerminalView::updateScrollBars()
         kLeftMargin + gutterWidth() + m_widestColumnsSeen * m_charWidth;
     horizontalScrollBar()->setRange(0, qMax(0, contentWidth - viewport()->width()));
     horizontalScrollBar()->setPageStep(viewport()->width());
+}
+
+int TerminalView::currentMatch() const
+{
+    if (!m_searchActive || !m_buffer || m_currentMatch < 0)
+        return 0;
+
+    // В режиме фильтра видимые строки и есть совпавшие, и номер текущей — это её место в
+    // списке; считать нечего.
+    if (m_filterEnabled)
+        return m_currentMatch + 1;
+
+    int ordinal = 0;
+    const int last = qMin(m_currentMatch, int(m_visible.size()) - 1);
+    for (int i = 0; i <= last; ++i) {
+        const TerminalBuffer::Line *line = m_buffer->line(m_visible[size_t(i)].lineNumber);
+        if (line && m_searchRegex.match(line->text).hasMatch())
+            ++ordinal;
+    }
+    return ordinal;
 }
 
 int TerminalView::matchCount() const
@@ -1219,6 +1239,11 @@ void TerminalView::stepMatch(int direction)
         const int half = viewport()->height() / m_lineHeight / 2;
         setFollowTail(false);
         verticalScrollBar()->setValue(int(qMax(qint64(0), rowIndex - half)));
+
+        // Номер текущего совпадения сменился — счётчик «23 из 435» обязан это показать.
+        // Без сигнала переход остаётся без числового отклика, и «дальше» на длинном
+        // списке выглядит как топтание на месте.
+        Q_EMIT matchCountChanged(currentMatch(), matchCount());
 
         viewport()->update();
         return;

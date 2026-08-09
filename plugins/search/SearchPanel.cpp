@@ -81,12 +81,26 @@ SearchPanel::SearchPanel(IPanelHost *panelHost, QWidget *parent)
     // --- Строка поиска ---------------------------------------------------------------
 
     m_pattern = new QLineEdit(this);
-    m_pattern->setPlaceholderText(tr("Find in output"));
     m_pattern->setClearButtonEnabled(true);
     layout->addWidget(m_pattern);
 
-    auto *navigationRow = new QHBoxLayout;
-    navigationRow->setSpacing(4);
+    // Ряд под полем: слева модификаторы образца, справа переходы по совпадениям. Деление
+    // не косметическое — левая группа меняет, что считать совпадением, правая ходит по
+    // уже найденному. Растяжка между ними и есть граница смысла.
+    auto *toolRow = new QHBoxLayout;
+    toolRow->setSpacing(2);
+
+    const auto makeToggle = [this](const QString &tip) {
+        auto *button = new QToolButton(this);
+        button->setAutoRaise(true);
+        button->setCheckable(true);
+        button->setToolTip(tip);
+        return button;
+    };
+
+    m_caseSensitive = makeToggle(tr("Case sensitive"));
+    m_wholeWords = makeToggle(tr("Whole words"));
+    m_regex = makeToggle(tr("Regular expression"));
 
     m_previous = new QToolButton(this);
     m_previous->setAutoRaise(true);
@@ -96,25 +110,26 @@ SearchPanel::SearchPanel(IPanelHost *panelHost, QWidget *parent)
     m_next->setAutoRaise(true);
     m_next->setToolTip(tr("Next match"));
 
+    toolRow->addWidget(m_caseSensitive);
+    toolRow->addWidget(m_wholeWords);
+    toolRow->addWidget(m_regex);
+    toolRow->addStretch(1);
+    toolRow->addWidget(m_previous);
+    toolRow->addWidget(m_next);
+    layout->addLayout(toolRow);
+
+    // Счётчик отдельной строкой под кнопками: рядом с ними он отнимал бы у них ширину, а
+    // на узкой панели «23 из 435» — уже заметный кусок.
     m_matchLabel = new QLabel(this);
     m_matchLabel->setObjectName(QStringLiteral("hintLabel"));
+    layout->addWidget(m_matchLabel);
 
-    navigationRow->addWidget(m_previous);
-    navigationRow->addWidget(m_next);
-    navigationRow->addWidget(m_matchLabel, 1);
-    layout->addLayout(navigationRow);
-
-    m_regex = new QCheckBox(tr("Regular expression"), this);
-    m_caseSensitive = new QCheckBox(tr("Case sensitive"), this);
-    m_wholeWords = new QCheckBox(tr("Whole words"), this);
     m_filter = new QCheckBox(tr("Show only matching lines"), this);
     m_filter->setToolTip(tr("Hides everything that does not match, instead of just "
                             "highlighting it."));
-
-    layout->addWidget(m_regex);
-    layout->addWidget(m_caseSensitive);
-    layout->addWidget(m_wholeWords);
     layout->addWidget(m_filter);
+
+    updatePatternHint();
 
     // --- Правила подсветки -----------------------------------------------------------
 
@@ -123,7 +138,9 @@ SearchPanel::SearchPanel(IPanelHost *panelHost, QWidget *parent)
     layout->addWidget(rulesTitle);
 
     m_rules = new QTableWidget(0, ColumnCount, this);
-    m_rules->setHorizontalHeaderLabels({QString(), tr("Pattern"), tr("Colour")});
+    // Заголовок убран: три колонки — флажок, выражение и квадратик цвета — узнаются с
+    // одного взгляда, а подписи над ними съедали строку на панели, где её и так мало.
+    m_rules->horizontalHeader()->setVisible(false);
     m_rules->horizontalHeader()->setSectionResizeMode(ColumnPattern, QHeaderView::Stretch);
     m_rules->horizontalHeader()->setSectionResizeMode(ColumnEnabled,
                                                       QHeaderView::ResizeToContents);
@@ -161,11 +178,12 @@ SearchPanel::SearchPanel(IPanelHost *panelHost, QWidget *parent)
         host()->setValue(QLatin1String(kKeyRegex), m_regex->isChecked());
         host()->setValue(QLatin1String(kKeyCase), m_caseSensitive->isChecked());
         host()->setValue(QLatin1String(kKeyWholeWords), m_wholeWords->isChecked());
+        updatePatternHint();
         applySearch();
     };
-    connect(m_regex, &QCheckBox::toggled, this, onOptionChanged);
-    connect(m_caseSensitive, &QCheckBox::toggled, this, onOptionChanged);
-    connect(m_wholeWords, &QCheckBox::toggled, this, onOptionChanged);
+    connect(m_regex, &QToolButton::toggled, this, onOptionChanged);
+    connect(m_caseSensitive, &QToolButton::toggled, this, onOptionChanged);
+    connect(m_wholeWords, &QToolButton::toggled, this, onOptionChanged);
 
     connect(m_filter, &QCheckBox::toggled, this,
             [this](bool on) { host()->setFilterEnabled(on); });
@@ -232,6 +250,9 @@ SearchPanel::SearchPanel(IPanelHost *panelHost, QWidget *parent)
 
 void SearchPanel::updateIcons()
 {
+    m_caseSensitive->setIcon(host()->icon(mdi::FormatLetterCase, kToolGlyphSize));
+    m_wholeWords->setIcon(host()->icon(mdi::FormatLetterMatches, kToolGlyphSize));
+    m_regex->setIcon(host()->icon(mdi::Regex, kToolGlyphSize));
     m_previous->setIcon(host()->icon(mdi::ChevronUp, kToolGlyphSize));
     m_next->setIcon(host()->icon(mdi::ChevronDown, kToolGlyphSize));
     m_addRule->setIcon(host()->icon(mdi::Plus, kToolGlyphSize));
@@ -258,6 +279,11 @@ void SearchPanel::reloadFromSettings()
     m_wholeWords->setChecked(host()->value(QLatin1String(kKeyWholeWords), false).toBool());
     m_populating = false;
 
+    // Подсказку обновляем руками: обработчик кнопок погашен флагом, а режим только что
+    // восстановлен из настроек — иначе после запуска с включённым регулярным выражением
+    // в поле стояла бы подсказка обычного поиска.
+    updatePatternHint();
+
     // Правила восстанавливаются при запуске: их настраивают один раз под конкретное
     // устройство и ждут, что они останутся. Отдать их терминалу можно сразу — он
     // существует раньше панели, и обходной путь с геттером больше не нужен.
@@ -279,13 +305,25 @@ void SearchPanel::applySearch()
                              });
 }
 
-void SearchPanel::setMatchCount(int count)
+void SearchPanel::updatePatternHint()
+{
+    m_pattern->setPlaceholderText(m_regex->isChecked()
+                                      ? tr("For example: ^(WARN|ERROR).*[0-9]+$")
+                                      : tr("Find in output"));
+}
+
+void SearchPanel::setMatchCount(int currentMatch, int totalMatches)
 {
     if (m_pattern->text().isEmpty()) {
         m_matchLabel->clear();
         return;
     }
-    m_matchLabel->setText(tr("%n line(s)", nullptr, count));
+
+    // Пока перехода не было, показывать «0 из 435» нельзя: нуля среди совпадений нет, и
+    // читается это как «ничего не нашлось». До первого «дальше» видно только сколько их.
+    m_matchLabel->setText(currentMatch > 0
+                              ? tr("%1 of %2").arg(currentMatch).arg(totalMatches)
+                              : tr("%n line(s)", nullptr, totalMatches));
 }
 
 void SearchPanel::focusSearch()

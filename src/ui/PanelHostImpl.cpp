@@ -253,6 +253,12 @@ int PanelHostImpl::matchCount() const
     return terminal ? terminal->matchCount() : 0;
 }
 
+int PanelHostImpl::currentMatch() const
+{
+    TerminalView *terminal = m_window ? m_window->terminalView() : nullptr;
+    return terminal ? terminal->currentMatch() : 0;
+}
+
 // --- Терминал: чтение строк ------------------------------------------------------------------
 
 qint64 PanelHostImpl::firstLineNumber() const

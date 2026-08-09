@@ -64,8 +64,18 @@ private:
     /// \brief Добавить строку таблицы под одно правило.
     void appendRuleRow(const HighlightRule &rule);
 
-    /// \brief Показать число найденных строк.
-    void setMatchCount(int count);
+    /// \brief Показать, на каком совпадении стоим и сколько их всего.
+    void setMatchCount(int currentMatch, int totalMatches);
+
+    /**
+     * \brief Обновить подсказку в пустом поле поиска.
+     *
+     * В обычном режиме — что тут делают, в режиме регулярного выражения — пример
+     * выражения. Синтаксис нигде больше не показан, а пустое поле с надписью «найти в
+     * выводе» о нём не намекает: включивший режим впервые вводит обычный текст и решает,
+     * что режим не работает.
+     */
+    void updatePatternHint();
 
     /// \brief Прочитать всё своё из настроек и применить.
     void reloadFromSettings();
@@ -73,9 +83,17 @@ private:
     void updateIcons();
 
     QLineEdit *m_pattern = nullptr;
-    QCheckBox *m_regex = nullptr;
-    QCheckBox *m_caseSensitive = nullptr;
-    QCheckBox *m_wholeWords = nullptr;
+
+    /// \name Модификаторы поиска
+    /// Кнопки-переключатели, а не флажки: три подписи в столбик занимали половину панели,
+    /// а сами модификаторы — это состояния поиска, и место им рядом с полем, как принято
+    /// в остальном интерфейсе программы.
+    /// @{
+    QToolButton *m_regex = nullptr;
+    QToolButton *m_caseSensitive = nullptr;
+    QToolButton *m_wholeWords = nullptr;
+    /// @}
+
     QCheckBox *m_filter = nullptr;
     QToolButton *m_previous = nullptr;
     QToolButton *m_next = nullptr;

@@ -70,5 +70,8 @@ inline constexpr char32_t ChartLine = 0xF012A;
 inline constexpr char32_t FileUpload = 0xF0A4D;
 inline constexpr char32_t FormatListNumbered = 0xF027B;
 inline constexpr char32_t TableOff = 0xF13CA;
+inline constexpr char32_t FormatLetterCase = 0xF0B34;
+inline constexpr char32_t Regex = 0xF0451;
+inline constexpr char32_t FormatLetterMatches = 0xF0FB9;
 
 } // namespace spotty::mdi

@@ -2,7 +2,7 @@
 
 Плагины, которые обрабатывают данные и показывают собственный интерфейс.
 
-**Версия API:** 1 (`SPOTTY_UI_API_VERSION`)
+**Версия API:** 2 (`SPOTTY_UI_API_VERSION`)
 
 Про плагины **транспортов** — отдельный документ: [PLUGIN_API.md](PLUGIN_API.md).
 
@@ -202,7 +202,7 @@ QString documentsDir() const;  // для файлов, которые откро
 
 Запись: `appendToTerminal()`, `injectReceived()`, `clearTerminal()`, `showDocument()`.
 Показ: `setHighlightRules()`, `setSearchPattern()`, `setFilterEnabled()`, `findNext()`,
-`findPrevious()`, `matchCount()`.
+`findPrevious()`, `matchCount()`, `currentMatch()`.
 Чтение: `firstLineNumber()`, `nextLineNumber()`, `line(number, TerminalLine *)`.
 
 > Нумерация строк сквозная и никогда не сбрасывается, но буфер подрезается спереди —
@@ -229,7 +229,7 @@ void dataReceived(const QByteArray &data, qint64 monotonicNs);
 void terminalLinesAppended(qint64 firstLineNumber, qint64 count);
 void channelStateChanged(spotty::ChannelState state);
 void themeChanged();
-void matchCountChanged(int count);
+void matchCountChanged(int currentMatch, int totalMatches);
 void shortcutActivated(const QString &shortcutId);  // "<pluginId>.<id>"
 void settingsReset();
 void aboutToClose();
