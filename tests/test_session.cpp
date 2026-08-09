@@ -260,23 +260,29 @@ TEST(Session, SharedBufferKeepsSourceAndEchoForBothInterfaces)
     ASSERT_TRUE(second.openDevice());
     shared.clear();
 
+    // Нумерация строк сквозная и clear() её не сбрасывает (см. Doxygen у
+    // TerminalBuffer::clear()) — а к этому моменту в буфере уже есть две строки «открыт»,
+    // по одной на сессию. Считать номера от firstLineNumber(), а не от нуля: буквальный
+    // line(0) целится в уже вытесненную строку и line() тихо возвращает nullptr.
+    const qint64 base = shared.firstLineNumber();
+
     ASSERT_TRUE(first.receive(QByteArrayLiteral("from-a\n")));
     ASSERT_TRUE(second.receive(QByteArrayLiteral("from-b\n")));
     ASSERT_EQ(shared.lineCount(), 2);
-    EXPECT_EQ(shared.line(0)->source, 0);
-    EXPECT_EQ(shared.line(0)->text, QStringLiteral("from-a"));
-    EXPECT_EQ(shared.line(1)->source, 1);
-    EXPECT_EQ(shared.line(1)->text, QStringLiteral("from-b"));
+    EXPECT_EQ(shared.line(base)->source, 0);
+    EXPECT_EQ(shared.line(base)->text, QStringLiteral("from-a"));
+    EXPECT_EQ(shared.line(base + 1)->source, 1);
+    EXPECT_EQ(shared.line(base + 1)->text, QStringLiteral("from-b"));
 
     first.session.send(QByteArrayLiteral("echo-a"));
     ASSERT_TRUE(waitFor([&] { return shared.lineCount() == 3; }));
-    EXPECT_EQ(shared.line(2)->direction, DataDirection::Tx);
-    EXPECT_EQ(shared.line(2)->source, 0);
+    EXPECT_EQ(shared.line(base + 2)->direction, DataDirection::Tx);
+    EXPECT_EQ(shared.line(base + 2)->source, 0);
 
     second.session.send(QByteArrayLiteral("echo-b"));
     ASSERT_TRUE(waitFor([&] { return shared.lineCount() == 4; }));
-    EXPECT_EQ(shared.line(3)->direction, DataDirection::Tx);
-    EXPECT_EQ(shared.line(3)->source, 1);
+    EXPECT_EQ(shared.line(base + 3)->direction, DataDirection::Tx);
+    EXPECT_EQ(shared.line(base + 3)->source, 1);
 }
 
 TEST(Session, DataLoggedSignalCarriesRawBytes)
