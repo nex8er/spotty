@@ -813,11 +813,19 @@
     </message>
     <message numerus="yes">
         <source>Delete %n selected log file(s) permanently?</source>
-        <translation><numerusform>Удалить выбранный файл журнала без возможности восстановления?</numerusform><numerusform>Удалить %n выбранных файла журнала без возможности восстановления?</numerusform><numerusform>Удалить %n выбранных файлов журнала без возможности восстановления?</numerusform></translation>
+        <translation>
+            <numerusform>Удалить выбранный файл журнала без возможности восстановления?</numerusform>
+            <numerusform>Удалить %n выбранных файла журнала без возможности восстановления?</numerusform>
+            <numerusform>Удалить %n выбранных файлов журнала без возможности восстановления?</numerusform>
+        </translation>
     </message>
     <message numerus="yes">
         <source>Deleted %n log file(s).</source>
-        <translation><numerusform>Удалён %n файл журнала.</numerusform><numerusform>Удалено %n файла журнала.</numerusform><numerusform>Удалено %n файлов журнала.</numerusform></translation>
+        <translation>
+            <numerusform>Удалён %n файл журнала.</numerusform>
+            <numerusform>Удалено %n файла журнала.</numerusform>
+            <numerusform>Удалено %n файлов журнала.</numerusform>
+        </translation>
     </message>
     <message>
         <source>Could not delete: %1</source>
@@ -1959,6 +1967,10 @@ Continue?</source>
     <message>
         <source>Line numbers</source>
         <translation>Номера строк</translation>
+    </message>
+    <message>
+        <source>Set line number origin here</source>
+        <translation>Сбросить отсчёт номеров строк здесь</translation>
     </message>
     <message>
         <source>Scroll to Bottom</source>

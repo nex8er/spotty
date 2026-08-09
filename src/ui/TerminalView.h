@@ -135,6 +135,15 @@ public:
     void setShowDirection(bool show);
     bool showDirection() const { return m_showDirection; }
 
+    /**
+     * \brief Сделать указанную строку нулём пользовательской нумерации.
+     * \param lineNumber Сквозной номер строки в буфере.
+     *
+     * Строки до неё получают отрицательные номера, поэтому ориентир можно поставить
+     * посреди уже накопленного журнала, не теряя контекст до него.
+     */
+    void setLineNumberOrigin(qint64 lineNumber);
+
     /// \brief Байтов в ряду HEX-дампа.
     void setHexBytesPerRow(int bytes);
     int hexBytesPerRow() const { return m_hexBytesPerRow; }
@@ -413,6 +422,9 @@ private:
     QString m_timestampFormat = QStringLiteral("HH:mm:ss.zzz");
     bool m_showDirection = true;
     int m_hexBytesPerRow = 16;
+
+    /// \brief Сквозной номер строки, которая отображается нулём.
+    qint64 m_lineNumberOrigin = -1;
 
     QFont m_font;
     int m_charWidth = 8;

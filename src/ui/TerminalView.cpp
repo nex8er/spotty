@@ -358,6 +358,16 @@ void TerminalView::setShowDirection(bool show)
     viewport()->update();
 }
 
+void TerminalView::setLineNumberOrigin(qint64 lineNumber)
+{
+    if (m_lineNumberOrigin == lineNumber)
+        return;
+
+    m_lineNumberOrigin = lineNumber;
+    updateScrollBars();
+    viewport()->update();
+}
+
 void TerminalView::setHexBytesPerRow(int bytes)
 {
     const int clamped = qBound(1, bytes, 64);
@@ -684,13 +694,15 @@ int TerminalView::lineNumberColumns() const
     if (!m_showLineNumbers)
         return 0;
 
-    // Ширина считается по наибольшему номеру, но не уже пяти знакомест. Иначе колонка
-    // расширялась бы на каждом переходе через степень десяти, и весь текст справа
-    // прыгал бы вбок посреди работы — ровно в тот момент, когда за ним следят.
+    // Ширина считается по крайним относительным номерам, но не уже пяти знакомест.
+    // Иначе колонка расширялась бы на каждом переходе через степень десяти, и весь текст
+    // справа прыгал бы вбок посреди работы — ровно в тот момент, когда за ним следят.
     int digits = kMinLineNumberDigits;
-    if (m_buffer) {
-        const qint64 largest = qMax(qint64(1), m_buffer->nextLineNumber());
-        digits = qMax(digits, int(QString::number(largest).size()));
+    if (m_buffer && m_buffer->lineCount() > 0) {
+        const qint64 first = m_buffer->firstLineNumber() - m_lineNumberOrigin;
+        const qint64 last = m_buffer->nextLineNumber() - 1 - m_lineNumberOrigin;
+        digits = qMax(digits, int(QString::number(first).size()));
+        digits = qMax(digits, int(QString::number(last).size()));
     }
     // Плюс знакоместо на пробел, как и у метки времени.
     return digits + 1;
@@ -998,7 +1010,7 @@ void TerminalView::paintEvent(QPaintEvent *event)
                 // Номер прижат вправо внутри своей колонки: у выключенного по левому краю
                 // столбца разной длины единицы не выстраиваются друг под другом, и
                 // сравнить два номера глазами становится нельзя.
-                const QString number = QString::number(lineNumber + 1)
+                const QString number = QString::number(lineNumber - m_lineNumberOrigin)
                                            .rightJustified(columns - 1, u' ');
                 painter.drawText(gutterX, textY, number);
                 gutterX += columns * m_charWidth;
@@ -1426,6 +1438,12 @@ void TerminalView::contextMenuEvent(QContextMenuEvent *event)
         setShowLineNumbers(on);
         Q_EMIT showLineNumbersChanged(on);
     });
+
+    const Position at = positionAt(event->pos());
+    QAction *resetOrigin = menu.addAction(tr("Set line number origin here"));
+    resetOrigin->setEnabled(at.isValid());
+    connect(resetOrigin, &QAction::triggered, this,
+            [this, lineNumber = at.lineNumber] { setLineNumberOrigin(lineNumber); });
 
     menu.addSeparator();
     menu.addAction(tr("Scroll to Bottom"), this, &TerminalView::scrollToBottom);
