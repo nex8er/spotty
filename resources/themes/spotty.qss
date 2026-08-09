@@ -657,6 +657,23 @@ QMenu::item:disabled {
     color: @textMuted;
 }
 
+/* У подпунктов макроса отметка нужна лишь как маркер выбранного варианта. Общий отступ
+   меню рассчитан на команды с иконками; вместе с колонкой отметки он раздвигал галочку
+   и текст почти на ширину ещё одного пункта. */
+QMenu#macroOptionMenu::item {
+    padding: 5px 5px;
+}
+
+QMenu#macroOptionMenu::indicator {
+    width: 16px;
+    height: 16px;
+    image: none;
+}
+
+QMenu#macroOptionMenu::indicator:checked {
+    image: url(:/icons/check.svg);
+}
+
 QMenu::separator {
     height: 1px;
     background: @border;
