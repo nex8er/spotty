@@ -20,6 +20,7 @@
 #include <QCheckBox>
 #include <QClipboard>
 #include <QDrag>
+#include <QFile>
 #include <QFileInfo>
 #include <QHBoxLayout>
 #include <QKeyEvent>
@@ -195,8 +196,8 @@ LoggingPanel::LoggingPanel(IPanelHost *panelHost, QWidget *parent)
     layout->addWidget(listTitle);
 
     m_files = new LogFileList(this);
-    m_files->setToolTip(tr("Click to view in the terminal. Drag out or press Ctrl+C to "
-                           "copy the file itself."));
+    m_files->setToolTip(tr("Use the context menu to view in the terminal. Drag out or press "
+                           "Ctrl+C to copy the file itself."));
     m_files->setContextMenuPolicy(Qt::CustomContextMenu);
     layout->addWidget(m_files, 1);
 
@@ -218,10 +219,6 @@ LoggingPanel::LoggingPanel(IPanelHost *panelHost, QWidget *parent)
     };
     connect(m_filterAnsi, &QCheckBox::toggled, this, onOptionToggled);
     connect(m_includeTx, &QCheckBox::toggled, this, onOptionToggled);
-
-    connect(m_files, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
-        host()->showDocument(item->data(Qt::UserRole).toString(), item->text());
-    });
 
     // Сырые байты обоих направлений — то, что было на проводе.
     connect(host(), &IPanelHost::dataLogged, &m_writer, &LogWriter::write);
@@ -352,6 +349,19 @@ void LoggingPanel::updateRecordingCaption()
 
 void LoggingPanel::showFileMenu(const QPoint &position)
 {
+    QListWidgetItem *item = m_files->itemAt(position);
+    if (!item)
+        return;
+
+    // Контекстное меню действует на выделение. Правый клик по другой строке начинает
+    // новое выделение, но по уже выделенной — сохраняет остальные файлы для групповой
+    // операции.
+    if (!item->isSelected()) {
+        m_files->clearSelection();
+        item->setSelected(true);
+    }
+    m_files->setCurrentItem(item);
+
     const QString path = selectedFilePath();
     if (path.isEmpty())
         return;
@@ -361,47 +371,70 @@ void LoggingPanel::showFileMenu(const QPoint &position)
     menu.addAction(tr("View in terminal"), this,
                    [this, path] { host()->showDocument(path, QFileInfo(path).fileName()); });
 
-    // Название пункта платформенное: «Показать в Finder» на macOS и «Показать в
-    // проводнике» на прочих системах — человек ищет то слово, которое видит в своей
-    // системе, а не общее «открыть каталог».
-#if defined(Q_OS_MACOS)
-    const QString revealName = tr("Reveal in Finder");
-#elif defined(Q_OS_WIN)
-    const QString revealName = tr("Show in Explorer");
-#else
-    const QString revealName = tr("Open containing folder");
-#endif
-    menu.addAction(revealName, this, [path] {
+    menu.addAction(tr("Show in Explorer"), this, [path] {
         // Открываем каталог, а не файл: файл открылся бы текстовым редактором, а просили
         // показать, где он лежит.
         QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath()));
     });
+
+    menu.addAction(tr("Copy file"), m_files, &LogFileList::copySelectedFiles);
 
     menu.addAction(tr("Copy path"), this,
                    [path] { QApplication::clipboard()->setText(path); });
 
     menu.addSeparator();
 
-    QAction *remove = menu.addAction(tr("Delete"), this, [this, path] {
-        // Удаление файла необратимо, и подтверждение здесь обязательно: список плотный,
-        // промах мышью на строку стоит дёшево, а лог бывает единственным свидетельством
-        // происшедшего.
-        const auto answer = QMessageBox::question(
-            window(), tr("Delete log"),
-            tr("Delete %1 permanently?").arg(QFileInfo(path).fileName()));
-        if (answer != QMessageBox::Yes)
-            return;
-        if (QFile::remove(path)) {
-            refreshFileList();
-        } else {
-            host()->showStatusMessage(tr("Cannot delete %1").arg(QFileInfo(path).fileName()));
-        }
-    });
+    QAction *remove = menu.addAction(tr("Delete selected"), this,
+                                     &LoggingPanel::deleteSelectedFiles);
     // Файл, в который идёт запись, удалить нельзя: писать стало бы некуда, а запись
     // продолжалась бы в никуда до первой ошибки.
-    remove->setEnabled(path != m_writer.currentFilePath());
+    remove->setEnabled(!selectedFilePaths().contains(m_writer.currentFilePath()));
 
     menu.exec(m_files->mapToGlobal(position));
+}
+
+void LoggingPanel::deleteSelectedFiles()
+{
+    const QStringList paths = selectedFilePaths();
+    if (paths.isEmpty())
+        return;
+
+    // Удаление файла необратимо, и подтверждение здесь обязательно: список плотный,
+    // промах мышью на строку стоит дёшево, а лог бывает единственным свидетельством
+    // происшедшего.
+    const auto answer = QMessageBox::question(
+        window(), tr("Delete logs"),
+        tr("Delete %n selected log file(s) permanently?", nullptr, paths.size()),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+    if (answer != QMessageBox::Yes)
+        return;
+
+    QStringList failed;
+    int deleted = 0;
+    for (const QString &path : paths) {
+        if (QFile::remove(path)) {
+            ++deleted;
+        } else {
+            failed.append(QFileInfo(path).fileName());
+        }
+    }
+
+    refreshFileList();
+    if (failed.isEmpty()) {
+        host()->showStatusMessage(tr("Deleted %n log file(s).", nullptr, deleted));
+    } else {
+        host()->showStatusMessage(tr("Could not delete: %1").arg(failed.join(", ")));
+    }
+}
+
+QStringList LoggingPanel::selectedFilePaths() const
+{
+    QStringList paths;
+    const QList<QListWidgetItem *> items = m_files->selectedItems();
+    paths.reserve(items.size());
+    for (const QListWidgetItem *item : items)
+        paths.append(item->data(Qt::UserRole).toString());
+    return paths;
 }
 
 QString LoggingPanel::selectedFilePath() const

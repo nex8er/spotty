@@ -8,6 +8,7 @@
 #include <spotty/ui/PanelWidget.h>
 
 #include <QListWidget>
+#include <QStringList>
 
 class QCheckBox;
 class QComboBox;
@@ -90,7 +91,13 @@ private:
     /// \brief Обновить строку об общем объёме логов на диске.
     void updateDiskUsage();
 
-    /// \return Путь к выделенному файлу либо пустая строка.
+    /// \brief Удалить все выделенные файлы после подтверждения.
+    void deleteSelectedFiles();
+
+    /// \return Пути к выделенным файлам.
+    QStringList selectedFilePaths() const;
+
+    /// \return Путь к текущему файлу либо пустая строка.
     QString selectedFilePath() const;
 
     LogWriter m_writer;
