@@ -7,7 +7,6 @@
 #include "PlatformChrome.h"
 
 #include <QAbstractButton>
-#include <QAbstractItemView>
 #include <QApplication>
 #include <QComboBox>
 #include <QEvent>
@@ -16,6 +15,7 @@
 #include <QFrame>
 #include <QLayout>
 #include <QPalette>
+#include <QProxyStyle>
 #include <QRegularExpression>
 #include <QStyleFactory>
 #include <QWidget>
@@ -37,6 +37,38 @@ ThemeManager *g_instance = nullptr;
  * них нечего: полоса или стрелки только мешают попасть в нужный пункт.
  */
 constexpr int kNoScrollItems = 12;
+
+/**
+ * \brief Fusion с отключённым «менюшным» режимом раскрытого списка.
+ *
+ * Собственная рамка у QComboBox заставляет QStyleSheetStyle отвечать на
+ * `SH_ComboBox_Popup` утвердительно, и `QComboBoxPrivate::showPopup()` начинает строить
+ * список как меню: окно раздвигается на `PM_MenuVMargin` сверху и снизу, вместо полосы
+ * прокрутки появляются стрелки-скроллеры, а высоту окна Qt считает **без** учёта этих
+ * полей. Итог — список из трёх пунктов, показывающий два с половиной и стрелку.
+ *
+ * Бороться со следствиями бесполезно: подгонять высоту приходилось бы после каждого
+ * показа, наперегонки с `showPopup()`, который ставит геометрию сам. Проще снять причину —
+ * ответить на подсказку стиля отрицательно. Тогда список раскрывается обычным окном под
+ * полем, высоту считает сам Qt по `maxVisibleItems`, и прокрутка появляется ровно тогда,
+ * когда пунктов действительно больше, чем помещается.
+ *
+ * \note Подсказка снимается для всех виджетов сразу, а не для отдельных списков: рамка в
+ *       таблице стилей задана всем QComboBox, и исключений быть не может.
+ */
+class FusionStyle : public QProxyStyle
+{
+public:
+    using QProxyStyle::QProxyStyle;
+
+    int styleHint(StyleHint hint, const QStyleOption *option, const QWidget *widget,
+                  QStyleHintReturn *returnData) const override
+    {
+        if (hint == SH_ComboBox_Popup)
+            return 0;
+        return QProxyStyle::styleHint(hint, option, widget, returnData);
+    }
+};
 
 /**
  * \brief Цвета тёмной темы.
@@ -336,7 +368,7 @@ void ThemeManager::apply()
 
     const ThemeMetrics &m = metrics();
 
-    QApplication::setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
+    QApplication::setStyle(new FusionStyle(QStyleFactory::create(QStringLiteral("Fusion"))));
     QApplication::setPalette(buildPalette(m_colors));
 
     // Шрифт — после стиля: QApplication::setStyle заново «полирует» виджеты и возвращает
@@ -383,67 +415,17 @@ namespace {
  * QFrame) и вложенный в него вид. Таблица стилей достаёт только до вида: имя приватного
  * класса селектором не выбирается — проверено, правило с таким именем не срабатывает.
  *
- * \par Откуда взялись полосы над списком и под ним
+ * \par Что осталось после отключения «менюшного» режима
  *
- * Как только у QComboBox появляется собственная рамка, `QStyleSheetStyle` начинает
- * отвечать на `SH_ComboBox_Popup` утвердительно, и всплывающий список переключается в
- * «менюшный» режим. В нём `QComboBoxPrivate::showPopup()` раздвигает окно на
- * `PM_MenuVMargin` сверху и снизу — те самые несколько пикселей, которые оставались
- * незакрашенными и читались как чужая тёмная рамка. Убрать этот отступ нечем: он берётся
- * из стиля до того, как окно вообще появится.
- *
- * Поэтому отступ не убирается, а становится полем внутри рамки: фон и рамку берёт на себя
- * сам контейнер, а вид внутри остаётся без рамки (см. `QComboBox QAbstractItemView` в
- * таблице стилей). Получается обычное меню с полями, а не список с полосами.
+ * Раньше здесь боролись ещё и с полями `PM_MenuVMargin`, которые «менюшный» режим
+ * добавлял к окну и не закрашивал. Режим снят в FusionStyle, полей больше нет, и от всей
+ * правки остался фон: контейнер закрашивает себя сам, до вида таблица стилей достаёт, а
+ * между ними на долю секунды видна полоса цвета палитры по умолчанию — светлая на тёмной
+ * теме. Заодно палитра задаёт цвет рамки, которую контейнер рисует как QFrame.
  *
  * \note Делается при каждом показе, а не однажды: контейнер перечитывает настройки стиля
  *       при каждой его смене, то есть и при смене темы.
  */
-/**
- * \brief Подогнать высоту раскрытого списка под его содержимое.
- *
- * Собственная рамка у QComboBox переводит список в «менюшный» режим (см. комментарий к
- * applyComboPopupLook ниже), а тот добавляет к окну поля PM_MenuVMargin сверху и снизу.
- * Нескольких лишних пикселей хватает, чтобы содержимое перестало помещаться, и над списком
- * из пяти пунктов появлялись стрелки прокрутки — при том, что прокручивать там нечего.
- *
- * Подгонка делается по факту, а не расчётом: высота строки зависит от отступов из таблицы
- * стилей, от кегля и от системы, и любое число, записанное здесь, разошлось бы с
- * действительностью на первой же правке QSS.
- *
- * Длинные списки не трогаем: там прокрутка законна и нужна.
- */
-void fitComboPopupToContents(QFrame *frame)
-{
-    auto *combo = qobject_cast<QComboBox *>(frame->parentWidget());
-    auto *view = frame->findChild<QAbstractItemView *>();
-    if (!combo || !view)
-        return;
-
-    const int rows = combo->count();
-    if (rows <= 0 || rows > kNoScrollItems)
-        return;
-
-    int content = 0;
-    for (int row = 0; row < rows; ++row)
-        content += view->sizeHintForRow(row);
-    if (content <= 0)
-        return;
-
-    const QMargins frameMargins = frame->contentsMargins();
-    const QMargins viewMargins = view->contentsMargins();
-    const int wanted = content + frameMargins.top() + frameMargins.bottom()
-        + viewMargins.top() + viewMargins.bottom() + 2 * frame->lineWidth();
-
-    // Прокрутку снимаем только вместе с подгонкой высоты: выключить её, оставив список
-    // низким, значило бы сделать нижние пункты недостижимыми вовсе.
-    view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-
-    if (frame->height() != wanted)
-        frame->resize(frame->width(), wanted);
-}
-
 void applyComboPopupLook(QWidget *window, const ThemeColors &colors)
 {
     auto *frame = qobject_cast<QFrame *>(window);
@@ -461,19 +443,6 @@ void applyComboPopupLook(QWidget *window, const ThemeColors &colors)
     frame->setFrameShape(QFrame::Box);
     frame->setFrameShadow(QFrame::Plain);
     frame->setLineWidth(1);
-
-    // Полосы прокрутки списка (`QComboBoxPrivateScroller`) — тоже дети контейнера, и фон
-    // они закрашивают сами, по правилам меню: получается полоска цвета панели поперёк
-    // списка. Палитра родителя их не догоняет, поэтому цвет ставится каждому.
-    const auto children = frame->findChildren<QWidget *>(Qt::FindDirectChildrenOnly);
-    for (QWidget *child : children) {
-        if (qobject_cast<QAbstractItemView *>(child))
-            continue;
-        child->setPalette(palette);
-        child->setAutoFillBackground(true);
-    }
-
-    fitComboPopupToContents(frame);
 }
 
 } // namespace
