@@ -1527,6 +1527,42 @@ void MainWindow::activatePanel(const QString &panelId)
         setSidePanelExpanded(true);
 }
 
+bool MainWindow::applySidePanelGeometry()
+{
+    const int railWidth = m_panelRail->sizeHint().width();
+
+    if (m_sidePanelExpanded) {
+        m_sidePanel->setMinimumWidth(0);
+        m_sidePanel->setMaximumWidth(QWIDGETSIZE_MAX);
+    } else {
+        // Ширина рейки закрепляется с обеих сторон: иначе свёрнутую панель можно
+        // растянуть мышью, и рядом со столбцом значков появится пустая полоса —
+        // состояние, которого в интерфейсе нет.
+        m_sidePanel->setMinimumWidth(railWidth);
+        m_sidePanel->setMaximumWidth(railWidth);
+    }
+
+    // Остаток считается от действительной ширины разделителя, а не задаётся единицей в
+    // расчёте на растяжение: избыток QSplitter раздаёт по самим размерам, а не по
+    // коэффициентам, и правая колонка получила бы лишь долю освободившегося места.
+    //
+    // До первого показа окна width() ничего не значит — там ещё размер по умолчанию, а не
+    // восстановленный. Раскладку в этом случае не трогаем вовсе: её доделает showEvent().
+    // Прежде она считалась именно тогда, и запомненная ширина панели появлялась только
+    // после первого переключения.
+    const int total = m_splitter->width() - m_splitter->handleWidth();
+    if (!isVisible() || total <= railWidth)
+        return false;
+
+    const int width = m_sidePanelExpanded
+        ? qBound(railWidth + m_panelStack->minimumWidth(),
+                 m_sidePanelWidth > 0 ? m_sidePanelWidth : kDefaultSidePanelWidth,
+                 qMax(railWidth + 1, total / 2))
+        : railWidth;
+    m_splitter->setSizes({width, total - width});
+    return true;
+}
+
 void MainWindow::setSidePanelExpanded(bool expanded)
 {
     const bool changed = m_sidePanelExpanded != expanded;
@@ -1540,24 +1576,7 @@ void MainWindow::setSidePanelExpanded(bool expanded)
 
     m_sidePanelExpanded = expanded;
     m_panelStack->setVisible(expanded);
-
-    if (expanded) {
-        m_sidePanel->setMinimumWidth(0);
-        m_sidePanel->setMaximumWidth(QWIDGETSIZE_MAX);
-
-        const int total = m_splitter->width() - m_splitter->handleWidth();
-        const int width = qBound(m_panelStack->minimumWidth() + m_panelRail->sizeHint().width(),
-                                 m_sidePanelWidth > 0 ? m_sidePanelWidth : kDefaultSidePanelWidth,
-                                 qMax(1, total / 2));
-        m_splitter->setSizes({width, total - width});
-    } else {
-        // Ширина рейки закрепляется с обеих сторон, а не задаётся разделителю размером:
-        // иначе свёрнутую панель можно растянуть мышью, и появится пустая полоса рядом со
-        // столбцом значков — состояние, которого в интерфейсе нет.
-        const int railWidth = m_panelRail->sizeHint().width();
-        m_sidePanel->setMinimumWidth(railWidth);
-        m_sidePanel->setMaximumWidth(railWidth);
-    }
+    applySidePanelGeometry();
 
     // Кнопка открытой страницы остаётся нажатой и в свёрнутом виде: она показывает, куда
     // вернёт следующее нажатие. Пустая рейка об этом не говорит ничем.
@@ -1618,6 +1637,20 @@ void MainWindow::persistWindowState()
 
     if (m_context.history)
         m_context.history->save();
+}
+
+void MainWindow::showEvent(QShowEvent *event)
+{
+    QMainWindow::showEvent(event);
+
+    // Только на первом показе: дальше состояние ведут кнопки рейки и разделитель, и
+    // повторное применение затирало бы ширину, которую пользователь только что выбрал
+    // мышью, при каждом сворачивании окна.
+    if (m_sidePanelGeometryApplied)
+        return;
+    // Признак ставится по факту применения, а не по факту показа: если ширины ещё нет,
+    // раскладка обязана дождаться следующего показа, а не считаться выполненной.
+    m_sidePanelGeometryApplied = applySidePanelGeometry();
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
