@@ -58,19 +58,19 @@ constexpr int kSourceWidth = 2;
 /// \brief Наименьшая ширина колонки номеров, знакомест под цифры.
 constexpr int kMinLineNumberDigits = 5;
 
-/// \name Насыщенность заливки совпадений поиска
-/// Обычное совпадение подсвечивается едва заметно — их бывает много, и яркая заливка
-/// превратила бы вывод в мозаику. Текущее, наоборот, обязано выделяться из остальных.
-/// @{
+/// \brief Насыщенность заливки обычного совпадения поиска.
+///
+/// Едва заметная поволока: совпадений бывает много, и яркая заливка превратила бы вывод в
+/// мозаику. Текущее совпадение прозрачности не имеет вовсе — оно закрашивается сплошным
+/// акцентом с подписью цветом accentText, иначе «то самое» место отличается от прочих
+/// оттенком, а не бросается в глаза.
 constexpr int kMatchAlpha = 90;
-constexpr int kCurrentMatchAlpha = 200;
 
 /// \brief Предел числа меток в дорожке: больше, чем пикселей, всё равно не нарисовать.
 constexpr int kMaxScrollMarkers = 2000;
 
 /// \brief Задержка пересчёта меток, мс. Обход буфера дорог, а точность здесь не нужна.
 constexpr int kMarkerRefreshMs = 250;
-/// @}
 
 /// \brief Насколько приглушается цвет правила подсветки под текстом.
 constexpr int kHighlightAlpha = 64;
@@ -1019,16 +1019,17 @@ void TerminalView::paintEvent(QPaintEvent *event)
         const int contentX = kLeftMargin + gutter + xOffset;
 
         // Совпадения поиска — под текстом, но над подсветкой правил.
+        //
+        // Текущее совпадение, куда указывает поиск, закрашивается сплошным акцентом, а
+        // остальные — тем же цветом, но еле заметной поволокой. Полупрозрачным был и
+        // текущий: под ним просвечивал фон, поверх ложился текст в своём цвете ANSI, и
+        // «то самое» совпадение отличалось от прочих оттенком, а не бросалось в глаза.
+        // Нажатие «дальше» при десятке совпадений на экране не давало видимого отклика.
+        QPair<int, int> currentRange{-1, 0};
         if (m_searchActive) {
             QColor matchColor = colors.accent;
             matchColor.setAlpha(kMatchAlpha);
 
-            // Текущее совпадение — то, на которое перешли по «дальше» или «назад», —
-            // красится отдельно и заметно ярче. Без этого при десятке совпадений на
-            // экране непонятно, где именно ты сейчас: все они выглядят одинаково, и
-            // нажатие «дальше» не даёт видимого отклика.
-            QColor currentColor = colors.accentSolid;
-            currentColor.setAlpha(kCurrentMatchAlpha);
             const bool onCurrentLine =
                 m_currentMatch >= 0 && m_currentMatch < int(m_visible.size())
                 && m_visible[size_t(m_currentMatch)].lineNumber == lineNumber;
@@ -1040,7 +1041,9 @@ void TerminalView::paintEvent(QPaintEvent *event)
                 // ярко красится ровно оно.
                 const bool current = onCurrentLine && first && row == 0;
                 painter.fillRect(contentX + start * m_charWidth, y, length * m_charWidth,
-                                 m_lineHeight, current ? currentColor : matchColor);
+                                 m_lineHeight, matchColor);
+                if (current)
+                    currentRange = {start, length};
                 first = false;
             }
         }
@@ -1098,6 +1101,20 @@ void TerminalView::paintEvent(QPaintEvent *event)
                 painter.drawText(runX, textY, content.mid(styleRun.start, length));
             }
             painter.setFont(m_font);
+        }
+
+        // Текущее совпадение рисуется последним и целиком — заливка вместе с текстом.
+        // Порядок здесь и есть решение: заливка до текста оставляла бы буквы в их
+        // собственном цвете ANSI поверх сплошного акцента, а фон отрезка SGR мог бы
+        // закрасить и саму заливку. Отрисованное последним видно всегда, независимо от
+        // того, во что окрашена строка устройством.
+        if (currentRange.first >= 0) {
+            const int matchX = contentX + currentRange.first * m_charWidth;
+            painter.fillRect(matchX, y, currentRange.second * m_charWidth, m_lineHeight,
+                             colors.accentSolid);
+            painter.setPen(colors.accentText);
+            painter.drawText(matchX, textY,
+                             content.mid(currentRange.first, currentRange.second));
         }
 
         y += m_lineHeight;
