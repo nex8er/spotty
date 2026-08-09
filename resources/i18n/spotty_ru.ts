@@ -903,6 +903,10 @@
         <translation>Поведение</translation>
     </message>
     <message>
+        <source>As the device implies</source>
+        <translation>По устройству</translation>
+    </message>
+    <message>
         <source>Echo what is sent</source>
         <translation>Возвращать отправленное</translation>
     </message>
@@ -913,6 +917,10 @@
     <message>
         <source>Silent</source>
         <translation>Молчать</translation>
+    </message>
+    <message>
+        <source>loopback0 echoes what is sent, loopback1 emits generated lines.</source>
+        <translation>loopback0 возвращает отправленное, loopback1 выдаёт сгенерированные строки.</translation>
     </message>
     <message>
         <source>Echo delay</source>

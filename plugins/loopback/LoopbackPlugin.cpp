@@ -33,15 +33,21 @@ SettingsSchema LoopbackPlugin::settingsSchema() const
 {
     SettingsSchema schema;
 
+    // Умолчание — «по устройству», а не «эхо». Схема у обоих loopback'ов одна, и
+    // умолчание «эхо» делало loopback1 молчащим: устройство, которое так и названо
+    // «виртуальным источником данных», не выдавало ни строки, пока не залезешь в его
+    // настройки. Описание при этом врало — а разойтись описанию с поведением нельзя.
     schema.add(SettingsField{
         .key = QStringLiteral("mode"),
         .label = tr("Mode"),
         .group = tr("Behaviour"),
         .type = SettingsField::Choice,
-        .defaultValue = QStringLiteral("echo"),
-        .options = {{tr("Echo what is sent"), QStringLiteral("echo")},
+        .defaultValue = QStringLiteral("auto"),
+        .options = {{tr("As the device implies"), QStringLiteral("auto")},
+                    {tr("Echo what is sent"), QStringLiteral("echo")},
                     {tr("Emit generated data"), QStringLiteral("chatter")},
                     {tr("Silent"), QStringLiteral("silent")}},
+        .hint = tr("loopback0 echoes what is sent, loopback1 emits generated lines."),
     });
 
     schema.add(SettingsField{
@@ -82,7 +88,9 @@ IInterfaceChannel *LoopbackPlugin::createChannel(const InterfaceDescriptor &desc
 {
     if (!descriptor.id.startsWith(QLatin1String("loopback:")))
         return nullptr;
-    return new LoopbackChannel;
+    // Канал должен знать, каким устройством он открыт: от этого зависит его поведение
+    // при режиме «auto». Схема настроек одна на оба устройства и различить их не может.
+    return new LoopbackChannel(descriptor.id);
 }
 
 } // namespace spotty

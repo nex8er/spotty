@@ -27,6 +27,7 @@ namespace spotty {
  *
  * \par Режимы
  *
+ * - `auto` — по устройству: `loopback0` эхо, `loopback1` генерация. Умолчание;
  * - `echo` — возвращает отправленное с настраиваемой задержкой;
  * - `chatter` — сам выдаёт строки с заданным периодом;
  * - `silent` — не делает ничего, полезен для проверки состояний.
@@ -38,7 +39,14 @@ class LoopbackChannel : public IInterfaceChannel
     Q_OBJECT
 
 public:
-    explicit LoopbackChannel(QObject *parent = nullptr);
+    /**
+     * \brief Создать канал для конкретного виртуального устройства.
+     * \param interfaceId Идентификатор устройства, которым канал открыт.
+     *
+     * Идентификатор нужен режиму `auto`: схема настроек у обоих loopback'ов общая, и
+     * отличить в ней «эхо-канал» от «источника данных» нечем.
+     */
+    explicit LoopbackChannel(QString interfaceId, QObject *parent = nullptr);
 
     /// \copydoc spotty::IInterfaceChannel::open
     bool open(const QVariantMap &settings, QString *error) override;
@@ -73,6 +81,9 @@ public:
     bool setControlLine(const QString &name, bool asserted) override;
 
 private:
+    /// \brief Действующий режим: `auto` разрешается по идентификатору устройства.
+    QString effectiveMode() const;
+
     /// \brief Выдать очередную строку в режиме генерации.
     void emitChatterLine();
 
@@ -82,6 +93,7 @@ private:
     /// \brief Обернуть текст в последовательности ANSI, если это включено в настройках.
     QByteArray decorate(const QByteArray &text) const;
 
+    const QString m_interfaceId;        ///< Устройство, которым открыт канал.
     ChannelState m_state = ChannelState::Closed;
     QVariantMap m_settings;             ///< Настройки, с которыми открыт канал.
     QTimer *m_chatterTimer = nullptr;   ///< Таймер генерации; nullptr вне режима chatter.

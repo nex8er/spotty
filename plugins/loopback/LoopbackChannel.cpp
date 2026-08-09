@@ -37,9 +37,21 @@ qint64 monotonicNow()
 
 } // namespace
 
-LoopbackChannel::LoopbackChannel(QObject *parent)
+LoopbackChannel::LoopbackChannel(QString interfaceId, QObject *parent)
     : IInterfaceChannel(parent)
+    , m_interfaceId(std::move(interfaceId))
 {
+}
+
+QString LoopbackChannel::effectiveMode() const
+{
+    const QString mode = m_settings.value(QLatin1String(kMode)).toString();
+    // Пустое значение приравнивается к «auto»: настройка могла быть записана до того, как
+    // у режима появилось это умолчание, и молчащий источник данных — худший из исходов.
+    if (!mode.isEmpty() && mode != QLatin1String("auto"))
+        return mode;
+    return m_interfaceId == QLatin1String("loopback:chatter") ? QStringLiteral("chatter")
+                                                              : QStringLiteral("echo");
 }
 
 bool LoopbackChannel::open(const QVariantMap &settings, QString *error)
@@ -53,8 +65,7 @@ bool LoopbackChannel::open(const QVariantMap &settings, QString *error)
     // Таймер создаётся здесь, а не в конструкторе: к моменту open() объект уже перенесён
     // в поток ввода-вывода, и таймер должен принадлежать именно ему.
     const int interval = m_settings.value(QLatin1String(kChatterInterval)).toInt();
-    if (m_settings.value(QLatin1String(kMode)).toString() == QLatin1String("chatter")
-        && interval > 0) {
+    if (effectiveMode() == QLatin1String("chatter") && interval > 0) {
         m_chatterTimer = new QTimer(this);
         m_chatterTimer->setInterval(interval);
         connect(m_chatterTimer, &QTimer::timeout, this, &LoopbackChannel::emitChatterLine);
@@ -89,7 +100,7 @@ qint64 LoopbackChannel::write(const QByteArray &data)
     if (m_state != ChannelState::Open)
         return -1;
 
-    if (m_settings.value(QLatin1String(kMode)).toString() == QLatin1String("echo")) {
+    if (effectiveMode() == QLatin1String("echo")) {
         const int delay = qMax(0, m_settings.value(QLatin1String(kEchoDelay)).toInt());
         QTimer::singleShot(delay, this, [this, data] {
             // Проверка состояния обязательна: за время задержки канал могли закрыть.

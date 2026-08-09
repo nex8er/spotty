@@ -354,6 +354,9 @@ TRANSLATIONS = {
     "Echo what is sent": "Возвращать отправленное",
     "Emit generated data": "Выдавать порождённые данные",
     "Silent": "Молчать",
+    "As the device implies": "По устройству",
+    "loopback0 echoes what is sent, loopback1 emits generated lines.":
+        "loopback0 возвращает отправленное, loopback1 выдаёт сгенерированные строки.",
     "Echo delay": "Задержка эха",
     "Simulates a device that takes time to answer.":
         "Изображает устройство, которому нужно время на ответ.",
