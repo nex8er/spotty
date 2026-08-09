@@ -25,11 +25,12 @@ ScrollMarkerBar::ScrollMarkerBar(QWidget *parent)
 {
 }
 
-void ScrollMarkerBar::setMarkers(QList<Marker> markers)
+void ScrollMarkerBar::setMarkers(QList<Marker> markers, qint64 totalRows)
 {
     // Сравнение дешевле перерисовки: терминал пересчитывает метки на каждой новой строке,
-    // а полоса лежит поверх всего окна.
-    if (markers.size() == m_markers.size()) {
+    // а полоса лежит поверх всего окна. Знаменатель входит в сравнение наравне с метками:
+    // при неизменном наборе, но выросшем буфере они обязаны сдвинуться вверх.
+    if (markers.size() == m_markers.size() && totalRows == m_totalRows) {
         bool same = true;
         for (qsizetype i = 0; i < markers.size(); ++i) {
             if (markers.at(i).position != m_markers.at(i).position
@@ -43,6 +44,7 @@ void ScrollMarkerBar::setMarkers(QList<Marker> markers)
     }
 
     m_markers = std::move(markers);
+    m_totalRows = totalRows;
     update();
 }
 
@@ -52,11 +54,7 @@ void ScrollMarkerBar::paintEvent(QPaintEvent *event)
     // видны — он полупрозрачный.
     QScrollBar::paintEvent(event);
 
-    if (m_markers.isEmpty())
-        return;
-
-    const int span = maximum() - minimum();
-    if (span <= 0)
+    if (m_markers.isEmpty() || m_totalRows <= 0)
         return;
 
     // Дорожку меряем через стиль, а не по всей высоте виджета: на системах, где полоса
@@ -72,7 +70,8 @@ void ScrollMarkerBar::paintEvent(QPaintEvent *event)
 
     QPainter painter(this);
     for (const Marker &marker : std::as_const(m_markers)) {
-        const int offset = int(qint64(marker.position - minimum()) * usable / span);
+        const int offset = int(qBound(qint64(0), qint64(marker.position), m_totalRows - 1)
+                               * usable / m_totalRows);
         painter.fillRect(groove.left() + kMarkerInset, groove.top() + offset,
                          groove.width() - 2 * kMarkerInset, kMarkerHeight, marker.color);
     }

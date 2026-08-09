@@ -10,6 +10,7 @@
 #include <QClipboard>
 #include <QContextMenuEvent>
 #include <QFontDatabase>
+#include <QFontMetricsF>
 #include <QHelpEvent>
 #include <QKeyEvent>
 #include <QMenu>
@@ -245,7 +246,7 @@ void TerminalView::updateScrollMarkers()
 
     QList<ScrollMarkerBar::Marker> markers;
     if (!m_buffer || m_visible.empty() || (!m_searchActive && m_highlightRules.isEmpty())) {
-        m_markerBar->setMarkers(markers);
+        m_markerBar->setMarkers(markers, m_totalRows);
         return;
     }
 
@@ -283,15 +284,33 @@ void TerminalView::updateScrollMarkers()
             break;
     }
 
-    m_markerBar->setMarkers(std::move(markers));
+    m_markerBar->setMarkers(std::move(markers), m_totalRows);
 }
 
 void TerminalView::updateMetrics()
 {
-    const QFontMetrics metrics(m_font);
+    // Шаг знакоместа целый, потому что по нему считаются все прямоугольники: заливка
+    // совпадений поиска, подсветка правил, выделение, фон отрезков SGR. Настоящий же шаг
+    // шрифта дробный, и drawText двигает глифы именно на него — текст уходил от сетки
+    // тем дальше, чем правее столбец, и к десятому знаку заливка совпадения приходилась
+    // на середину символа.
+    //
+    // Округлять шаг мало: расходиться будет всё равно. Поэтому шрифту задаётся межбуквенный
+    // интервал, добирающий его настоящий шаг ровно до целого. После этого сетка и текст
+    // совпадают по построению, а не приблизительно.
+    //
     // Ширина знакоместа берётся у цифры: шрифт может оказаться не вполне моноширинным, а
     // цифры в любом шрифте одинаковой ширины почти всегда.
-    m_charWidth = qMax(1, metrics.horizontalAdvance(u'0'));
+    QFont grid = m_font;
+    grid.setLetterSpacing(QFont::AbsoluteSpacing, 0);
+    const qreal advance = QFontMetricsF(grid).horizontalAdvance(u'0');
+    m_charWidth = qMax(1, qRound(advance));
+    if (advance > 0.0) {
+        grid.setLetterSpacing(QFont::AbsoluteSpacing, m_charWidth - advance);
+        m_font = grid;
+    }
+
+    const QFontMetrics metrics(m_font);
     m_lineHeight = qMax(1, metrics.height());
     m_ascent = metrics.ascent();
 
