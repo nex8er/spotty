@@ -30,6 +30,15 @@ namespace {
 ThemeManager *g_instance = nullptr;
 
 /**
+ * \brief До скольких пунктов список показывается целиком, без прокрутки.
+ *
+ * У QComboBox предел по умолчанию — десять, и одиннадцатый пункт уже включает прокрутку.
+ * Списки в Spotty короткие (форматы, терминации, периоды, разделители), и прокручивать в
+ * них нечего: полоса или стрелки только мешают попасть в нужный пункт.
+ */
+constexpr int kNoScrollItems = 12;
+
+/**
  * \brief Цвета тёмной темы.
  *
  * Оформление аскетичное и монохромное: нейтральные серые, никаких градиентов, единственный
@@ -412,7 +421,7 @@ void fitComboPopupToContents(QFrame *frame)
         return;
 
     const int rows = combo->count();
-    if (rows <= 0 || rows > combo->maxVisibleItems())
+    if (rows <= 0 || rows > kNoScrollItems)
         return;
 
     int content = 0;
@@ -472,6 +481,15 @@ void applyComboPopupLook(QWidget *window, const ThemeColors &colors)
 bool ThemeManager::eventFilter(QObject *watched, QEvent *event)
 {
     switch (event->type()) {
+    case QEvent::Polish:
+        // Предел числа видимых пунктов задаётся до первого раскрытия: список строится в
+        // showPopup(), и менять предел позже поздно — окно уже посчитано коротким.
+        if (auto *combo = qobject_cast<QComboBox *>(watched);
+            combo && combo->maxVisibleItems() < kNoScrollItems) {
+            combo->setMaxVisibleItems(kNoScrollItems);
+        }
+        break;
+
     case QEvent::Show:
         if (auto *widget = qobject_cast<QWidget *>(watched); widget && widget->isWindow()) {
             // Только окна с рамкой: у всплывающего списка и подсказки заголовка нет, а
