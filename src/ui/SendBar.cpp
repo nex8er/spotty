@@ -88,8 +88,7 @@ SendBar::SendBar(HistoryStore *history, QWidget *parent)
         // со строку, поэтому считается от высоты, а не задаётся числом.
         const int arrow = combo->sizeHint().height();
         combo->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-        combo->setMinimumWidth(widest + arrow + 2 * ThemeManager::metrics().padH / 2);
-        combo->setMaximumWidth(widest + arrow + 2 * ThemeManager::metrics().padH);
+        combo->setFixedWidth(widest + arrow + 2 * ThemeManager::metrics().padH);
     };
     shrinkToContents(m_format);
     shrinkToContents(m_termination);
