@@ -1082,9 +1082,18 @@ void TerminalView::paintEvent(QPaintEvent *event)
         }
 
         if (m_viewMode == ViewMode::Hex || line->direction == DataDirection::System) {
+            // Системные строки обходят обычный цикл StyleRun: в HEX они должны оставаться
+            // читаемым текстом, а не дампом байтов. Поэтому их курсив применяем здесь,
+            // а не ожидаем, что ветка ниже дойдёт до style.italic.
+            if (line->direction == DataDirection::System) {
+                QFont systemFont = m_font;
+                systemFont.setItalic(true);
+                painter.setFont(systemFont);
+            }
             painter.setPen(line->direction == DataDirection::System ? colors.accent
                                                                     : colors.rxText);
             painter.drawText(contentX, textY, content);
+            painter.setFont(m_font);
         } else {
             // Текстовый режим: рисуем отрезками, у каждого своё оформление.
             const QColor defaultForeground =
