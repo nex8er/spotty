@@ -1169,14 +1169,16 @@ void MainWindow::applyViewMode(ViewMode mode, const QString &stripId)
     m_secondBarCard->setVisible(dual);
 
     if (dual) {
-        // Обе сессии переводятся на общий буфер и метят строки своим номером. Терминал
-        // переключается на тот же буфер — иначе он остался бы смотреть в буфер первой
-        // сессии, куда больше никто не пишет.
+        // Буфер A становится общим, а не заменяется новым. Иначе при переходе к двум
+        // интерфейсам история A исчезала с экрана, хотя пользователь не просил её
+        // очистить. Запасной буфер нужен только для неполного AppContext в тестах.
+        TerminalBuffer *sharedBuffer = m_context.session ? m_context.session->buffer()
+                                                         : m_sharedBuffer;
         if (m_context.session)
-            m_context.session->setSharedBuffer(m_sharedBuffer, 0);
+            m_context.session->setSharedBuffer(sharedBuffer, 0);
         if (m_secondSession)
-            m_secondSession->setSharedBuffer(m_sharedBuffer, 1);
-        m_terminal->setBuffer(m_sharedBuffer);
+            m_secondSession->setSharedBuffer(sharedBuffer, 1);
+        m_terminal->setBuffer(sharedBuffer);
         m_terminal->setShowSource(true);
     } else {
         // Возврат к одному транспорту закрывает второй канал: оставить его открытым,

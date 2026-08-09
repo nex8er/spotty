@@ -80,7 +80,6 @@ void Session::setInterfaceId(const QString &id)
 
     close();
     m_interfaceId = id;
-    m_buffer->clear();
     setState(ChannelState::Closed);
 }
 

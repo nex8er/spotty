@@ -433,17 +433,19 @@ TEST(Session, OpeningAbsentDeviceWaitsForIt)
     EXPECT_TRUE(waitFor([&] { return fixture.session.state() == ChannelState::Open; }));
 }
 
-TEST(Session, ChangingInterfaceClosesTheOldOne)
+TEST(Session, ChangingInterfaceClosesTheOldOneWithoutClearingOutput)
 {
     Fixture fixture;
     ASSERT_TRUE(fixture.openDevice());
+    ASSERT_TRUE(fixture.receive(QByteArrayLiteral("before-switch\n")));
 
     fixture.session.setInterfaceId(QStringLiteral("fake:other"));
 
     EXPECT_EQ(fixture.session.state(), ChannelState::Closed);
     EXPECT_EQ(fixture.session.interfaceId(), QStringLiteral("fake:other"));
-    // Буфер принадлежит прежнему устройству и должен быть очищен.
-    EXPECT_EQ(fixture.session.buffer()->lineCount(), 0);
+    ASSERT_EQ(fixture.session.buffer()->lineCount(), 3);
+    EXPECT_EQ(fixture.session.buffer()->line(1)->text, QStringLiteral("before-switch"));
+    EXPECT_EQ(fixture.session.buffer()->line(2)->direction, DataDirection::System);
 }
 
 TEST(Session, ControlLinesAreReported)
