@@ -50,6 +50,17 @@ bool SingleInstanceGuard::tryAcquire()
     if (m_server)
         return true;
 
+    // Проверяем подключением, а не провалом listen(): на Windows listen() на занятое имя
+    // не проваливается, два сервера могут слушать один и тот же pipe одновременно (см.
+    // предупреждение в заголовке). Опора на провал listen() впускала бы второй экземпляр
+    // молча именно там, где различать экземпляры важнее всего — в оконном приложении.
+    QLocalSocket probe;
+    probe.connectToServer(m_serverName);
+    if (probe.waitForConnected(kConnectTimeoutMs)) {
+        probe.disconnectFromServer();
+        return false;
+    }
+
     m_server = new QLocalServer(this);
 
     // Соединения обслуживаем ради самого факта: содержимое сообщения не важно, важно
@@ -64,19 +75,10 @@ bool SingleInstanceGuard::tryAcquire()
     if (m_server->listen(m_serverName))
         return true;
 
-    // Имя занято. Либо экземпляр действительно работает, либо предыдущий упал и оставил
-    // после себя сокет. Различаем попыткой подключения.
-    QLocalSocket probe;
-    probe.connectToServer(m_serverName);
-    if (probe.waitForConnected(kConnectTimeoutMs)) {
-        probe.disconnectFromServer();
-        delete m_server;
-        m_server = nullptr;
-        return false;
-    }
-
-    // Никто не ответил — сокет осиротел. Без этой уборки одно падение навсегда закрыло бы
-    // возможность запустить программу.
+    // Подключиться не удалось (иначе вернулись бы выше), но и слушать на этом имени
+    // нельзя — на Unix так выглядит сокет, оставшийся от аварийно завершившегося
+    // экземпляра. Без уборки одно падение навсегда закрыло бы возможность запустить
+    // программу.
     qCInfo(lcInstance) << "removing stale socket" << m_serverName;
     QLocalServer::removeServer(m_serverName);
 
