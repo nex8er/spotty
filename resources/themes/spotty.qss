@@ -488,6 +488,19 @@ QGroupBox::indicator:checked:disabled {
 QListView,
 QTreeView,
 QTableView {
+    /* Внутреннее поле отделяет viewport и контейнер полосы от рамки таблицы. Qt не
+     * обрезает дочерние виджеты по border-radius, поэтому без него полоса касается дуги
+     * скругления напрямую. */
+    border-radius: @radius;
+    padding-left: 4px;
+    padding-right: 1px;
+    padding-top: 1px;
+    padding-bottom: 1px;
+}
+
+QListView,
+QTreeView,
+QTableView {
     background: @base;
     border: 1px solid @border;
     border-radius: @radius;
@@ -669,6 +682,13 @@ QScrollBar:vertical {
     margin: 0;
 }
 
+/* У QAbstractScrollArea дочерняя полоса не обрезается по border-radius таблицы. Отступ
+ * только сверху и снизу оставляет закруглённые углы рамки видимыми, не съедая ширину
+ * строк и не меняя положение полосы относительно правого края. */
+QTableView QScrollBar:vertical {
+    margin: @radius 0 @radius 0;
+}
+
 QScrollBar:horizontal {
     background: @base;
     height: @scrollBar;
@@ -678,7 +698,7 @@ QScrollBar:horizontal {
 QScrollBar::handle:vertical,
 QScrollBar::handle:horizontal {
     background: @scrollHandle;
-    border-radius: 4px;
+    border-radius: 2px;
     margin: 2px;
     /* Наименьшая длина ползунка. В буфере на сотни тысяч строк доля видимого стремится к
        нулю, и без предела ползунок вырождается в пару пикселей, за которые невозможно
