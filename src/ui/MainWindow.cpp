@@ -276,6 +276,12 @@ void MainWindow::buildUi()
     // строка состояния — каноническое место для него. Цвет там не единственный признак,
     // рядом стоит слово: одного цвета не хватает ни дальтонику, ни в чёрно-белом снимке.
     m_stateLabel = new QLabel(this);
+    // QStatusBar раскладывает добавленные виджеты по их собственной геометрии. Отступ
+    // внутри QLabel не сдвигает сам индикатор, поэтому ставим отдельную распорку перед
+    // ним. Шаг берётся из платформенной сетки, а не задаётся произвольным числом.
+    auto *stateLeadingSpace = new QWidget(this);
+    stateLeadingSpace->setFixedWidth(metrics.gap);
+    statusBar()->addWidget(stateLeadingSpace);
     statusBar()->addWidget(m_stateLabel);
 
     const QFont mono = QFontDatabase::systemFont(QFontDatabase::FixedFont);
