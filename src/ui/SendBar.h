@@ -81,9 +81,6 @@ private:
     /// \brief Закодировать введённое и отправить.
     void submit();
 
-    /// \brief Передать текущий текст панели макросов для сохранения.
-    void saveAsMacro();
-
     /// \brief Дополнить ввод по истории (Tab).
     /**
      * \brief Подставить следующий вариант из истории по набранному началу.
@@ -103,12 +100,14 @@ private:
     /// \brief Обработчик клавиш поля ввода.
     bool eventFilter(QObject *watched, QEvent *event) override;
 
+protected:
+    void contextMenuEvent(QContextMenuEvent *event) override;
+
     HistoryStore *m_history;
 
     QLineEdit *m_input = nullptr;
     QComboBox *m_format = nullptr;
     QComboBox *m_termination = nullptr;
-    QPushButton *m_saveMacro = nullptr;
     QPushButton *m_send = nullptr;
     QLabel *m_error = nullptr;
 
