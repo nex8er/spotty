@@ -14,6 +14,10 @@ name: CI
 on:
   push:
     branches: [main]
+    # Без этого фильтра пуш тега вообще не запустил бы workflow: branches: сама по себе
+    # пропускает только пуши в ветки, тег под неё не подпадает. package и release ждут
+    # именно тега (см. их if: ниже).
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -225,3 +229,28 @@ jobs:
           name: spotty-${{ matrix.name }}
           path: build/package/*
           if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: package
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    # contents: write только здесь и только на публикацию релиза — остальным джобам этого
+    # не нужно, а раздавать право шире, чем требуется одному шагу, незачем.
+    permissions:
+      contents: write
+
+    steps:
+      # merge-multiple сводит артефакты всех трёх платформ в один плоский каталог: имена
+      # пакетов уже содержат платформу и версию (см. SpottyPackaging.cmake), совпадений не
+      # будет.
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: spotty-*
+          path: dist
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
