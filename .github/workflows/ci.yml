@@ -254,3 +254,19 @@ jobs:
         with:
           files: dist/*
           generate_release_notes: true
+          # AppImage и .dmg приходят без прав на выполнение и без подписи Apple ID — оба
+          # факта неочевидны при первом скачивании, и лучше сказать о них в теле релиза
+          # заранее, чем объяснять в issue после.
+          body: |
+            ## Запуск
+
+            - **Windows** — распаковать `.zip`, запустить `spotty.exe`.
+            - **macOS** — открыть `.dmg`, перетащить `Spotty.app` в Applications. Подпись
+              ad-hoc: Gatekeeper при первом запуске предупредит о неизвестном
+              разработчике — открыть через правый клик → «Открыть».
+            - **Linux** — сделать AppImage исполняемым, GitHub не сохраняет этот бит при
+              скачивании:
+              ```
+              chmod +x Spotty-*.AppImage
+              ./Spotty-*.AppImage
+              ```
