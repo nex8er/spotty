@@ -91,6 +91,17 @@ function(_spotty_package_windows target)
         # свои собственные, и без них диалоги окажутся наполовину английскими.
         COMMAND "${WINDEPLOYQT}" --release --no-compiler-runtime
                 "${staging}/$<TARGET_FILE_NAME:${target}>"
+        COMMENT "windeployqt"
+        VERBATIM
+    )
+
+    # Отдельная команда, а не COMMAND в цепочке выше: WORKING_DIRECTORY меняет рабочий
+    # каталог для всей цепочки сразу, включая самую первую её команду — а staging_root в
+    # первый раз ещё не существует, пока make_directory из предыдущего шага его не создаст.
+    # cd в несуществующий каталог валит сборку раньше, чем что-либо успевает отработать.
+    # Несколько POST_BUILD у одной цели выполняются по порядку добавления, так что второй
+    # шаг гарантированно видит уже созданный staging.
+    add_custom_command(TARGET spotty-package POST_BUILD
         # cmake -E tar кладёт в архив путь ровно таким, каким его посчитал от рабочего
         # каталога. Абсолютный ${staging} давал вход вида "../../staging/Spotty/..." — запись
         # с выходом за пределы архива, которую Проводник Windows молча не показывает: архив
@@ -100,7 +111,7 @@ function(_spotty_package_windows target)
                 "${SPOTTY_PACKAGE_DIR}/Spotty-${SPOTTY_VERSION}-Windows-x64.zip"
                 --format=zip "Spotty"
         WORKING_DIRECTORY "${staging_root}"
-        COMMENT "windeployqt + zip"
+        COMMENT "zip"
         VERBATIM
     )
 endfunction()
