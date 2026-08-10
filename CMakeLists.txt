@@ -6,7 +6,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(Spotty
-    VERSION 0.2.0
+    VERSION 0.3.0
     DESCRIPTION "Modular terminal port monitor"
     HOMEPAGE_URL "https://github.com/nex8er/spotty"
     LANGUAGES CXX)
