@@ -39,6 +39,15 @@ function(spotty_provide_googletest)
 
     FetchContent_MakeAvailable(googletest)
 
+    # Проверяется один раз до цикла: check_cxx_compiler_flag кеширует результат сам, но
+    # гонять компилятор на каждую из четырёх целей GoogleTest незачем. Только для
+    # Clang-семейства — на GCC и MSVC сама проверка означала бы лишний вызов компилятора
+    # ради флага, который для них и не предназначен.
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        include(CheckCXXCompilerFlag)
+        check_cxx_compiler_flag("-Wno-character-conversion" SPOTTY_HAS_WNO_CHARACTER_CONVERSION)
+    endif()
+
     # Заголовки GoogleTest помечаются системными, иначе его собственные предупреждения
     # (в C++20 — преобразование char8_t в char32_t) сыплются при каждой сборке. Чужой шум
     # в выводе опаснее, чем кажется: он приучает не читать предупреждения вовсе, и в нём
@@ -59,9 +68,12 @@ function(spotty_provide_googletest)
 
         # Системные заголовки глушат предупреждения только у потребителей; сам GoogleTest
         # при сборке под C++20 всё равно ругается на преобразование char8_t в char32_t в
-        # собственном коде. Флаг только для Clang: другие компиляторы сочли бы неизвестный
-        # параметр ошибкой и сломали бы сборку там, где чинить нечего.
-        if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        # собственном коде. Флаг понимает не всякий Clang — версии AppleClang не совпадают
+        # линейно с апстримным LLVM, и на части из них сам -Wno-character-conversion получал
+        # бы "unknown warning option": проверка через check_cxx_compiler_flag надёжнее, чем
+        # догадка по CMAKE_CXX_COMPILER_ID. Других компиляторов не проверяем: они сочли бы
+        # неизвестный параметр ошибкой и сломали бы сборку там, где чинить нечего.
+        if(SPOTTY_HAS_WNO_CHARACTER_CONVERSION)
             target_compile_options(${gtest_target} PRIVATE -Wno-character-conversion)
         endif()
     endforeach()
