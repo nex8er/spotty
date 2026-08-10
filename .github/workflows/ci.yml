@@ -137,8 +137,13 @@ jobs:
       # цели вся сборка идёт внутри контейнера, а не на самом раннере (см. комментарий в
       # начале файла — почему Debian, а не пакеты хоста).
       - name: Build and test in Debian trixie
+        # LANG=C.UTF-8: в чистом контейнере активна ASCII-локаль "C", а rcc при сборке
+        # ресурсов честно предупреждает об этом и сам переключается на C.UTF-8 — переключение
+        # безобидно (сборка проходит), но незачем печатать предупреждение на каждый прогон,
+        # когда локаль можно задать сразу правильной.
         run: |
-          docker run --rm -v "$PWD:/src" -w /src debian:trixie bash -c '
+          docker run --rm -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 \
+            -v "$PWD:/src" -w /src debian:trixie bash -c '
             set -euo pipefail
             apt-get update
             apt-get install -y --no-install-recommends \
@@ -282,9 +287,13 @@ jobs:
       # никаких дополнительных прав контейнеру не нужно — обычный docker run без --privileged.
       # file нужен не нам самим, а appimagetool внутри linuxdeploy-plugin-appimage: без него
       # падает на последнем шаге с "file command is missing but required".
+      #
+      # LANG=C.UTF-8: см. тот же комментарий в build-linux-arm64 — иначе rcc предупреждает
+      # об ASCII-локали контейнера на каждый прогон.
       - name: Build and package in Debian trixie
         run: |
-          docker run --rm -v "$PWD:/src" -w /src debian:trixie bash -c '
+          docker run --rm -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 \
+            -v "$PWD:/src" -w /src debian:trixie bash -c '
             set -euo pipefail
             apt-get update
             apt-get install -y --no-install-recommends \
