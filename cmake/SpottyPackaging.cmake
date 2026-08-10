@@ -122,6 +122,10 @@ function(_spotty_package_linux target)
     # linuxdeploy не входит ни в один дистрибутив, поэтому скачивается по месту. Наличие
     # проверяется во время сборки, а не настройки: на машине разработчика его обычно нет,
     # и требовать его при каждом cmake было бы навязчиво.
+    #
+    # Имя двоичного файла берётся из CMAKE_SYSTEM_PROCESSOR, а не захардкожено под x86_64:
+    # linuxdeploy публикует отдельные сборки на архитектуру ("x86_64", "aarch64"), и то же
+    # значение совпадает с uname -m на Linux, так что подставляется без пересчёта.
     set(script "${CMAKE_BINARY_DIR}/spotty-appimage.sh")
 
     file(GENERATE OUTPUT "${script}" CONTENT "#!/usr/bin/env bash
@@ -130,13 +134,14 @@ set -euo pipefail
 package_dir='${SPOTTY_PACKAGE_DIR}'
 appdir=\"${CMAKE_BINARY_DIR}/AppDir\"
 binary='$<TARGET_FILE:${target}>'
+arch='${CMAKE_SYSTEM_PROCESSOR}'
 
-if ! command -v linuxdeploy-x86_64.AppImage >/dev/null 2>&1; then
-    echo 'downloading linuxdeploy'
+if ! command -v \"linuxdeploy-\$arch.AppImage\" >/dev/null 2>&1; then
+    echo \"downloading linuxdeploy for \$arch\"
     curl -sSfLo \"${CMAKE_BINARY_DIR}/linuxdeploy\" \\
-        https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+        \"https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-\$arch.AppImage\"
     curl -sSfLo \"${CMAKE_BINARY_DIR}/linuxdeploy-plugin-qt\" \\
-        https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+        \"https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-\$arch.AppImage\"
     chmod +x \"${CMAKE_BINARY_DIR}/linuxdeploy\" \"${CMAKE_BINARY_DIR}/linuxdeploy-plugin-qt\"
 fi
 
@@ -156,7 +161,12 @@ Terminal=false
 DESKTOP
 
 export PATH=\"${CMAKE_BINARY_DIR}:\$PATH\"
-export OUTPUT=\"\$package_dir/Spotty-${SPOTTY_VERSION}-Linux-x86_64.AppImage\"
+export OUTPUT=\"\$package_dir/Spotty-${SPOTTY_VERSION}-Linux-\$arch.AppImage\"
+# И linuxdeploy, и его плагин Qt сами по себе AppImage и по умолчанию монтируют себя через
+# FUSE — а в контейнере CI /dev/fuse обычно недоступен без лишних привилегий. С этой
+# переменной оба вместо монтирования распаковываются во временный каталог и запускаются
+# оттуда напрямую.
+export APPIMAGE_EXTRACT_AND_RUN=1
 linuxdeploy --appdir \"\$appdir\" --plugin qt \\
     --icon-file '${CMAKE_SOURCE_DIR}/resources/icons/spotty-256.png' \\
     --icon-filename spotty \\
