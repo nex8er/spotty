@@ -273,13 +273,15 @@ jobs:
       # SPOTTY_STATIC_PLUGINS=ON и сам spotty-package здесь же, внутри контейнера: linuxdeploy
       # обходится без FUSE через APPIMAGE_EXTRACT_AND_RUN (см. SpottyPackaging.cmake), поэтому
       # никаких дополнительных прав контейнеру не нужно — обычный docker run без --privileged.
+      # file нужен не нам самим, а appimagetool внутри linuxdeploy-plugin-appimage: без него
+      # падает на последнем шаге с "file command is missing but required".
       - name: Build and package in Debian trixie
         run: |
           docker run --rm -v "$PWD:/src" -w /src debian:trixie bash -c '
             set -euo pipefail
             apt-get update
             apt-get install -y --no-install-recommends \
-              build-essential cmake ninja-build ca-certificates curl \
+              build-essential cmake ninja-build ca-certificates curl file \
               qt6-base-dev qt6-base-dev-tools qt6-serialport-dev \
               libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0 \
               libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
