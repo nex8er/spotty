@@ -4,11 +4,14 @@
 # ловят то, что не ловит одна машина разработчика: выравнивание, знаковость char и порядок
 # байтов. Разработка идёт на macOS arm64, поэтому x86-64 здесь особенно ценен.
 #
-# Linux arm64 в матрице нет: jurplel/install-qt-action не находит пакеты qt_base и
-# qtserialport для linux_arm64_gcc_64 на официальных серверах Qt — похоже, Qt не публикует
-# готовые сборки Linux desktop под arm64 через тот же канал, которым пользуется aqtinstall.
-# Добавлять эту цель обратно имеет смысл вместе со сборкой Qt из исходников или из пакетов
-# дистрибутива, а не через install-qt-action.
+# Linux arm64 не в общей матрице build, а в отдельных джобах build-linux-arm64 и
+# package-linux-arm64: jurplel/install-qt-action не находит пакеты qt_base и qtserialport
+# для linux_arm64_gcc_64 на официальных серверах Qt — похоже, Qt не публикует готовые сборки
+# Linux desktop под arm64 через тот же канал, которым пользуется aqtinstall. Qt6 из apt
+# самого раннера (Ubuntu) при этом ниже минимальной версии проекта, поэтому сборка идёт в
+# контейнере Debian trixie, где qt6-base-dev даёт 6.8.2 — версию, близкую к остальным
+# платформам. Отдельные джобы, а не строки той же матрицы: набор шагов слишком другой
+# (всё через docker run), чтобы делить его с нативными раннерами через if.
 name: CI
 
 on:
@@ -116,6 +119,35 @@ jobs:
             -DSPOTTY_STATIC_PLUGINS=ON
           cmake --build build-static
         shell: bash
+
+  build-linux-arm64:
+    name: Linux arm64
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      # Один docker run вместо шагов install-qt-action + configure + build + test: у этой
+      # цели вся сборка идёт внутри контейнера, а не на самом раннере (см. комментарий в
+      # начале файла — почему Debian, а не пакеты хоста).
+      - name: Build and test in Debian trixie
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src debian:trixie bash -c '
+            set -euo pipefail
+            apt-get update
+            apt-get install -y --no-install-recommends \
+              build-essential cmake ninja-build ca-certificates \
+              qt6-base-dev qt6-base-dev-tools qt6-serialport-dev \
+              libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0 \
+              libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+              libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
+
+            cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSPOTTY_BUILD_TESTS=ON
+            cmake --build build
+            QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure --timeout 120
+
+            cmake -S . -B build-static -G Ninja -DCMAKE_BUILD_TYPE=Release -DSPOTTY_STATIC_PLUGINS=ON
+            cmake --build build-static
+          '
 
   coverage:
     name: Coverage
@@ -230,9 +262,43 @@ jobs:
           path: build/package/*
           if-no-files-found: error
 
+  package-linux-arm64:
+    name: Package Linux arm64
+    needs: build-linux-arm64
+    runs-on: ubuntu-24.04-arm
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+
+      # SPOTTY_STATIC_PLUGINS=ON и сам spotty-package здесь же, внутри контейнера: linuxdeploy
+      # обходится без FUSE через APPIMAGE_EXTRACT_AND_RUN (см. SpottyPackaging.cmake), поэтому
+      # никаких дополнительных прав контейнеру не нужно — обычный docker run без --privileged.
+      - name: Build and package in Debian trixie
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src debian:trixie bash -c '
+            set -euo pipefail
+            apt-get update
+            apt-get install -y --no-install-recommends \
+              build-essential cmake ninja-build ca-certificates curl \
+              qt6-base-dev qt6-base-dev-tools qt6-serialport-dev \
+              libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0 \
+              libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+              libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
+
+            cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSPOTTY_STATIC_PLUGINS=ON
+            cmake --build build
+            cmake --build build --target spotty-package
+          '
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spotty-Linux arm64
+          path: build/package/*
+          if-no-files-found: error
+
   release:
     name: Publish release
-    needs: package
+    needs: [package, package-linux-arm64]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     # contents: write только здесь и только на публикацию релиза — остальным джобам этого
@@ -241,7 +307,7 @@ jobs:
       contents: write
 
     steps:
-      # merge-multiple сводит артефакты всех трёх платформ в один плоский каталог: имена
+      # merge-multiple сводит артефакты всех четырёх платформ в один плоский каталог: имена
       # пакетов уже содержат платформу и версию (см. SpottyPackaging.cmake), совпадений не
       # будет.
       - uses: actions/download-artifact@v4
