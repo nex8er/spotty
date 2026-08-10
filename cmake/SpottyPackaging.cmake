@@ -81,7 +81,8 @@ function(_spotty_package_windows target)
         return()
     endif()
 
-    set(staging "${CMAKE_BINARY_DIR}/staging/Spotty")
+    set(staging_root "${CMAKE_BINARY_DIR}/staging")
+    set(staging "${staging_root}/Spotty")
 
     add_custom_command(TARGET spotty-package POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${staging}"
@@ -90,9 +91,15 @@ function(_spotty_package_windows target)
         # свои собственные, и без них диалоги окажутся наполовину английскими.
         COMMAND "${WINDEPLOYQT}" --release --no-compiler-runtime
                 "${staging}/$<TARGET_FILE_NAME:${target}>"
+        # cmake -E tar кладёт в архив путь ровно таким, каким его посчитал от рабочего
+        # каталога. Абсолютный ${staging} давал вход вида "../../staging/Spotty/..." — запись
+        # с выходом за пределы архива, которую Проводник Windows молча не показывает: архив
+        # выглядит пустым, хотя байты в нём есть. Рабочий каталог — родитель staging, путь —
+        # просто "Spotty", и в архиве оказывается чистое "Spotty/spotty.exe" без "..".
         COMMAND "${CMAKE_COMMAND}" -E tar cf
                 "${SPOTTY_PACKAGE_DIR}/Spotty-${SPOTTY_VERSION}-Windows-x64.zip"
-                --format=zip "${staging}"
+                --format=zip "Spotty"
+        WORKING_DIRECTORY "${staging_root}"
         COMMENT "windeployqt + zip"
         VERBATIM
     )
