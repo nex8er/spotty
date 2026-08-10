@@ -135,7 +135,7 @@ jobs:
             set -euo pipefail
             apt-get update
             apt-get install -y --no-install-recommends \
-              build-essential cmake ninja-build ca-certificates \
+              build-essential cmake ninja-build ca-certificates git \
               qt6-base-dev qt6-base-dev-tools qt6-serialport-dev \
               libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0 \
               libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
