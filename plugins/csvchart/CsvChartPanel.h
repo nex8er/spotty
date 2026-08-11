@@ -12,6 +12,7 @@ class QLabel;
 class QPushButton;
 class QSpinBox;
 class QTableWidget;
+class QTimer;
 
 namespace spotty {
 
@@ -42,6 +43,17 @@ protected:
     void settingsReset() override;
 
 private:
+    /**
+     * \brief Как часто обновляются числа в таблице рядов, мс.
+     *
+     * Пять раз в секунду. Статистика считается обходом всего окна по каждому ряду, а
+     * записывается в QTableWidget, который на каждую правку пересчитывает ширины колонок
+     * (заголовок стоит в ResizeToContents). На каждую пришедшую строку это давало десятки
+     * тысяч операций в секунду — при том, что человек всё равно не читает числа быстрее
+     * нескольких раз в секунду.
+     */
+    static constexpr int kStatisticsIntervalMs = 200;
+
     void reloadFromSettings();
     void commit();
 
@@ -50,6 +62,9 @@ private:
 
     /// \brief Обновить в таблице статистику, не трогая её строение.
     void refreshStatistics();
+
+    /// \brief Завести таймер обновления статистики, если он ещё не идёт.
+    void scheduleStatistics();
 
     /// \brief Открыть график в отдельном окне.
     void openInWindow();
@@ -68,6 +83,9 @@ private:
 
     /// \brief Отдельное окно с графиком; создаётся по требованию и живёт до закрытия.
     QWidget *m_window = nullptr;
+
+    /// \brief Ограничитель частоты пересчёта статистики; см. #kStatisticsIntervalMs.
+    QTimer *m_statisticsTimer = nullptr;
 
     bool m_populating = false;
 };

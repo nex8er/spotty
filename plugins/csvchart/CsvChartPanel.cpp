@@ -22,6 +22,7 @@
 #include <QSaveFile>
 #include <QSpinBox>
 #include <QTableWidget>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -185,8 +186,14 @@ CsvChartPanel::CsvChartPanel(IPanelHost *panelHost, CsvSeries *series, QWidget *
     connect(pngButton, &QToolButton::clicked, this, &CsvChartPanel::exportImage);
     connect(clearButton, &QToolButton::clicked, this, [this] { m_series->clear(); });
 
+    // Одиночный таймер: когда данные не идут, ничего не тикает.
+    m_statisticsTimer = new QTimer(this);
+    m_statisticsTimer->setSingleShot(true);
+    m_statisticsTimer->setInterval(kStatisticsIntervalMs);
+    connect(m_statisticsTimer, &QTimer::timeout, this, &CsvChartPanel::refreshStatistics);
+
     connect(m_series, &CsvSeries::seriesAdded, this, &CsvChartPanel::rebuildTable);
-    connect(m_series, &CsvSeries::changed, this, &CsvChartPanel::refreshStatistics);
+    connect(m_series, &CsvSeries::changed, this, &CsvChartPanel::scheduleStatistics);
 
     connect(m_table, &QTableWidget::cellDoubleClicked, this, [this](int row, int column) {
         if (column != ColumnColor || row >= m_series->seriesCount())
@@ -274,6 +281,12 @@ void CsvChartPanel::rebuildTable()
 
     m_populating = false;
     refreshStatistics();
+}
+
+void CsvChartPanel::scheduleStatistics()
+{
+    if (!m_statisticsTimer->isActive())
+        m_statisticsTimer->start();
 }
 
 void CsvChartPanel::refreshStatistics()
