@@ -646,38 +646,28 @@ QMenu {
 }
 
 QMenu::item {
-    padding: 5px 22px;
+    /* Восемь пикселей слева оставляют короткий воздух перед галочкой. Дальше идёт
+       фиксированная колонка indicator, поэтому подпись не уезжает ни у обычного пункта,
+       ни у пункта с отметкой или значком. */
+    padding: 5px 8px;
 }
 
 QMenu::item:selected {
     background: @selection;
 }
 
-QMenu::item:disabled {
-    color: @textMuted;
-}
-
-/* У подпунктов макроса отметка нужна лишь как маркер выбранного варианта. Общий отступ
-   меню рассчитан на команды с иконками; вместе с колонкой отметки он раздвигал галочку
-   и текст почти на ширину ещё одного пункта. */
-QMenu#macroOptionMenu::item {
-    padding: 5px 5px;
-}
-
-QMenu#macroOptionMenu::indicator {
+QMenu::indicator {
     width: 16px;
     height: 16px;
     image: none;
 }
 
-QMenu#macroOptionMenu::indicator:checked {
+QMenu::indicator:checked {
     image: url(:/icons/check.svg);
 }
 
-/* У штатного меню QLineEdit есть своя колонка значков. Общий отступ меню добавлялся к
-   ней и оставлял между значком и подписью лишнее пустое место. */
-QMenu#sendInputMenu::item {
-    padding: 5px 5px;
+QMenu::item:disabled {
+    color: @textMuted;
 }
 
 QMenu::separator {

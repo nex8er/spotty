@@ -675,7 +675,6 @@ void MacrosPanel::showContextMenu(const QPoint &position)
     // Формат и терминация — взаимоисключающие значения, поэтому группа с отметкой, а не
     // выпадающий список в ячейке: список напротив выбранного читается быстрее.
     QMenu *formatMenu = menu.addMenu(tr("Format"));
-    formatMenu->setObjectName(QStringLiteral("macroOptionMenu"));
     auto *formatGroup = new QActionGroup(&menu);
     formatGroup->setExclusive(true);
     for (const DataCodec::Format format : kFormats) {
@@ -691,7 +690,6 @@ void MacrosPanel::showContextMenu(const QPoint &position)
     }
 
     QMenu *terminationMenu = menu.addMenu(tr("Termination"));
-    terminationMenu->setObjectName(QStringLiteral("macroOptionMenu"));
     auto *terminationGroup = new QActionGroup(&menu);
     terminationGroup->setExclusive(true);
     for (const DataCodec::Termination termination : kTerminations) {

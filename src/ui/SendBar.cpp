@@ -304,7 +304,6 @@ void SendBar::showInputContextMenu(const QPoint &globalPosition)
     // «Копировать» и «Вставить» ради одного своего пункта было бы обменом полезного на
     // удобное.
     const auto menu = std::unique_ptr<QMenu>(m_input->createStandardContextMenu());
-    menu->setObjectName(QStringLiteral("sendInputMenu"));
 
     if (m_dualTransport) {
         QMenu *targetMenu = menu->addMenu(tr("Send to"));
