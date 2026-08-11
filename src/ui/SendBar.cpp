@@ -20,8 +20,6 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
-#include <QToolTip>
-
 #include <memory>
 
 namespace spotty {
@@ -298,14 +296,6 @@ void SendBar::completeFromHistory(bool backwards)
     m_input->setText(candidate);
     m_input->setSelection(int(m_completionStem.size()),
                           int(candidate.size() - m_completionStem.size()));
-
-    if (m_completionMatches.size() > 1) {
-        QToolTip::showText(m_input->mapToGlobal(QPoint(0, -m_input->height())),
-                           tr("%1 of %2 — Tab for next")
-                               .arg(m_completionIndex + 1)
-                               .arg(m_completionMatches.size()),
-                           m_input);
-    }
 }
 
 void SendBar::showInputContextMenu(const QPoint &globalPosition)
@@ -365,6 +355,17 @@ bool SendBar::eventFilter(QObject *watched, QEvent *event)
     auto *keyEvent = static_cast<QKeyEvent *>(event);
 
     switch (keyEvent->key()) {
+    case Qt::Key_Escape:
+        // Esc отменяет текущий черновик целиком. Возвращаться к сохранённому черновику
+        // после выхода из истории было бы неожиданно: пользователь только что явно его
+        // отбросил.
+        m_input->clear();
+        m_draft.clear();
+        resetCompletion();
+        if (m_history)
+            m_historyIndex = int(m_history->entries().size());
+        showError({});
+        return true;
     case Qt::Key_Tab:
         completeFromHistory(/*backwards=*/false);
         return true;
