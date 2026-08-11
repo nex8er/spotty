@@ -1461,7 +1461,7 @@ bool TerminalView::viewportEvent(QEvent *event)
         if (const TerminalBuffer::Line *line = at.isValid() ? m_buffer->line(at.lineNumber)
                                                             : nullptr) {
             if (line->wallClock.isValid()) {
-                QToolTip::showText(helpEvent->globalPos(),
+                QToolTip::showText(ThemeManager::toolTipPosition(helpEvent->globalPos()),
                                    line->wallClock.toString(Qt::ISODateWithMs), viewport());
                 return true;
             }

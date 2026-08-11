@@ -13,11 +13,13 @@
 #include <QFile>
 #include <QFontDatabase>
 #include <QFrame>
+#include <QHelpEvent>
 #include <QLayout>
 #include <QPalette>
 #include <QProxyStyle>
 #include <QRegularExpression>
 #include <QStyleFactory>
+#include <QToolTip>
 #include <QWidget>
 
 #include <algorithm>
@@ -460,6 +462,17 @@ void applyComboPopupLook(QWidget *window, const ThemeColors &colors)
 bool ThemeManager::eventFilter(QObject *watched, QEvent *event)
 {
     switch (event->type()) {
+    case QEvent::ToolTip:
+        // Обычные подсказки Qt показывает с заметным отступом от указателя. Для виджета с
+        // собственным текстом берём показ на себя, чтобы все такие подсказки были ближе;
+        // представления с подсказкой из модели оставляем штатному обработчику.
+        if (auto *widget = qobject_cast<QWidget *>(watched); widget && !widget->toolTip().isEmpty()) {
+            const auto *helpEvent = static_cast<QHelpEvent *>(event);
+            QToolTip::showText(toolTipPosition(helpEvent->globalPos()), widget->toolTip(), widget);
+            return true;
+        }
+        break;
+
     case QEvent::Polish:
         // Предел числа видимых пунктов задаётся до первого раскрытия: список строится в
         // showPopup(), и менять предел позже поздно — окно уже посчитано коротким.
@@ -496,6 +509,11 @@ bool ThemeManager::eventFilter(QObject *watched, QEvent *event)
     }
 
     return QObject::eventFilter(watched, event);
+}
+
+QPoint ThemeManager::toolTipPosition(const QPoint &cursorPosition)
+{
+    return cursorPosition - QPoint(0, 6);
 }
 
 QString ThemeManager::themeToString(Theme theme)

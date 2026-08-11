@@ -6,6 +6,7 @@
 
 #include <QColor>
 #include <QObject>
+#include <QPoint>
 #include <QString>
 
 namespace spotty {
@@ -193,6 +194,17 @@ public:
      * \param fallback Что вернуть при неизвестном имени.
      */
     static Theme themeFromString(const QString &name, Theme fallback = Theme::Dark);
+
+    /**
+     * \brief Вернуть позицию подсказки рядом с указателем.
+     * \param cursorPosition Глобальная позиция указателя.
+     * \return Точка показа подсказки.
+     *
+     * Qt дополнительно сдвигает подсказку вниз, чтобы она не оказалась под курсором.
+     * Небольшая компенсация оставляет этот зазор, но не создаёт впечатления оторванной
+     * от элемента подсказки.
+     */
+    static QPoint toolTipPosition(const QPoint &cursorPosition);
 
 Q_SIGNALS:
     /**
