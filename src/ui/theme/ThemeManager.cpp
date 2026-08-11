@@ -7,6 +7,7 @@
 #include "PlatformChrome.h"
 
 #include <QAbstractButton>
+#include <QAction>
 #include <QApplication>
 #include <QComboBox>
 #include <QEvent>
@@ -15,11 +16,15 @@
 #include <QFrame>
 #include <QHelpEvent>
 #include <QLayout>
+#include <QLineEdit>
+#include <QMenu>
 #include <QPalette>
+#include <QPlainTextEdit>
 #include <QProxyStyle>
 #include <QRegularExpression>
 #include <QStyleFactory>
 #include <QToolTip>
+#include <QTextEdit>
 #include <QWidget>
 
 #include <algorithm>
@@ -457,6 +462,42 @@ void applyComboPopupLook(QWidget *window, const ThemeColors &colors)
     // Отсюда только цвет: он на геометрию не влияет, и поздно ему не бывает.
 }
 
+/**
+ * \brief Перевести стандартные команды меню текстового редактора.
+ * \param menu Раскрытое меню.
+ *
+ * Qt берёт эти строки из qtbase_*.qm. На установках без qttranslations они остаются
+ * английскими, хотя всё остальное окно уже переведено ресурсом Spotty. Подменяем только
+ * известные стандартные команды и только у меню текстового редактора: пользовательские
+ * пункты панелей и обычные меню приложения не затрагиваются.
+ */
+void localizeTextEditMenu(QMenu *menu)
+{
+    const QObject *owner = menu->parent();
+    if (!qobject_cast<const QLineEdit *>(owner) && !qobject_cast<const QPlainTextEdit *>(owner)
+        && !qobject_cast<const QTextEdit *>(owner)) {
+        return;
+    }
+
+    for (QAction *action : menu->actions()) {
+        const QString source = action->text().section(u'\t', 0, 0).remove(u'&');
+        if (source == QLatin1String("Undo"))
+            action->setText(ThemeManager::tr("Undo"));
+        else if (source == QLatin1String("Redo"))
+            action->setText(ThemeManager::tr("Redo"));
+        else if (source == QLatin1String("Cut"))
+            action->setText(ThemeManager::tr("Cut"));
+        else if (source == QLatin1String("Copy"))
+            action->setText(ThemeManager::tr("Copy"));
+        else if (source == QLatin1String("Paste"))
+            action->setText(ThemeManager::tr("Paste"));
+        else if (source == QLatin1String("Delete"))
+            action->setText(ThemeManager::tr("Delete"));
+        else if (source == QLatin1String("Select All"))
+            action->setText(ThemeManager::tr("Select All"));
+    }
+}
+
 } // namespace
 
 bool ThemeManager::eventFilter(QObject *watched, QEvent *event)
@@ -484,6 +525,9 @@ bool ThemeManager::eventFilter(QObject *watched, QEvent *event)
 
     case QEvent::Show:
         if (auto *widget = qobject_cast<QWidget *>(watched); widget && widget->isWindow()) {
+            if (auto *menu = qobject_cast<QMenu *>(widget))
+                localizeTextEditMenu(menu);
+
             // Только окна с рамкой: у всплывающего списка и подсказки заголовка нет, а
             // вызов ниже дёргает SetWindowPos и заставил бы их мигать при каждом показе.
             const Qt::WindowType type = widget->windowType();
