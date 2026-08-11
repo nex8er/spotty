@@ -184,6 +184,29 @@ void TerminalView::setTerminalFont(const QFont &font)
 
 void TerminalView::wheelEvent(QWheelEvent *event)
 {
+    // Shift меняет направление прокрутки, как в редакторах: это особенно нужно для
+    // длинных не переносящихся строк терминала. Ctrl сохраняет приоритет, чтобы
+    // Ctrl+Shift+колесо не переставал менять кегль.
+    if (!event->modifiers().testFlag(Qt::ControlModifier)
+        && event->modifiers().testFlag(Qt::ShiftModifier)) {
+        QScrollBar *bar = horizontalScrollBar();
+        const QPoint pixelDelta = event->pixelDelta();
+        const int pixels = pixelDelta.x() != 0 ? pixelDelta.x() : pixelDelta.y();
+        if (pixels != 0) {
+            bar->setValue(bar->value() - pixels);
+            event->accept();
+            return;
+        }
+
+        const QPoint angleDelta = event->angleDelta();
+        const int angle = angleDelta.x() != 0 ? angleDelta.x() : angleDelta.y();
+        const int steps = angle / 120;
+        if (steps != 0)
+            bar->setValue(bar->value() - steps * bar->singleStep());
+        event->accept();
+        return;
+    }
+
     // Ctrl (на macOS Qt отображает сюда и Cmd) плюс колесо — общепринятый способ менять
     // кегль в терминалах и редакторах. Проверять раскладку не нужно: модификатор
     // приходит уже разобранным.
@@ -1427,6 +1450,12 @@ void TerminalView::contextMenuEvent(QContextMenuEvent *event)
     menu.addAction(tr("Select All"), this, &TerminalView::selectAll)
         ->setShortcut(QKeySequence::SelectAll);
 
+    QAction *clear = menu.addAction(tr("Clear"), this, [this] {
+        if (m_buffer)
+            m_buffer->clear();
+    });
+    clear->setEnabled(m_buffer && m_buffer->lineCount() > 0);
+
     menu.addSeparator();
 
     // Нумерация доступна и отсюда, и кнопкой в панели: включают её нечасто и обычно
@@ -1440,7 +1469,7 @@ void TerminalView::contextMenuEvent(QContextMenuEvent *event)
     });
 
     const Position at = positionAt(event->pos());
-    QAction *resetOrigin = menu.addAction(tr("Set line number origin here"));
+    QAction *resetOrigin = menu.addAction(tr("Count from Here"));
     resetOrigin->setEnabled(at.isValid());
     connect(resetOrigin, &QAction::triggered, this,
             [this, lineNumber = at.lineNumber] { setLineNumberOrigin(lineNumber); });

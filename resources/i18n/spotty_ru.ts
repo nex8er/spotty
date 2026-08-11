@@ -1528,10 +1528,6 @@ Double-click to edit, right-click for options</source>
         <translation>Откройте интерфейс, чтобы отправлять данные</translation>
     </message>
     <message>
-        <source>%1 of %2 — Tab for next</source>
-        <translation>%1 из %2 — Tab дальше</translation>
-    </message>
-    <message>
         <source>Send to</source>
         <translation>Отправить в</translation>
     </message>
@@ -1965,12 +1961,16 @@ Continue?</source>
         <translation>Выделить всё</translation>
     </message>
     <message>
+        <source>Clear</source>
+        <translation>Очистить</translation>
+    </message>
+    <message>
         <source>Line numbers</source>
         <translation>Номера строк</translation>
     </message>
     <message>
-        <source>Set line number origin here</source>
-        <translation>Сбросить отсчёт номеров строк здесь</translation>
+        <source>Count from Here</source>
+        <translation>Считать отсюда</translation>
     </message>
     <message>
         <source>Scroll to Bottom</source>

@@ -448,7 +448,7 @@ TRANSLATIONS = {
     "Two interfaces": "Два интерфейса",
     "Show line numbers": "Показывать номера строк",
     "Line numbers": "Номера строк",
-    "Set line number origin here": "Сбросить отсчёт номеров строк здесь",
+    "Count from Here": "Считать отсюда",
     "Hide telemetry lines: values separated by the delimiter set in Settings":
         "Скрывать телеметрию: числа через разделитель, заданный в настройках",
     "Side &panel": "&Боковая панель",

@@ -416,7 +416,7 @@ private:
      */
     int m_widestColumnsSeen = 0;
 
-    /// \brief Непотраченные пиксели прокрутки трекпада; см. wheelEvent().
+    /// \brief Непотраченные пиксели вертикальной прокрутки трекпада; см. wheelEvent().
     int m_wheelRemainder = 0;
     bool m_relativeTimestamps = false;
     QString m_timestampFormat = QStringLiteral("HH:mm:ss.zzz");
