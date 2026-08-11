@@ -62,17 +62,28 @@ QWidget *CsvChartPlugin::createPanel(const QString &panelId, IPanelHost *host, Q
                     m_nextLine = qMax(m_nextLine, m_host->firstLineNumber());
                     const qint64 end = first + count;
 
-                    for (qint64 number = m_nextLine; number < end; ++number) {
+                    // Источники вроде RTT опрашиваются таймером и режут строку на части не
+                    // по границам данных — CSV-строка нередко приходит двумя и более
+                    // порциями. terminalLinesAppended сигналит только о рождении новой
+                    // строки, а не о довершении уже открытой, поэтому недописанную строку
+                    // нельзя ни разбирать сейчас (обрежется часть колонок, а иногда и
+                    // число посередине), ни считать пройденной — m_nextLine останавливаем
+                    // на ней и перечитываем при следующем сигнале, когда она достроится.
+                    while (m_nextLine < end) {
                         TerminalLine line;
-                        if (!m_host->line(number, &line))
+                        if (!m_host->line(m_nextLine, &line)) {
+                            ++m_nextLine; // Строка уже вытеснена из буфера — не дождаться.
                             continue;
-                        if (line.direction != DataDirection::Rx)
-                            continue; // Отправленное — не данные устройства.
-                        // Отметка времени идёт вместе со строкой: точки приходят
-                        // неравномерно, и равноотстоящая ось искажает форму сигнала.
-                        m_series->feed(line.text.trimmed(), line.monotonicNs);
+                        }
+                        if (!line.complete)
+                            break;
+                        if (line.direction == DataDirection::Rx) {
+                            // Отметка времени идёт вместе со строкой: точки приходят
+                            // неравномерно, и равноотстоящая ось искажает форму сигнала.
+                            m_series->feed(line.text.trimmed(), line.monotonicNs);
+                        }
+                        ++m_nextLine;
                     }
-                    m_nextLine = end;
                 });
     }
 

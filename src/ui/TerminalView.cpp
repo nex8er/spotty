@@ -549,15 +549,52 @@ void TerminalView::rebuildVisible()
     m_totalRows = 0;
 
     if (!m_buffer) {
+        m_resolvedLine = 0;
         updateScrollBars();
         return;
     }
 
-    const qint64 end = m_buffer->nextLineNumber();
-    for (qint64 number = m_buffer->firstLineNumber(); number < end; ++number)
-        appendVisible(number);
+    m_resolvedLine = m_buffer->firstLineNumber();
+    syncVisible();
 
     updateScrollBars();
+}
+
+void TerminalView::syncVisible()
+{
+    if (!m_buffer)
+        return;
+
+    const qint64 end = m_buffer->nextLineNumber();
+    while (m_resolvedLine < end) {
+        const TerminalBuffer::Line *line = m_buffer->line(m_resolvedLine);
+        if (!line) {
+            // Строка вытеснена раньше, чем до неё дошла очередь — обсуждать уже нечего.
+            ++m_resolvedLine;
+            continue;
+        }
+
+        const int index = visibleIndexOf(m_resolvedLine);
+        const bool shouldShow = passesFilter(*line);
+
+        if (index >= 0) {
+            if (shouldShow) {
+                const int rows = rowsForLine(*line);
+                m_totalRows += rows - m_visible[size_t(index)].rows;
+                m_visible[size_t(index)].rows = rows;
+            } else {
+                // Дописанный текст сделал строку похожей на данные — вердикт сменился.
+                m_totalRows -= m_visible[size_t(index)].rows;
+                m_visible.erase(m_visible.begin() + index);
+            }
+        } else if (shouldShow) {
+            appendVisible(m_resolvedLine);
+        }
+
+        if (!line->complete)
+            break; // Строка ещё пишется — пересмотрим её на следующем сигнале.
+        ++m_resolvedLine;
+    }
 }
 
 void TerminalView::appendVisible(qint64 lineNumber)
@@ -855,29 +892,12 @@ void TerminalView::scheduleRepaint()
 
 void TerminalView::onLinesAppended(qint64 firstLineNumber, qint64 count)
 {
+    Q_UNUSED(firstLineNumber);
     Q_UNUSED(count);
     if (!m_buffer)
         return;
 
-    // Последняя запись могла относиться к строке, которая с тех пор доросла: сигнал
-    // приходит и на изменение открытой строки.
-    const qint64 known = m_visible.empty() ? firstLineNumber
-                                           : m_visible.back().lineNumber + 1;
-
-    for (qint64 number = qMax(firstLineNumber, known); number < m_buffer->nextLineNumber();
-         ++number) {
-        appendVisible(number);
-    }
-
-    // Строка, начатая ранее, могла дорасти до нового числа рядов.
-    if (!m_visible.empty()) {
-        VisibleLine &last = m_visible.back();
-        if (const TerminalBuffer::Line *line = m_buffer->line(last.lineNumber)) {
-            const int rows = rowsForLine(*line);
-            m_totalRows += rows - last.rows;
-            last.rows = rows;
-        }
-    }
+    syncVisible();
 
     if (m_followTail) {
         const int visibleRows = qMax(1, viewport()->height() / m_lineHeight);
@@ -890,26 +910,11 @@ void TerminalView::onLinesAppended(qint64 firstLineNumber, qint64 count)
 
 void TerminalView::onLineUpdated(qint64 lineNumber)
 {
+    Q_UNUSED(lineNumber);
     if (!m_buffer)
         return;
 
-    const TerminalBuffer::Line *line = m_buffer->line(lineNumber);
-    if (!line)
-        return;
-
-    const int index = visibleIndexOf(lineNumber);
-
-    if (index < 0) {
-        // Строка была отфильтрована, но дописанный текст мог сделать её подходящей.
-        if (passesFilter(*line) && (m_visible.empty()
-                                    || m_visible.back().lineNumber < lineNumber)) {
-            appendVisible(lineNumber);
-        }
-    } else {
-        const int rows = rowsForLine(*line);
-        m_totalRows += rows - m_visible[size_t(index)].rows;
-        m_visible[size_t(index)].rows = rows;
-    }
+    syncVisible();
 
     if (m_followTail)
         verticalScrollBar()->setValue(verticalScrollBar()->maximum());
@@ -919,6 +924,8 @@ void TerminalView::onLineUpdated(qint64 lineNumber)
 
 void TerminalView::onTrimmed(qint64 newFirstLineNumber)
 {
+    m_resolvedLine = qMax(m_resolvedLine, newFirstLineNumber);
+
     qint64 removedRows = 0;
     while (!m_visible.empty() && m_visible.front().lineNumber < newFirstLineNumber) {
         removedRows += m_visible.front().rows;
@@ -944,6 +951,7 @@ void TerminalView::onCleared()
     m_wheelRemainder = 0;
     m_visible.clear();
     m_totalRows = 0;
+    m_resolvedLine = m_buffer ? m_buffer->firstLineNumber() : 0;
     m_currentMatch = -1;
     clearSelection();
     updateScrollBars();
