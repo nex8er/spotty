@@ -50,6 +50,7 @@ namespace spotty {
 namespace {
 
 constexpr int kPanelGlyphSize = 20;
+constexpr int kStatusGlyphSize = 14;
 
 /**
  * \brief Наименьшая ширина содержимого боковой панели, px.
@@ -272,8 +273,9 @@ void MainWindow::buildUi()
     // прочитать в ней «сколько принято» можно было только пересчитав пробелы.
     //
     // Состояние стоит слева и первым: это ответ на вопрос «что сейчас происходит», а
-    // строка состояния — каноническое место для него. Цвет там не единственный признак,
-    // рядом стоит слово: одного цвета не хватает ни дальтонику, ни в чёрно-белом снимке.
+    // строка состояния — каноническое место для него. Состояния различаются формой
+    // значка, поэтому цвет можно оставить одинаковым с остальными подписями.
+    m_stateIndicator = new QLabel(this);
     m_stateLabel = new QLabel(this);
     // QStatusBar раскладывает добавленные виджеты по их собственной геометрии. Отступ
     // внутри QLabel не сдвигает сам индикатор, поэтому ставим отдельную распорку перед
@@ -281,6 +283,7 @@ void MainWindow::buildUi()
     auto *stateLeadingSpace = new QWidget(this);
     stateLeadingSpace->setFixedWidth(metrics.gap);
     statusBar()->addWidget(stateLeadingSpace);
+    statusBar()->addWidget(m_stateIndicator);
     statusBar()->addWidget(m_stateLabel);
 
     const QFont mono = QFontDatabase::systemFont(QFontDatabase::FixedFont);
@@ -1102,36 +1105,37 @@ void MainWindow::applyChannelState(ChannelState state, const QString &detail)
 
     m_interfaceBar->setChannelState(state, detail);
 
-    // Состояние в строке состояния — цвет и слово вместе. Одного цвета мало: он не
-    // доходит ни до дальтоника, ни до чёрно-белого снимка экрана в отчёте об ошибке.
+    // Состояния различаются формой значка, а не цветом: строка состояния остаётся
+    // спокойной и читаемой на чёрно-белом снимке или при нарушении цветового зрения.
     if (m_context.theme) {
         const ThemeColors &colors = m_context.theme->colors();
         QString name;
-        QColor tint = colors.textMuted;
+        char32_t glyph = mdi::CircleOutline;
         switch (state) {
         case ChannelState::Open:
             name = tr("Open");
-            tint = colors.okText;
+            glyph = mdi::CheckboxBlankCircle;
             break;
         case ChannelState::Opening:
             name = tr("Opening");
-            tint = colors.accent;
             break;
         case ChannelState::Closed:
             name = tr("Closed");
             break;
         case ChannelState::Unavailable:
             name = tr("Unavailable");
-            tint = colors.errorText;
+            glyph = mdi::AlertCircleOutline;
             break;
         case ChannelState::Error:
             name = tr("Error");
-            tint = colors.errorText;
+            glyph = mdi::AlertCircleOutline;
             break;
         }
-        m_stateLabel->setText(QStringLiteral("● %1").arg(name));
-        m_stateLabel->setStyleSheet(QStringLiteral("color: %1;").arg(tint.name()));
+        m_stateIndicator->setPixmap(
+            MdiIcons::icon(glyph, colors.textMuted, kStatusGlyphSize).pixmap(kStatusGlyphSize));
+        m_stateLabel->setText(name);
         m_stateLabel->setToolTip(detail);
+        m_stateIndicator->setToolTip(detail);
     }
 
     // Счётчик времени идёт, только пока канал открыт: у закрытого канала «время сеанса»
