@@ -18,6 +18,9 @@ constexpr int kMarkerHeight = 3;
 /// \brief Отступ метки от краёв полосы: она не должна налезать на скругление ползунка.
 constexpr int kMarkerInset = 2;
 
+/// \brief Непрозрачность меток: видны при поиске, но не спорят с бегунком.
+constexpr int kMarkerOpacity = 150;
+
 } // namespace
 
 ScrollMarkerBar::ScrollMarkerBar(QWidget *parent)
@@ -75,8 +78,12 @@ void ScrollMarkerBar::paintEvent(QPaintEvent *)
             for (const Marker &marker : std::as_const(m_markers)) {
                 const int offset = int(qBound(qint64(0), qint64(marker.position), m_totalRows - 1)
                                        * usable / m_totalRows);
+                // Дорожка уже полностью перерисована непрозрачным фоном, поэтому
+                // полупрозрачная метка не оставляет следов при обновлении набора.
+                QColor color = marker.color;
+                color.setAlpha(kMarkerOpacity);
                 painter.fillRect(groove.left() + kMarkerInset, groove.top() + offset,
-                                 groove.width() - 2 * kMarkerInset, kMarkerHeight, marker.color);
+                                 groove.width() - 2 * kMarkerInset, kMarkerHeight, color);
             }
         }
     }
