@@ -51,22 +51,17 @@ void ScrollMarkerBar::setMarkers(QList<Marker> markers, qint64 totalRows)
     update();
 }
 
-void ScrollMarkerBar::paintEvent(QPaintEvent *)
+void ScrollMarkerBar::paintEvent(QPaintEvent *event)
 {
     QStyleOptionSlider option;
     initStyleOption(&option);
 
-    QPainter painter(this);
+    // Полная штатная отрисовка прежде всего очищает дорожку непрозрачным фоном. Это
+    // обязательно для полупрозрачных элементов: ограниченная перерисовка оставила бы
+    // след бегунка в его прежнем положении.
+    QScrollBar::paintEvent(event);
 
-    // QScrollBar рисует дорожку и бегунок одним сложным элементом. Если вызвать его
-    // целиком, метки неизбежно окажутся поверх бегунка. Делим отрисовку на слои через
-    // subControls: непрозрачная дорожка полностью очищает старый кадр, затем идут метки,
-    // и только после них штатный полупрозрачный бегунок. Так под ним видно метку, но
-    // сам бегунок остаётся верхним интерактивным слоем без шлейфа при перемещении.
-    option.subControls = QStyle::SC_ScrollBarAddLine | QStyle::SC_ScrollBarSubLine
-                         | QStyle::SC_ScrollBarAddPage | QStyle::SC_ScrollBarSubPage
-                         | QStyle::SC_ScrollBarGroove;
-    style()->drawComplexControl(QStyle::CC_ScrollBar, &option, &painter, this);
+    QPainter painter(this);
 
     if (!m_markers.isEmpty() && m_totalRows > 0) {
         // Дорожку меряем через стиль, а не по всей высоте виджета: на системах, где полоса
@@ -88,8 +83,22 @@ void ScrollMarkerBar::paintEvent(QPaintEvent *)
         }
     }
 
-    option.subControls = QStyle::SC_ScrollBarSlider;
-    style()->drawComplexControl(QStyle::CC_ScrollBar, &option, &painter, this);
+    // QStyleSheetStyle не умеет надёжно отрисовывать только один subControl: повторный
+    // drawComplexControl() снова закрашивает всю дорожку и скрывает метки. Бегунок уже
+    // имеет собственный QSS-вид, поэтому повторяем лишь его заливку поверх меток. Цвет
+    // берём из роли PlaceholderText — ThemeManager связывает её с textMuted, тем же
+    // токеном, который использует @scrollHandle.
+    const QRect slider =
+        style()->subControlRect(QStyle::CC_ScrollBar, &option, QStyle::SC_ScrollBarSlider, this)
+            .adjusted(2, 2, -2, -2);
+    QColor handle = palette().color(QPalette::PlaceholderText);
+    const bool hovered = option.activeSubControls == QStyle::SC_ScrollBarSlider
+                         && option.state.testFlag(QStyle::State_MouseOver);
+    handle.setAlpha(hovered || isSliderDown() ? 210 : 105);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(handle);
+    painter.drawRoundedRect(slider, 2, 2);
 }
 
 } // namespace spotty
