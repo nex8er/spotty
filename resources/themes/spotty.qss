@@ -780,7 +780,7 @@ QToolTip {
     color: @text;
     border: 1px solid @border;
     border-radius: @radius;
-    padding: 4px 6px;
+    padding: 2px 4px;
 }
 
 QGroupBox {
