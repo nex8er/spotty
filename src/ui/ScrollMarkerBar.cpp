@@ -19,7 +19,7 @@ constexpr int kMarkerHeight = 3;
 constexpr int kMarkerInset = 2;
 
 /// \brief Непрозрачность меток: видны при поиске, но не спорят с бегунком.
-constexpr int kMarkerOpacity = 150;
+constexpr int kMarkerOpacity = 85;
 
 } // namespace
 
