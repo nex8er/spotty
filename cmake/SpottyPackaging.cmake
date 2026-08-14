@@ -84,12 +84,23 @@ function(_spotty_package_windows target)
     set(staging_root "${CMAKE_BINARY_DIR}/staging")
     set(staging "${staging_root}/Spotty")
 
+    # --no-compiler-runtime верен для MSVC (CI собирает win64_msvc2022_64): на целевой
+    # машине почти всегда уже стоит редистрибутив, и тащить его копию незачем. Для MinGW
+    # это предположение неверно — libgcc/libstdc++/libwinpthread в Windows не входят и
+    # никаким установщиком заранее не кладутся, так что без них exe не запустится вообще,
+    # с тем же эффектом, что отсутствующие Qt6*.dll. windeployqt сам находит и копирует
+    # эти три DLL рядом с исполняемым файлом, если флаг не мешает.
+    set(_deploy_args --release)
+    if(NOT MINGW)
+        list(APPEND _deploy_args --no-compiler-runtime)
+    endif()
+
     add_custom_command(TARGET spotty-package POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${staging}"
         COMMAND "${CMAKE_COMMAND}" -E copy "$<TARGET_FILE:${target}>" "${staging}"
         # --no-translations здесь неуместно: переводы уже встроены в ресурсы, но Qt несёт
         # свои собственные, и без них диалоги окажутся наполовину английскими.
-        COMMAND "${WINDEPLOYQT}" --release --no-compiler-runtime
+        COMMAND "${WINDEPLOYQT}" ${_deploy_args}
                 "${staging}/$<TARGET_FILE_NAME:${target}>"
         COMMENT "windeployqt"
         VERBATIM
