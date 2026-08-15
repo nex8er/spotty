@@ -7,6 +7,7 @@
 #include "PlotCanvas.h"
 #include <spotty/data/PlotFormat.h>
 #include <spotty/data/PlotModel.h>
+#include <spotty/data/PlotViewState.h>
 
 #include <spotty/ui/IPanelHost.h>
 #include <spotty/ui/MdiCodepoints.h>
@@ -32,9 +33,17 @@ namespace spotty {
 namespace {
 
 constexpr auto kKeySeparator = "separator";
-constexpr auto kKeyPoints = "points";
+constexpr auto kKeyCapacity = "capacity";
 
-constexpr int kDefaultPoints = 200;
+/**
+ * \brief Ёмкость буфера по умолчанию, отсчётов.
+ *
+ * Прежние двести были размером **всего** буфера: старше двухсотой точки данных просто не
+ * существовало, и прокручивать было нечего. Теперь буфер и видимое окно — разные вещи:
+ * здесь задают, сколько всего хранить, а сколько из этого видно, решают масштаб и
+ * прокрутка. Пятьдесят тысяч отсчётов на шестнадцать колонок — около семи мегабайт.
+ */
+constexpr int kDefaultCapacity = SampleBuffer::kDefaultCapacity;
 
 /**
  * \brief Колонки таблицы рядов.
@@ -72,9 +81,11 @@ QIcon colorSwatch(const QColor &color)
 
 } // namespace
 
-PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, QWidget *parent)
+PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewState *view,
+                           QWidget *parent)
     : PanelWidget(panelHost, parent)
     , m_model(model)
+    , m_view(view)
 {
     setPanelTitle(tr("Plotter"));
     QVBoxLayout *layout = content();
@@ -87,7 +98,7 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, QWidget *par
 
     // График прямо в панели: узкий, но отвечает на вопрос «как это выглядит» без единого
     // лишнего действия. Для настоящего разглядывания есть отдельное окно.
-    m_chart = new PlotCanvas(panelHost, m_model, this);
+    m_chart = new PlotCanvas(panelHost, m_model, m_view, this);
     m_chart->setMinimumHeight(140);
     layout->addWidget(m_chart);
 
@@ -113,10 +124,12 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, QWidget *par
     form->addRow(tr("Separator"), m_separator);
 
     m_points = new QSpinBox(this);
-    m_points->setRange(10, 100000);
-    m_points->setValue(kDefaultPoints);
-    m_points->setSuffix(tr(" points"));
-    form->addRow(tr("Window"), m_points);
+    m_points->setRange(100, 1'000'000);
+    m_points->setValue(kDefaultCapacity);
+    m_points->setSuffix(tr(" samples"));
+    m_points->setToolTip(tr("How many samples to keep. What part of them is on screen is "
+                            "set by scrolling and zooming the plot itself."));
+    form->addRow(tr("Buffer"), m_points);
 
     m_xAxis = new QComboBox(this);
     m_xAxis->setToolTip(tr("Which column supplies X. Time is honest when the device does "
@@ -174,10 +187,11 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, QWidget *par
             m_model->setXAxisSeries(m_xAxis->currentData().toInt());
     });
 
-    connect(m_pause, &QPushButton::toggled, m_chart, &PlotCanvas::setPaused);
-    // Пауза переключается и двойным щелчком по полю графика — кнопка обязана это
-    // отразить, иначе она показывала бы одно, а график делал другое.
-    connect(m_chart, &PlotCanvas::pausedChanged, this, [this](bool paused) {
+    connect(m_pause, &QPushButton::toggled, m_view, &PlotViewState::setPaused);
+    // Пауза общая на все виды и переключается ещё и двойным щелчком по полю —
+    // кнопка обязана это отразить, иначе она показывала бы одно, а график делал
+    // другое.
+    connect(m_view, &PlotViewState::pausedChanged, this, [this](bool paused) {
         const QSignalBlocker blocker(m_pause);
         m_pause->setChecked(paused);
     });
@@ -227,7 +241,7 @@ void PlotterPanel::reloadFromSettings()
         host()->value(QLatin1String(kKeySeparator), QStringLiteral(",")).toString();
     const int index = m_separator->findData(separator);
     m_separator->setCurrentIndex(index >= 0 ? index : 0);
-    m_points->setValue(host()->value(QLatin1String(kKeyPoints), kDefaultPoints).toInt());
+    m_points->setValue(host()->value(QLatin1String(kKeyCapacity), kDefaultCapacity).toInt());
 
     m_populating = false;
     commit();
@@ -241,7 +255,7 @@ void PlotterPanel::commit()
 
     if (!m_populating) {
         host()->setValue(QLatin1String(kKeySeparator), separator);
-        host()->setValue(QLatin1String(kKeyPoints), m_points->value());
+        host()->setValue(QLatin1String(kKeyCapacity), m_points->value());
     }
 }
 
@@ -335,7 +349,7 @@ void PlotterPanel::openInWindow()
 
     auto *layout = new QVBoxLayout(m_window);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(new PlotCanvas(host(), m_model, m_window));
+    layout->addWidget(new PlotCanvas(host(), m_model, m_view, m_window));
 
     connect(m_window, &QObject::destroyed, this, [this] { m_window = nullptr; });
     m_window->show();

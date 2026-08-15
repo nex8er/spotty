@@ -539,6 +539,12 @@ TRANSLATIONS = {
 
     # --- Плоттер ---
     "Plotter": "Плоттер",
+    "Buffer": "Буфер",
+    " samples": " отсчётов",
+    "How many samples to keep. What part of them is on screen is set by scrolling and "
+    "zooming the plot itself.":
+        "Сколько отсчётов хранить. Какая их часть на экране — решают прокрутка и масштаб "
+        "самого графика.",
     "Spotty — plotter": "Spotty — плоттер",
     "Chart": "График",
     "CSV chart": "График CSV",

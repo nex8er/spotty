@@ -9,6 +9,7 @@
 namespace spotty {
 
 class PlotModel;
+class PlotViewState;
 
 /**
  * \class PlotterPlugin
@@ -53,6 +54,9 @@ private:
      * когда страница настроек не выбрана в рейке и её виджет не на экране.
      */
     PlotModel *m_model = nullptr;
+
+    /// \brief Состояние вида, общее на все три холста: миниатюру, полосу и окно.
+    PlotViewState *m_view = nullptr;
 
     /// \brief Хост, с которым связана подписка на строки; один на плагин.
     IPanelHost *m_host = nullptr;

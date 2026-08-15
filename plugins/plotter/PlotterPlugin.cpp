@@ -7,6 +7,7 @@
 #include "PlotterPanel.h"
 #include "PlotCanvas.h"
 #include <spotty/data/PlotModel.h>
+#include <spotty/data/PlotViewState.h>
 
 #include <spotty/ui/MdiCodepoints.h>
 
@@ -14,6 +15,7 @@ namespace spotty {
 
 PlotterPlugin::PlotterPlugin()
     : m_model(new PlotModel(this))
+    , m_view(new PlotViewState(this))
 {
 }
 
@@ -88,9 +90,9 @@ QWidget *PlotterPlugin::createPanel(const QString &panelId, IPanelHost *host, QW
     }
 
     if (panelId == QLatin1String("plotter"))
-        return new PlotterPanel(host, m_model, parent);
+        return new PlotterPanel(host, m_model, m_view, parent);
     if (panelId == QLatin1String("plotter.plot"))
-        return new PlotCanvas(host, m_model, parent);
+        return new PlotCanvas(host, m_model, m_view, parent);
     return nullptr;
 }
 

@@ -18,6 +18,7 @@ namespace spotty {
 
 class PlotCanvas;
 class PlotModel;
+class PlotViewState;
 
 /**
  * \class PlotterPanel
@@ -37,7 +38,8 @@ class PlotterPanel : public PanelWidget
     Q_OBJECT
 
 public:
-    PlotterPanel(IPanelHost *host, PlotModel *model, QWidget *parent = nullptr);
+    PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewState *view,
+                 QWidget *parent = nullptr);
 
 protected:
     void settingsReset() override;
@@ -73,6 +75,7 @@ private:
     void exportImage();
 
     PlotModel *m_model = nullptr;
+    PlotViewState *m_view = nullptr;
     PlotCanvas *m_chart = nullptr;
 
     QComboBox *m_separator = nullptr;

@@ -1323,12 +1323,16 @@ Double-click to edit, right-click for options</source>
         <translation>Разделитель</translation>
     </message>
     <message>
-        <source> points</source>
-        <translation> точек</translation>
+        <source> samples</source>
+        <translation> отсчётов</translation>
     </message>
     <message>
-        <source>Window</source>
-        <translation>Окно</translation>
+        <source>How many samples to keep. What part of them is on screen is set by scrolling and zooming the plot itself.</source>
+        <translation>Сколько отсчётов хранить. Какая их часть на экране — решают прокрутка и масштаб самого графика.</translation>
+    </message>
+    <message>
+        <source>Buffer</source>
+        <translation>Буфер</translation>
     </message>
     <message>
         <source>Which column supplies X. Time is honest when the device does not send a coordinate of its own.</source>

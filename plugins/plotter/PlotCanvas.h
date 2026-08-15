@@ -1,71 +1,57 @@
 /**
  * \file PlotCanvas.h
- * \brief Виджет графика: рисует накопленные ряды.
+ * \brief Поле графика: отрисовка рядов, сетки и перекрестия.
  */
 #pragma once
 
-#include <QPolygonF>
+#include <spotty/data/Decimator.h>
+#include <spotty/data/PlotTransform.h>
+
+#include <QHash>
 #include <QWidget>
 
-class QAction;
 class QTimer;
 
 namespace spotty {
 
-class PlotModel;
 class IPanelHost;
+class PlotModel;
+class PlotViewState;
 
 /**
  * \class PlotCanvas
- * \brief Отрисовка рядов с сеткой, курсором и паузой.
+ * \brief Рисует накопленные ряды по общему состоянию вида.
  *
- * \par Обычный виджет, а не слой поверх терминала
+ * \par Один объект в трёх местах
  *
- * Прежде график рисовался поверх вывода. От этого отказались: текст под кривой читать
- * трудно, а сама кривая теряется в тексте — оба страдали ради экономии места, которой
- * никто не просил. Теперь это обычный виджет, и владелец волен показать его вместо
- * терминала либо в отдельном окне.
+ * Холст создаётся трижды: миниатюрой в боковой панели, полосой вместо терминала и в
+ * отдельном окне. Данные и состояние вида у всех трёх общие, поэтому это один плоттер,
+ * показанный в трёх местах, а не три разных графика.
  *
- * \par Пауза
+ * \par Сглаживание выключено безусловно
  *
- * Замораживает картинку, но не сбор данных: модель продолжает накапливать, а на экране
- * остаётся то, что нужно рассмотреть. Останавливать накопление означало бы терять данные
- * ровно тогда, когда за ними следят.
+ * Замер: одна и та же кривая из 200 точек рисуется 2.9 мс гладкой и 676 мс дёрганой — цена
+ * зависит не от числа точек, а от длины пути пера. Дешёвого признака «здесь оно по карману»
+ * не нашлось, а разброс — тысячекратный.
  *
- * \par Почему отрисовка не идёт по каждой строке
+ * \par Шкала у каждого ряда своя
  *
- * Темп данных и темп показа разведены намеренно. Устройство шлёт строки с той частотой,
- * с какой ему удобно — тысячами в секунду; экран обновляется 60 раз в секунду, и
- * нарисовать больше кадров, чем он покажет, физически невозможно. Пока перерисовка стояла
- * на сигнале модели напрямую, поток интерфейса уходил в неё целиком и окно переставало
- * отвечать. Теперь сигнал только помечает картинку устаревшей, а перерисовку заводит
- * таймер не чаще #kRepaintIntervalMs.
- *
- * \par Прореживание
- *
- * В поле шириной 1200 пикселей нельзя показать 5000 точек: на колонку пикселей приходится
- * четыре точки, и три из них рисуются поверх четвёртой. seriesPolyline() сводит каждую
- * колонку к паре «наименьшее и наибольшее» — это ровно то, что осталось бы на экране от
- * честного обхода всех точек, включая одиночные выбросы, но геометрии в разы меньше.
- *
- * \par Сглаживание
- *
- * Кривые рисуются без него, и это главное решение по скорости — подробности и цифры в
- * paintEvent(). Коротко: цена сглаживания зависит от длины пути пера, а не от числа точек,
- * и разброс достигает трёх порядков, поэтому надёжного правила «здесь оно по карману» нет.
+ * Ряды меряют разные величины. Одна шкала на всех прижимала бы милливольты к нулю рядом с
+ * оборотами в минуту, и половина рядов превращалась бы в прямую у края поля.
  */
 class PlotCanvas : public QWidget
 {
     Q_OBJECT
 
 public:
-    PlotCanvas(IPanelHost *host, PlotModel *model, QWidget *parent = nullptr);
-
-    void setPaused(bool paused);
-    bool isPaused() const { return m_paused; }
+    PlotCanvas(IPanelHost *host, PlotModel *model, PlotViewState *view,
+               QWidget *parent = nullptr);
 
     /// \brief Сохранить снимок графика в файл PNG.
     bool saveImage(const QString &filePath);
+
+    /// \brief Снимок графика как изображение — для буфера обмена.
+    QPixmap snapshot() const;
 
     /**
      * \brief Объявить действия, которыми управляют графиком.
@@ -77,10 +63,6 @@ public:
      */
     void createActions();
 
-Q_SIGNALS:
-    /// \brief Пауза переключена изнутри — двойным щелчком по полю графика.
-    void pausedChanged(bool paused);
-
 protected:
     void paintEvent(QPaintEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
@@ -91,54 +73,50 @@ private:
     /// \brief Наибольший интервал между перерисовками: 16 мс — это 60 кадров в секунду.
     static constexpr int kRepaintIntervalMs = 16;
 
+    /**
+     * \struct SeriesFrame
+     * \brief Всё, что нужно знать о ряде в этом кадре.
+     */
+    struct SeriesFrame
+    {
+        int index = 0;
+        Decimator::Result reduced;
+        YScale scale;
+    };
+
     /// \brief Прямоугольник поля графика без подписей осей.
     QRect plotArea() const;
 
-    /// \brief Нарисовать сетку, подписи пределов и ось X.
-    void drawFrame(QPainter &painter, const QRect &area, double minimum, double maximum) const;
+    /// \brief Окно по времени, прижатое к накопленному.
+    XTransform transformFor(const QRect &area);
 
-    /// \brief Нарисовать перекрестие и значения рядов в точке курсора.
-    void drawCursor(QPainter &painter, const QRect &area, double minimum, double maximum) const;
+    /// \brief Свести все видимые ряды и раздать им шкалы.
+    QList<SeriesFrame> buildFrames(const QRect &area, const XTransform &transform) const;
 
-    /**
-     * \brief Точки ряда, сведённые к разрешению поля графика.
-     * \param column Номер колонки в буфере отсчётов.
-     * \param area Поле графика в координатах виджета.
-     * \param minimum Нижняя граница вертикальной шкалы.
-     * \param span Высота шкалы; вызывающий гарантирует, что она не ноль.
-     *
-     * Пока точек меньше, чем пикселей по ширине, отдаёт их как есть. Дальше на каждую
-     * колонку пикселей приходится по паре точек — наибольшее и наименьшее значение из
-     * попавших в колонку. Форма кривой и выбросы при этом сохраняются полностью: разрешения
-     * экрана всё равно не хватило бы, чтобы показать больше.
-     *
-     * \note Число точек берётся из `SampleBuffer::sampleCount()` — оно **одно на все
-     *       колонки**. Раньше каждый ряд растягивался на всю ширину по своей длине, и два
-     *       ряда разной длины ложились на график в разных временных масштабах.
-     */
-    QPolygonF seriesPolyline(int column, const QRect &area, double minimum,
-                             double span) const;
+    /// \brief Приложить общий вертикальный масштаб и сдвиг к пределам ряда.
+    YScale applyVertical(const PlotScales::Range &range, const QRect &area) const;
 
-    /// \brief Наименьшее и наибольшее среди видимых рядов; при пустых данных — 0 и 1.
-    void valueRange(double *minimum, double *maximum) const;
+    /// \brief Ряд, чья шкала подписана слева; -1, если рисовать нечего.
+    int labelledSeries(const QList<SeriesFrame> &frames) const;
+
+    void drawFrame(QPainter &painter, const QRect &area, const XTransform &transform,
+                   const QList<SeriesFrame> &frames) const;
+    void drawSeries(QPainter &painter, const QRect &area, const XTransform &transform,
+                    const QList<SeriesFrame> &frames) const;
+    void drawCursor(QPainter &painter, const QRect &area, const XTransform &transform,
+                    const QList<SeriesFrame> &frames) const;
 
     /// \brief Пометить картинку устаревшей и завести таймер перерисовки, если он не идёт.
     void scheduleRepaint();
 
     IPanelHost *m_host = nullptr;
     PlotModel *m_model = nullptr;
-
-    bool m_paused = false;
+    PlotViewState *m_view = nullptr;
 
     /// \brief Положение курсора в поле графика; -1, когда курсора нет.
     int m_cursorX = -1;
 
-    QAction *m_pauseAction = nullptr;
-
-    /// \brief Ограничитель частоты перерисовки; см. «Почему отрисовка не идёт по каждой строке».
     QTimer *m_repaintTimer = nullptr;
-
-    /// \brief Данные менялись с последней перерисовки.
     bool m_dirty = false;
 };
 
