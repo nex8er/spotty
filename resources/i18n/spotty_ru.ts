@@ -1502,6 +1502,18 @@ Double-click to edit, right-click for options</source>
         <translation>Плоттер</translation>
     </message>
     <message>
+        <source>Settings saved for a particular device</source>
+        <translation>Настройки, сохранённые под конкретное устройство</translation>
+    </message>
+    <message>
+        <source>Save the current settings as a profile</source>
+        <translation>Сохранить текущие настройки профилем</translation>
+    </message>
+    <message>
+        <source>Delete this profile</source>
+        <translation>Удалить этот профиль</translation>
+    </message>
+    <message>
         <source> samples</source>
         <translation> отсчётов</translation>
     </message>
@@ -1576,6 +1588,26 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Maximum for %1:</source>
         <translation>Максимум для %1:</translation>
+    </message>
+    <message>
+        <source>New profile</source>
+        <translation>Новый профиль</translation>
+    </message>
+    <message>
+        <source>Profile name:</source>
+        <translation>Имя профиля:</translation>
+    </message>
+    <message>
+        <source>That name cannot be used for a file</source>
+        <translation>Такое имя не годится для файла</translation>
+    </message>
+    <message>
+        <source>Could not save the profile</source>
+        <translation>Не удалось сохранить профиль</translation>
+    </message>
+    <message>
+        <source>Plotter profile: %1</source>
+        <translation>Профиль плоттера: %1</translation>
     </message>
 </context>
 <context>

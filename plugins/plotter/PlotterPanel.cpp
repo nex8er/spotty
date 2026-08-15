@@ -15,12 +15,16 @@
 #include <spotty/ui/IPanelHost.h>
 #include <spotty/ui/MdiCodepoints.h>
 
+#include <QToolButton>
+
 #include <QColorDialog>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QColorDialog>
+#include <QComboBox>
 #include <QHeaderView>
 #include <QInputDialog>
+#include <QLineEdit>
 #include <QMenu>
 #include <QPainter>
 #include <QSpinBox>
@@ -35,6 +39,7 @@ namespace {
 
 constexpr auto kKeySeparator = "separator";
 constexpr auto kKeyCapacity = "capacity";
+constexpr auto kKeyProfile = "profile";
 
 /**
  * \brief Ёмкость буфера по умолчанию, отсчётов.
@@ -72,6 +77,7 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
     : PanelWidget(panelHost, parent)
     , m_model(model)
     , m_view(view)
+    , m_store(panelHost->dataDir())
 {
     setPanelTitle(tr("Plotter"));
     QVBoxLayout *layout = content();
@@ -84,6 +90,39 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
     m_plot = new PlotWidget(panelHost, m_model, m_view, PlotWidget::Placement::Panel, this);
     m_plot->canvas()->setMinimumHeight(140);
     layout->addWidget(m_plot);
+
+    // Профили: набор настроек под конкретное устройство. Список плюс две кнопки — добавить
+    // и удалить; всё остальное сохраняется само.
+    auto *profileRow = new QHBoxLayout;
+    profileRow->setSpacing(4);
+
+    m_profiles = new QComboBox(this);
+    m_profiles->setToolTip(tr("Settings saved for a particular device"));
+    profileRow->addWidget(m_profiles, 1);
+
+    const auto makeSmall = [this](char32_t glyph, const QString &tip) {
+        auto *button = new QToolButton(this);
+        button->setAutoRaise(true);
+        button->setIcon(host()->icon(glyph, 16));
+        button->setToolTip(tip);
+        return button;
+    };
+    auto *addProfileButton = makeSmall(mdi::Plus, tr("Save the current settings as a profile"));
+    auto *removeProfileButton = makeSmall(mdi::Delete, tr("Delete this profile"));
+    profileRow->addWidget(addProfileButton);
+    profileRow->addWidget(removeProfileButton);
+    layout->addLayout(profileRow);
+
+    connect(addProfileButton, &QToolButton::clicked, this, &PlotterPanel::addProfile);
+    connect(removeProfileButton, &QToolButton::clicked, this, &PlotterPanel::deleteProfile);
+    connect(m_profiles, &QComboBox::currentTextChanged, this, [this](const QString &name) {
+        if (m_populating || name.isEmpty() || name == m_currentProfile)
+            return;
+        m_profileChosenByUser = true;
+        m_currentProfile = name;
+        applyProfile(m_store.load(name));
+        host()->setValue(QLatin1String(kKeyProfile), name);
+    });
 
     auto *form = new QFormLayout;
 
@@ -141,7 +180,22 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
         if (m_populating)
             return;
         host()->setValue(QLatin1String(kKeySeparator), QString(m_model->separator()));
+        scheduleProfileSave();
     });
+    // Режим показа тоже часть профиля, а живёт он в состоянии вида.
+    connect(m_view, &PlotViewState::changed, this, [this] {
+        if (!m_populating)
+            scheduleProfileSave();
+    });
+
+    m_profileTimer = new QTimer(this);
+    m_profileTimer->setSingleShot(true);
+    m_profileTimer->setInterval(kProfileSaveDelayMs);
+    connect(m_profileTimer, &QTimer::timeout, this, &PlotterPanel::saveProfile);
+
+    // Состав рядов меняется, когда устройство прислало новую колонку, — тогда и есть по
+    // чему подбирать профиль.
+    connect(m_model, &PlotModel::seriesAdded, this, &PlotterPanel::autoSelectProfile);
     // Одиночный таймер: когда данные не идут, ничего не тикает.
     m_statisticsTimer = new QTimer(this);
     m_statisticsTimer->setSingleShot(true);
@@ -199,6 +253,7 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
             [this] { updateStatisticsWidth(); });
 
     reloadFromSettings();
+    reloadProfiles();
     rebuildTable();
 }
 
@@ -414,6 +469,183 @@ void PlotterPanel::editRange(int row)
         return;
 
     m_model->setSeriesRange(row, true, minimum, maximum);
+}
+
+namespace {
+
+/// \brief Имя режима для файла профиля.
+QString modeKey(PlotViewState::Mode mode)
+{
+    switch (mode) {
+    case PlotViewState::Mode::Xy:         return QStringLiteral("xy");
+    case PlotViewState::Mode::Histogram:  return QStringLiteral("histogram");
+    case PlotViewState::Mode::Cumulative: return QStringLiteral("cumulative");
+    case PlotViewState::Mode::Spectrum:   return QStringLiteral("spectrum");
+    case PlotViewState::Mode::MultiPlot:  return QStringLiteral("multiplot");
+    case PlotViewState::Mode::TimeSeries: break;
+    }
+    return QStringLiteral("timeseries");
+}
+
+/// \brief Режим по имени из файла профиля.
+PlotViewState::Mode modeFromKey(const QString &key)
+{
+    if (key == QLatin1String("xy"))         return PlotViewState::Mode::Xy;
+    if (key == QLatin1String("histogram"))  return PlotViewState::Mode::Histogram;
+    if (key == QLatin1String("cumulative")) return PlotViewState::Mode::Cumulative;
+    if (key == QLatin1String("spectrum"))   return PlotViewState::Mode::Spectrum;
+    if (key == QLatin1String("multiplot"))  return PlotViewState::Mode::MultiPlot;
+    return PlotViewState::Mode::TimeSeries;
+}
+
+} // namespace
+
+void PlotterPanel::reloadProfiles()
+{
+    const QSignalBlocker blocker(m_profiles);
+    m_profiles->clear();
+    m_profiles->addItems(m_store.profiles());
+
+    const QString remembered = host()->value(QLatin1String(kKeyProfile)).toString();
+    const int index = m_profiles->findText(remembered);
+    if (index >= 0) {
+        m_profiles->setCurrentIndex(index);
+        m_currentProfile = remembered;
+        m_profileChosenByUser = true;
+        applyProfile(m_store.load(remembered));
+    } else {
+        m_profiles->setCurrentIndex(-1);
+    }
+}
+
+PlotProfile PlotterPanel::currentProfile(const QString &name) const
+{
+    PlotProfile profile;
+    profile.name = name;
+    profile.separator = QString(m_model->separator());
+    profile.xAxis = m_model->xAxisSeries();
+    profile.capacity = m_model->capacity();
+    profile.mode = modeKey(m_view->mode());
+    profile.lastUsed = QDateTime::currentDateTimeUtc();
+
+    profile.series.reserve(m_model->seriesCount());
+    for (int i = 0; i < m_model->seriesCount(); ++i) {
+        const PlotSeries &series = m_model->series(i);
+        PlotProfileSeries stored;
+        stored.name = series.name;
+        stored.nameIsCustom = series.nameIsCustom;
+        stored.color = series.color;
+        stored.visible = series.visible;
+        stored.hasCustomRange = series.hasCustomRange;
+        stored.customMinimum = series.customMinimum;
+        stored.customMaximum = series.customMaximum;
+        profile.series.append(stored);
+    }
+    return profile;
+}
+
+void PlotterPanel::applyProfile(const PlotProfile &profile)
+{
+    if (profile.name.isEmpty())
+        return;
+
+    // Флаг обязателен: применение профиля правит модель, а правка модели просит сохранить
+    // профиль — без него применение немедленно переписало бы то, что только что прочитали.
+    m_populating = true;
+
+    m_model->setSeparator(profile.separator.isEmpty() ? u',' : profile.separator.at(0));
+    m_model->setCapacity(profile.capacity);
+    m_points->setValue(profile.capacity);
+    m_view->setMode(modeFromKey(profile.mode));
+
+    for (int i = 0; i < profile.series.size() && i < m_model->seriesCount(); ++i) {
+        const PlotProfileSeries &stored = profile.series.at(i);
+        m_model->setSeriesColor(i, stored.color);
+        m_model->setSeriesVisible(i, stored.visible);
+        if (stored.nameIsCustom)
+            m_model->setSeriesName(i, stored.name);
+        m_model->setSeriesRange(i, stored.hasCustomRange, stored.customMinimum,
+                                stored.customMaximum);
+    }
+
+    // Ось X назначается после рядов: до их появления номер колонки не с чем сверять, и
+    // модель отвергла бы его как выходящий за границы.
+    m_model->setXAxisSeries(profile.xAxis);
+
+    m_populating = false;
+    rebuildTable();
+}
+
+void PlotterPanel::scheduleProfileSave()
+{
+    if (m_currentProfile.isEmpty())
+        return;
+    if (!m_profileTimer->isActive())
+        m_profileTimer->start();
+}
+
+void PlotterPanel::saveProfile()
+{
+    if (m_currentProfile.isEmpty())
+        return;
+    m_store.save(currentProfile(m_currentProfile));
+}
+
+void PlotterPanel::addProfile()
+{
+    bool ok = false;
+    const QString name = QInputDialog::getText(window(), tr("New profile"),
+                                               tr("Profile name:"), QLineEdit::Normal,
+                                               host()->interfaceAlias(), &ok);
+    if (!ok || name.isEmpty())
+        return;
+
+    if (!PlotProfileStore::isValidName(name)) {
+        host()->showStatusMessage(tr("That name cannot be used for a file"));
+        return;
+    }
+
+    if (!m_store.save(currentProfile(name))) {
+        host()->showStatusMessage(tr("Could not save the profile"));
+        return;
+    }
+
+    m_currentProfile = name;
+    m_profileChosenByUser = true;
+    host()->setValue(QLatin1String(kKeyProfile), name);
+    reloadProfiles();
+}
+
+void PlotterPanel::deleteProfile()
+{
+    const QString name = m_profiles->currentText();
+    if (name.isEmpty())
+        return;
+
+    m_store.remove(name);
+    m_currentProfile.clear();
+    m_profileChosenByUser = false;
+    host()->setValue(QLatin1String(kKeyProfile), QString());
+    reloadProfiles();
+}
+
+void PlotterPanel::autoSelectProfile()
+{
+    // Выбранный человеком профиль не трогаем: иначе автоподбор отменял бы его выбор при
+    // каждой новой колонке потока.
+    if (m_profileChosenByUser || m_model->seriesCount() == 0)
+        return;
+
+    const QString best = m_store.bestMatch(m_model->seriesCount(), m_model->seriesNames());
+    if (best.isEmpty() || best == m_currentProfile)
+        return;
+
+    m_currentProfile = best;
+    applyProfile(m_store.load(best));
+
+    const QSignalBlocker blocker(m_profiles);
+    m_profiles->setCurrentIndex(m_profiles->findText(best));
+    host()->showStatusMessage(tr("Plotter profile: %1").arg(best));
 }
 
 } // namespace spotty

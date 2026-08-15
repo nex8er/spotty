@@ -4,8 +4,11 @@
  */
 #pragma once
 
+#include <spotty/data/PlotProfile.h>
+
 #include <spotty/ui/PanelWidget.h>
 
+class QComboBox;
 class QSpinBox;
 class QTableWidget;
 class QTimer;
@@ -58,6 +61,9 @@ private:
      */
     static constexpr int kStatisticsIntervalMs = 200;
 
+    /// \brief Задержка автосохранения профиля, мс.
+    static constexpr int kProfileSaveDelayMs = 400;
+
     void reloadFromSettings();
     void commit();
 
@@ -90,10 +96,42 @@ private:
     /// \brief Спросить пользовательские пределы шкалы ряда.
     void editRange(int row);
 
+    /// \name Профили
+    /// @{
+
+    /// \brief Перечитать список профилей в выпадающем списке.
+    void reloadProfiles();
+
+    /// \brief Собрать нынешние настройки в профиль под именем \p name.
+    PlotProfile currentProfile(const QString &name) const;
+
+    /// \brief Применить профиль к модели и виду.
+    void applyProfile(const PlotProfile &profile);
+
+    /// \brief Записать текущий профиль на диск; вызывается отложенно.
+    void saveProfile();
+
+    /// \brief Завести таймер автосохранения, если он ещё не идёт.
+    void scheduleProfileSave();
+
+    void addProfile();
+    void deleteProfile();
+
+    /**
+     * \brief Подобрать профиль под нынешний состав колонок.
+     *
+     * Зовётся, когда состав рядов изменился: до первых данных подбирать не по чему.
+     * Уже выбранный вручную профиль не трогается — иначе автоподбор отменял бы выбор
+     * человека при каждой новой колонке.
+     */
+    void autoSelectProfile();
+    /// @}
+
     PlotModel *m_model = nullptr;
     PlotViewState *m_view = nullptr;
     PlotWidget *m_plot = nullptr;
 
+    QComboBox *m_profiles = nullptr;
     QSpinBox *m_points = nullptr;
     QTableWidget *m_table = nullptr;
     SeriesSwatchDelegate *m_swatch = nullptr;
@@ -103,6 +141,24 @@ private:
 
     /// \brief Ограничитель частоты пересчёта статистики; см. #kStatisticsIntervalMs.
     QTimer *m_statisticsTimer = nullptr;
+
+    /**
+     * \brief Откладывает запись профиля.
+     *
+     * Настройки правят подряд — цвет, имя, пределы, — и писать файл на каждое нажатие
+     * значило бы дёргать диск десятки раз за секунду. Одиночный: когда ничего не меняют,
+     * ничего и не тикает.
+     */
+    QTimer *m_profileTimer = nullptr;
+
+    /// \brief Хранилище профилей в каталоге плагина.
+    PlotProfileStore m_store;
+
+    /// \brief Выбранный профиль; пусто, пока ни один не выбран.
+    QString m_currentProfile;
+
+    /// \brief Профиль выбран человеком — автоподбор его больше не трогает.
+    bool m_profileChosenByUser = false;
 
     bool m_populating = false;
 };

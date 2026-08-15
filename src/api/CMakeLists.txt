@@ -36,6 +36,7 @@ target_sources(spotty-api
         PlotFormat.cpp
         PlotMath.cpp
         PlotModel.cpp
+        PlotProfile.cpp
         PlotTransform.cpp
         PlotViewState.cpp
         SampleBuffer.cpp
@@ -63,6 +64,7 @@ target_sources(spotty-api
         "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotFormat.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotMath.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotModel.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotProfile.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotTransform.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotViewState.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/SampleBuffer.h"
