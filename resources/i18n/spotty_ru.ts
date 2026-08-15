@@ -1304,6 +1304,10 @@ Double-click to edit, right-click for options</source>
         <translation>Сбросить масштаб по вертикали</translation>
     </message>
     <message>
+        <source>Pick a column for the X axis to see a phase plot</source>
+        <translation>Выберите колонку для оси X, чтобы увидеть фазовый портрет</translation>
+    </message>
+    <message>
         <source>Waiting for numeric lines in the output</source>
         <translation>Ждём числовые строки в выводе</translation>
     </message>
@@ -1317,6 +1321,10 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Jump to the newest data and keep following it</source>
         <translation>Перейти к свежим данным и следовать за ними</translation>
+    </message>
+    <message>
+        <source>What the plot shows</source>
+        <translation>Что показывает график</translation>
     </message>
     <message>
         <source>Field separator</source>
@@ -1353,6 +1361,58 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Freeze the picture, not the data</source>
         <translation>Заморозить картинку, но не данные</translation>
+    </message>
+    <message>
+        <source>Time series</source>
+        <translation>Развёртка по времени</translation>
+    </message>
+    <message>
+        <source>Multi-plot</source>
+        <translation>Мультиплот</translation>
+    </message>
+    <message>
+        <source>XY (phase)</source>
+        <translation>XY (фазовый)</translation>
+    </message>
+    <message>
+        <source>Cumulative</source>
+        <translation>Накопление</translation>
+    </message>
+    <message>
+        <source>Histogram</source>
+        <translation>Гистограмма</translation>
+    </message>
+    <message>
+        <source>Spectrum</source>
+        <translation>Спектр</translation>
+    </message>
+    <message>
+        <source>Values against time</source>
+        <translation>Значения от времени</translation>
+    </message>
+    <message>
+        <source>One small plot per series, sharing the time axis</source>
+        <translation>По мини-графику на ряд, ось времени общая</translation>
+    </message>
+    <message>
+        <source>One series against another; time is not used</source>
+        <translation>Один ряд против другого; время не участвует</translation>
+    </message>
+    <message>
+        <source>Running sum from the start of the buffer</source>
+        <translation>Бегущая сумма от начала буфера</translation>
+    </message>
+    <message>
+        <source>How often each value occurs</source>
+        <translation>Как часто встречается каждое значение</translation>
+    </message>
+    <message>
+        <source>Amplitude against frequency</source>
+        <translation>Амплитуда от частоты</translation>
+    </message>
+    <message>
+        <source>Showing: %1</source>
+        <translation>Показано: %1</translation>
     </message>
     <message>
         <source>Comma (,)</source>

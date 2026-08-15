@@ -72,6 +72,12 @@ PlotWidget::PlotWidget(IPanelHost *panelHost, PlotModel *model, PlotViewState *v
 
     row->addSpacing(8);
 
+    m_mode = makeButton(mdi::ChartLine, tr("What the plot shows"));
+    connect(m_mode, &QToolButton::clicked, this, &PlotWidget::showModeMenu);
+    connect(m_view, &PlotViewState::changed, this, &PlotWidget::updateModeIcon);
+    updateModeIcon();
+    row->addWidget(m_mode);
+
     QToolButton *separator = makeButton(mdi::FormatColumns, tr("Field separator"));
     connect(separator, &QToolButton::clicked, this, &PlotWidget::showSeparatorMenu);
     row->addWidget(separator);
@@ -129,6 +135,100 @@ void PlotWidget::updatePlayPause()
     m_playPause->setIcon(m_host->icon(paused ? mdi::Play : mdi::Pause, kToolGlyphSize));
     m_playPause->setToolTip(paused ? tr("Resume drawing; data kept coming while paused")
                                    : tr("Freeze the picture, not the data"));
+}
+
+namespace {
+
+/// \brief Режимы показа: значок, подпись и пояснение, зачем режим нужен.
+struct ModeEntry
+{
+    PlotViewState::Mode mode;
+    char32_t glyph;
+};
+
+/// \brief Порядок в меню: от привычного к специальному.
+constexpr ModeEntry kModes[] = {
+    {PlotViewState::Mode::TimeSeries, mdi::ChartLine},
+    {PlotViewState::Mode::MultiPlot, mdi::ChartMultiple},
+    {PlotViewState::Mode::Xy, mdi::ChartScatterPlot},
+    {PlotViewState::Mode::Cumulative, mdi::ChartBellCurveCumulative},
+    {PlotViewState::Mode::Histogram, mdi::ChartBellCurve},
+    {PlotViewState::Mode::Spectrum, mdi::Poll},
+};
+
+} // namespace
+
+QString PlotWidget::modeTitle(PlotViewState::Mode mode)
+{
+    switch (mode) {
+    case PlotViewState::Mode::TimeSeries:
+        return tr("Time series");
+    case PlotViewState::Mode::MultiPlot:
+        return tr("Multi-plot");
+    case PlotViewState::Mode::Xy:
+        return tr("XY (phase)");
+    case PlotViewState::Mode::Cumulative:
+        return tr("Cumulative");
+    case PlotViewState::Mode::Histogram:
+        return tr("Histogram");
+    case PlotViewState::Mode::Spectrum:
+        return tr("Spectrum");
+    }
+    return {};
+}
+
+QString PlotWidget::modeHint(PlotViewState::Mode mode)
+{
+    switch (mode) {
+    case PlotViewState::Mode::TimeSeries:
+        return tr("Values against time");
+    case PlotViewState::Mode::MultiPlot:
+        return tr("One small plot per series, sharing the time axis");
+    case PlotViewState::Mode::Xy:
+        return tr("One series against another; time is not used");
+    case PlotViewState::Mode::Cumulative:
+        return tr("Running sum from the start of the buffer");
+    case PlotViewState::Mode::Histogram:
+        return tr("How often each value occurs");
+    case PlotViewState::Mode::Spectrum:
+        return tr("Amplitude against frequency");
+    }
+    return {};
+}
+
+void PlotWidget::updateModeIcon()
+{
+    for (const ModeEntry &entry : kModes) {
+        if (entry.mode != m_view->mode())
+            continue;
+        m_mode->setIcon(m_host->icon(entry.glyph, kToolGlyphSize));
+        m_mode->setToolTip(tr("Showing: %1").arg(modeTitle(entry.mode)));
+        return;
+    }
+}
+
+void PlotWidget::showModeMenu()
+{
+    QMenu menu(this);
+    auto *group = new QActionGroup(&menu);
+    group->setExclusive(true);
+
+    for (const ModeEntry &entry : kModes) {
+        QAction *action = menu.addAction(m_host->icon(entry.glyph, kToolGlyphSize),
+                                         modeTitle(entry.mode));
+        action->setCheckable(true);
+        action->setChecked(m_view->mode() == entry.mode);
+        action->setActionGroup(group);
+        // Пояснение подсказкой, а не вторым уровнем меню: шесть строк с описанием читаются
+        // дольше, чем шесть названий, а нужно оно один раз.
+        action->setToolTip(modeHint(entry.mode));
+        connect(action, &QAction::triggered, this,
+                [this, mode = entry.mode] { m_view->setMode(mode); });
+    }
+    // Иначе Qt показывает подсказки пунктов только в строке состояния, которой у меню нет.
+    menu.setToolTipsVisible(true);
+
+    menu.exec(QCursor::pos());
 }
 
 void PlotWidget::showSeparatorMenu()

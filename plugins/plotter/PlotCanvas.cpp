@@ -495,8 +495,69 @@ void PlotCanvas::drawFrame(QPainter &painter, const QRect &area, const XTransfor
     }
 }
 
-void PlotCanvas::drawSeries(QPainter &painter, const QRect &area, const XTransform &transform,
-                            const QList<SeriesFrame> &frames) const
+void PlotCanvas::drawCurve(QPainter &painter, const QRect &area, const SeriesFrame &frame,
+                           const QColor &colour, bool withFill) const
+{
+    if (frame.reduced.columns.isEmpty())
+        return;
+
+    const bool dense = frame.reduced.columns.size() >= area.width();
+
+    // Отрезки рисуются по одному: пропуск в данных рвёт кривую, и соединять её через
+    // разрыв значило бы показывать то, чего устройство не присылало.
+    for (int run = 0; run < frame.reduced.runStarts.size(); ++run) {
+        const int first = frame.reduced.runStarts.at(run);
+        const int last = (run + 1 < frame.reduced.runStarts.size())
+                             ? frame.reduced.runStarts.at(run + 1)
+                             : int(frame.reduced.columns.size());
+        if (last - first < 1)
+            continue;
+
+        QPolygonF polyline;
+        polyline.reserve((last - first) * 2);
+        for (int i = first; i < last; ++i) {
+            const Decimator::Column &column = frame.reduced.columns.at(i);
+            const double x = area.left() + column.x;
+            // Сверху вниз в экранных координатах: порядок один во всех колонках, поэтому
+            // соседние отрезки смыкаются, а не расходятся зигзагом.
+            polyline.append(QPointF(x, frame.scale.yOf(column.maximum)));
+            if (!qFuzzyCompare(column.minimum, column.maximum))
+                polyline.append(QPointF(x, frame.scale.yOf(column.minimum)));
+        }
+        if (polyline.size() < 2)
+            continue;
+
+        if (withFill) {
+            // Заливается верхняя огибающая, а не сама полилиния: прореженная полилиния
+            // пересекает себя в каждой колонке, и растеризатор разбирал бы тысячи
+            // самопересечений на каждой строке развёртки.
+            QPolygonF filled;
+            filled.reserve(last - first + 2);
+            for (int i = first; i < last; ++i) {
+                const Decimator::Column &column = frame.reduced.columns.at(i);
+                filled.append(QPointF(area.left() + column.x,
+                                      frame.scale.yOf(column.maximum)));
+            }
+            filled.append(QPointF(filled.last().x(), area.bottom()));
+            filled.append(QPointF(filled.first().x(), area.bottom()));
+
+            QColor fill = colour;
+            fill.setAlpha(kFillAlpha);
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(fill);
+            painter.drawPolygon(filled);
+            painter.setBrush(Qt::NoBrush);
+        }
+
+        // Дробная толщина без сглаживания всё равно округлится до целой.
+        painter.setPen(QPen(colour, dense ? 1.0 : 1.5));
+        painter.drawPolyline(polyline);
+    }
+}
+
+void PlotCanvas::drawTimeSeries(QPainter &painter, const QRect &area,
+                                const XTransform &transform,
+                                const QList<SeriesFrame> &frames) const
 {
     Q_UNUSED(transform);
 
@@ -515,69 +576,127 @@ void PlotCanvas::drawSeries(QPainter &painter, const QRect &area, const XTransfo
     }
 
     for (const SeriesFrame *frame : order) {
-        if (frame->reduced.columns.isEmpty())
+        QColor colour = QColor::fromRgba(m_model->series(frame->index).color);
+        // Приглушение альфой, а не сменой оттенка: тусклый ряд обязан оставаться
+        // узнаваемым по цвету — иначе таблица сбоку перестанет соответствовать графику.
+        const bool dimmed = m_view->hasScaleGroup() && !m_view->isInScaleGroup(frame->index);
+        if (dimmed)
+            colour.setAlpha(kDimmedAlpha);
+
+        drawCurve(painter, area, *frame, colour, withFill && !dimmed);
+    }
+}
+
+void PlotCanvas::drawSeries(QPainter &painter, const QRect &area, const XTransform &transform,
+                            const QList<SeriesFrame> &frames) const
+{
+    drawTimeSeries(painter, area, transform, frames);
+}
+
+void PlotCanvas::drawXy(QPainter &painter, const QRect &area) const
+{
+    // Фазовый портрет: время не участвует вовсе, по обеим осям идут значения. Колонка для
+    // X берётся из того же выбора, что и в развёртке; без неё показывать нечего.
+    const int xColumn = m_model->xAxisSeries();
+    if (xColumn < 0) {
+        painter.setPen(m_host->color(IPanelHost::ColorRole::TextMuted));
+        painter.drawText(area, Qt::AlignCenter,
+                         tr("Pick a column for the X axis to see a phase plot"));
+        return;
+    }
+
+    const SampleBuffer &samples = m_model->samples();
+    const SampleBuffer::ColumnStats xStats = samples.stats(xColumn);
+    if (xStats.finiteCount < 2)
+        return;
+
+    const PlotScales::Range xRange =
+        PlotScales::padded({xStats.minimum, xStats.maximum, true});
+    const XTransform horizontal{0, 1, double(area.left()), double(area.width())};
+    Q_UNUSED(horizontal);
+
+    const auto xOf = [&](double value) {
+        return area.left()
+               + (value - xRange.minimum) / (xRange.maximum - xRange.minimum) * area.width();
+    };
+
+    for (int index = 0; index < m_model->seriesCount(); ++index) {
+        if (!m_model->series(index).visible || index == xColumn)
             continue;
 
-        QColor color = QColor::fromRgba(m_model->series(frame->index).color);
-        // Приглушение альфой, а не сменой оттенка: тусклый ряд обязан оставаться узнаваемым
-        // по цвету — иначе таблица сбоку перестанет соответствовать графику.
-        const bool dimmed = frames.size() > 1 && frame->index != labelled
-                            && (m_view->hasScaleGroup() ? !m_view->isInScaleGroup(frame->index)
-                                                        : false);
-        if (dimmed)
-            color.setAlpha(kDimmedAlpha);
+        const SampleBuffer::ColumnStats stats = samples.stats(index);
+        if (stats.finiteCount < 2)
+            continue;
 
-        const bool dense = frame->reduced.columns.size() >= area.width();
+        const PlotScales::Range range = PlotScales::resolve(
+            m_model->series(index), {stats.minimum, stats.maximum, true}, {});
+        const YScale scale = applyVertical(range, area);
 
-        // Отрезки рисуются по одному: пропуск в данных рвёт кривую, и соединять её через
-        // разрыв значило бы показывать то, чего устройство не присылало.
-        for (int run = 0; run < frame->reduced.runStarts.size(); ++run) {
-            const int first = frame->reduced.runStarts.at(run);
-            const int last = (run + 1 < frame->reduced.runStarts.size())
-                                 ? frame->reduced.runStarts.at(run + 1)
-                                 : int(frame->reduced.columns.size());
-            if (last - first < 1)
+        // Точки соединяются в порядке прихода: именно последовательность и делает из
+        // облака точек фазовый портрет.
+        QPolygonF polyline;
+        polyline.reserve(samples.sampleCount());
+        for (int row = 0; row < samples.sampleCount(); ++row) {
+            const double x = samples.at(row, xColumn);
+            const double y = samples.at(row, index);
+            if (!qIsFinite(x) || !qIsFinite(y)) {
+                // Разрыв: пропуск по любой из осей рвёт линию.
+                if (polyline.size() >= 2)
+                    painter.drawPolyline(polyline);
+                polyline.clear();
                 continue;
-
-            QPolygonF polyline;
-            polyline.reserve((last - first) * 2);
-            for (int i = first; i < last; ++i) {
-                const Decimator::Column &column = frame->reduced.columns.at(i);
-                const double x = area.left() + column.x;
-                // Сверху вниз в экранных координатах: порядок один во всех колонках,
-                // поэтому соседние отрезки смыкаются, а не расходятся зигзагом.
-                polyline.append(QPointF(x, frame->scale.yOf(column.maximum)));
-                if (!qFuzzyCompare(column.minimum, column.maximum))
-                    polyline.append(QPointF(x, frame->scale.yOf(column.minimum)));
             }
-            if (polyline.size() < 2)
-                continue;
+            polyline.append(QPointF(xOf(x), scale.yOf(y)));
+        }
 
-            if (withFill && !dimmed) {
-                // Заливается верхняя огибающая, а не сама полилиния: прореженная полилиния
-                // пересекает себя в каждой колонке, и растеризатор разбирал бы тысячи
-                // самопересечений на каждой строке развёртки.
-                QPolygonF filled;
-                filled.reserve(last - first + 2);
-                for (int i = first; i < last; ++i) {
-                    const Decimator::Column &column = frame->reduced.columns.at(i);
-                    filled.append(
-                        QPointF(area.left() + column.x, frame->scale.yOf(column.maximum)));
-                }
-                filled.append(QPointF(filled.last().x(), area.bottom()));
-                filled.append(QPointF(filled.first().x(), area.bottom()));
-
-                QColor fill = color;
-                fill.setAlpha(kFillAlpha);
-                painter.setPen(Qt::NoPen);
-                painter.setBrush(fill);
-                painter.drawPolygon(filled);
-                painter.setBrush(Qt::NoBrush);
-            }
-
-            // Дробная толщина без сглаживания всё равно округлится до целой.
-            painter.setPen(QPen(color, dense ? 1.0 : 1.5));
+        painter.setPen(QPen(QColor::fromRgba(m_model->series(index).color), 1.0));
+        if (polyline.size() >= 2)
             painter.drawPolyline(polyline);
+    }
+}
+
+void PlotCanvas::drawMultiPlot(QPainter &painter, const QRect &area,
+                               const XTransform &transform)
+{
+    QList<int> visible;
+    for (int index = 0; index < m_model->seriesCount(); ++index) {
+        if (m_model->series(index).visible && index != m_model->xAxisSeries())
+            visible.append(index);
+    }
+    if (visible.isEmpty())
+        return;
+
+    const QColor grid = m_host->color(IPanelHost::ColorRole::Border);
+    const int bandHeight = area.height() / int(visible.size());
+
+    for (int position = 0; position < visible.size(); ++position) {
+        const int index = visible.at(position);
+        const QRect band(area.left(), area.top() + position * bandHeight, area.width(),
+                         bandHeight - 2);
+        if (band.height() < 4)
+            continue;
+
+        // У каждой полосы своя шкала по своим значениям: ради этого мультиплот и нужен —
+        // ряды разных величин перестают давить друг друга.
+        SeriesFrame frame;
+        frame.index = index;
+        frame.reduced = Decimator::reduce(m_model->samples(), index, transform, band.width());
+        frame.scale = applyVertical(PlotScales::resolve(m_model->series(index),
+                                                        frame.reduced.visible, {}),
+                                    band);
+
+        const QColor colour = QColor::fromRgba(m_model->series(index).color);
+        drawCurve(painter, band, frame, colour, true);
+
+        // Подпись полосы прямо в ней: отдельной шкалы слева на каждую полосу не хватит
+        // места, а без имени полосы не различить.
+        painter.setPen(colour);
+        painter.drawText(band.adjusted(4, 2, -4, 0), Qt::AlignLeft | Qt::AlignTop,
+                         m_model->series(index).name);
+
+        if (position + 1 < visible.size()) {
+            painter.setPen(grid);
+            painter.drawLine(band.left(), band.bottom() + 1, band.right(), band.bottom() + 1);
         }
     }
 }
@@ -659,9 +778,38 @@ void PlotCanvas::paintEvent(QPaintEvent *event)
     for (const SeriesFrame &frame : frames)
         m_visibleOrder.append(frame.index);
 
-    drawFrame(painter, area, transform, frames);
-    drawSeries(painter, area, transform, frames);
-    drawCursor(painter, area, transform, frames);
+    // Общее для всех режимов — рамка, сетка и подписи — рисуется один раз; режим
+    // отвечает только за метки внутри поля.
+    switch (m_view->mode()) {
+    case PlotViewState::Mode::Xy:
+        // У фазового портрета по обеим осям значения, поэтому ни временная сетка, ни
+        // перекрестие по времени тут не к месту.
+        painter.setPen(m_host->color(IPanelHost::ColorRole::Border));
+        painter.drawRect(area);
+        drawXy(painter, area);
+        break;
+
+    case PlotViewState::Mode::MultiPlot:
+        drawMultiPlot(painter, area, transform);
+        break;
+
+    case PlotViewState::Mode::TimeSeries:
+    case PlotViewState::Mode::Cumulative:
+        // Накопление — та же развёртка, только прореживатель считает бегущую сумму;
+        // отдельного кода отрисовки ему не нужно.
+        drawFrame(painter, area, transform, frames);
+        drawTimeSeries(painter, area, transform, frames);
+        drawCursor(painter, area, transform, frames);
+        break;
+
+    case PlotViewState::Mode::Histogram:
+    case PlotViewState::Mode::Spectrum:
+        // Появятся следующим шагом; пока показываем развёртку, а не пустое поле.
+        drawFrame(painter, area, transform, frames);
+        drawTimeSeries(painter, area, transform, frames);
+        drawCursor(painter, area, transform, frames);
+        break;
+    }
 
     if (m_view->paused()) {
         // Замороженную картинку легко принять за зависшую программу. Надпись отвечает на

@@ -132,6 +132,26 @@ private:
                    const QList<SeriesFrame> &frames) const;
     void drawSeries(QPainter &painter, const QRect &area, const XTransform &transform,
                     const QList<SeriesFrame> &frames) const;
+
+    /// \name Режимы показа
+    /// Общее — фон, поле, рамка, сетка, курсор и запрет сглаживания — остаётся снаружи;
+    /// каждый режим рисует только свои метки внутри поля.
+    /// @{
+
+    /// \brief Развёртка по времени; она же основа режима накопления.
+    void drawTimeSeries(QPainter &painter, const QRect &area, const XTransform &transform,
+                        const QList<SeriesFrame> &frames) const;
+
+    /// \brief Фазовый портрет: один ряд против другого, время не участвует.
+    void drawXy(QPainter &painter, const QRect &area) const;
+
+    /// \brief По мини-графику на ряд, общая ось X, своя шкала у каждого.
+    void drawMultiPlot(QPainter &painter, const QRect &area, const XTransform &transform);
+    /// @}
+
+    /// \brief Кривая одного ряда отрезками; общая для развёртки и мультиплота.
+    void drawCurve(QPainter &painter, const QRect &area, const SeriesFrame &frame,
+                   const QColor &colour, bool withFill) const;
     void drawCursor(QPainter &painter, const QRect &area, const XTransform &transform,
                     const QList<SeriesFrame> &frames) const;
 

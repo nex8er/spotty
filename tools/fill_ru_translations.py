@@ -547,6 +547,24 @@ TRANSLATIONS = {
         "Продолжить отрисовку; данные копились и на паузе",
     "Freeze the picture, not the data": "Заморозить картинку, но не данные",
     "Field separator": "Разделитель полей",
+    "What the plot shows": "Что показывает график",
+    "Showing: %1": "Показано: %1",
+    "Time series": "Развёртка по времени",
+    "Multi-plot": "Мультиплот",
+    "XY (phase)": "XY (фазовый)",
+    "Cumulative": "Накопление",
+    "Histogram": "Гистограмма",
+    "Spectrum": "Спектр",
+    "Values against time": "Значения от времени",
+    "One small plot per series, sharing the time axis":
+        "По мини-графику на ряд, ось времени общая",
+    "One series against another; time is not used":
+        "Один ряд против другого; время не участвует",
+    "Running sum from the start of the buffer": "Бегущая сумма от начала буфера",
+    "How often each value occurs": "Как часто встречается каждое значение",
+    "Amplitude against frequency": "Амплитуда от частоты",
+    "Pick a column for the X axis to see a phase plot":
+        "Выберите колонку для оси X, чтобы увидеть фазовый портрет",
     "Click to show or hide, double-click to change the colour":
         "Клик — показать или скрыть, двойной клик — сменить цвет",
     "Double-click to rename": "Двойной клик — переименовать",
