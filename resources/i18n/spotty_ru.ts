@@ -1308,6 +1308,26 @@ Double-click to edit, right-click for options</source>
         <translation>Выберите колонку для оси X, чтобы увидеть фазовый портрет</translation>
     </message>
     <message>
+        <source>Not enough data for a histogram</source>
+        <translation>Данных для гистограммы недостаточно</translation>
+    </message>
+    <message>
+        <source>%1: μ %2, σ %3</source>
+        <translation>%1: μ %2, σ %3</translation>
+    </message>
+    <message>
+        <source>No spectrum: %1</source>
+        <translation>Спектра нет: %1</translation>
+    </message>
+    <message>
+        <source>%1 Hz</source>
+        <translation>%1 Гц</translation>
+    </message>
+    <message>
+        <source>resampled to an even grid</source>
+        <translation>приведено к равномерной сетке</translation>
+    </message>
+    <message>
         <source>Waiting for numeric lines in the output</source>
         <translation>Ждём числовые строки в выводе</translation>
     </message>

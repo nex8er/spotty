@@ -5,6 +5,7 @@
 #include "PlotCanvas.h"
 
 #include <spotty/data/PlotFormat.h>
+#include <spotty/data/PlotMath.h>
 #include <spotty/data/PlotModel.h>
 #include <spotty/data/PlotViewState.h>
 
@@ -701,6 +702,189 @@ void PlotCanvas::drawMultiPlot(QPainter &painter, const QRect &area,
     }
 }
 
+int PlotCanvas::subjectSeries() const
+{
+    // Гистограмма и спектр одномерны: они отвечают на вопрос об **одном** ряде. Шесть
+    // наложенных гистограмм не читаются, поэтому берётся активный ряд — тот, чья шкала
+    // подписана слева и чья строка выделена в таблице.
+    const int active = m_view->activeSeries();
+    if (active >= 0 && active < m_model->seriesCount() && m_model->series(active).visible
+        && active != m_model->xAxisSeries()) {
+        return active;
+    }
+
+    for (int index = 0; index < m_model->seriesCount(); ++index) {
+        if (m_model->series(index).visible && index != m_model->xAxisSeries())
+            return index;
+    }
+    return -1;
+}
+
+void PlotCanvas::visibleValues(QList<double> *values, QList<qint64> *timestamps) const
+{
+    const int index = subjectSeries();
+    if (index < 0)
+        return;
+
+    const SampleBuffer &samples = m_model->samples();
+    const int first = Decimator::lowerBound(samples, m_view->windowFrom());
+
+    for (int row = first; row < samples.sampleCount(); ++row) {
+        const qint64 stamp = samples.timestamp(row);
+        if (stamp > m_view->windowTo())
+            break;
+        if (values)
+            values->append(samples.at(row, index));
+        if (timestamps)
+            timestamps->append(stamp);
+    }
+}
+
+void PlotCanvas::drawHistogram(QPainter &painter, const QRect &area) const
+{
+    const int index = subjectSeries();
+    if (index < 0)
+        return;
+
+    QList<double> values;
+    visibleValues(&values, nullptr);
+
+    const Histogram::Bins bins = Histogram::bins(values);
+    if (bins.counts.isEmpty() || bins.total == 0) {
+        painter.setPen(m_host->color(IPanelHost::ColorRole::TextMuted));
+        painter.drawText(area, Qt::AlignCenter, tr("Not enough data for a histogram"));
+        return;
+    }
+
+    const QColor colour = QColor::fromRgba(m_model->series(index).color);
+    const QColor muted = m_host->color(IPanelHost::ColorRole::TextMuted);
+    const QFontMetrics metrics(font());
+
+    int tallest = 1;
+    for (const int count : bins.counts)
+        tallest = qMax(tallest, count);
+
+    const double binWidth = bins.width();
+    const auto xOf = [&](double value) {
+        return area.left()
+               + (value - bins.minimum) / (bins.maximum - bins.minimum) * area.width();
+    };
+
+    // Столбцы: доля попавших в корзину от самой населённой.
+    QColor fill = colour;
+    fill.setAlpha(150);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(fill);
+    for (int i = 0; i < bins.counts.size(); ++i) {
+        const double left = xOf(bins.minimum + double(i) * binWidth);
+        const double right = xOf(bins.minimum + double(i + 1) * binWidth);
+        const int height = int(double(bins.counts.at(i)) / double(tallest) * area.height());
+        painter.drawRect(QRectF(left, area.bottom() - height, qMax(1.0, right - left - 1.0),
+                                height));
+    }
+    painter.setBrush(Qt::NoBrush);
+
+    const Histogram::Normal normal = Histogram::fitNormal(values);
+    if (!normal.valid || normal.sigma <= 0.0)
+        return;
+
+    // Кривая нормального распределения масштабируется к площади столбцов: иначе плотность
+    // (единицы на величину) и счётчики (штуки) оказались бы на одной оси без общей меры.
+    const double scale = double(bins.total) * binWidth / double(tallest) * area.height();
+    QPolygonF curve;
+    curve.reserve(area.width());
+    for (int x = 0; x < area.width(); ++x) {
+        const double value =
+            bins.minimum + double(x) / double(area.width()) * (bins.maximum - bins.minimum);
+        const double height = Histogram::normalDensity(normal, value) * scale;
+        curve.append(QPointF(area.left() + x, area.bottom() - height));
+    }
+    painter.setPen(QPen(colour.lighter(140), 1.5));
+    painter.drawPolyline(curve);
+
+    // Вертикали в среднем и на ±σ: по ним читается и центр, и разброс.
+    const QList<QPair<double, QString>> marks = {
+        {normal.mean, QStringLiteral("μ")},
+        {normal.mean - normal.sigma, QStringLiteral("−σ")},
+        {normal.mean + normal.sigma, QStringLiteral("+σ")},
+    };
+    for (const auto &[value, label] : marks) {
+        if (value < bins.minimum || value > bins.maximum)
+            continue;
+        const double x = xOf(value);
+        painter.setPen(QPen(muted, 1, Qt::DashLine));
+        painter.drawLine(QPointF(x, area.top()), QPointF(x, area.bottom()));
+        painter.setPen(muted);
+        painter.drawText(QPointF(x + 3, area.top() + metrics.height()), label);
+    }
+
+    painter.setPen(muted);
+    painter.drawText(area.adjusted(4, 2, -4, 0), Qt::AlignRight | Qt::AlignTop,
+                     tr("%1: μ %2, σ %3")
+                         .arg(m_model->series(index).name,
+                              PlotFormat::number(normal.mean, 4),
+                              PlotFormat::number(normal.sigma, 4)));
+}
+
+void PlotCanvas::drawSpectrum(QPainter &painter, const QRect &area) const
+{
+    const int index = subjectSeries();
+    if (index < 0)
+        return;
+
+    QList<double> values;
+    QList<qint64> stamps;
+    visibleValues(&values, &stamps);
+
+    const Spectrum::Result result = Spectrum::computeFromSamples(values, stamps);
+    const QColor muted = m_host->color(IPanelHost::ColorRole::TextMuted);
+
+    if (!result.isValid()) {
+        painter.setPen(muted);
+        painter.drawText(area, Qt::AlignCenter,
+                         tr("No spectrum: %1").arg(result.problem));
+        return;
+    }
+
+    double tallest = 0.0;
+    for (const double value : result.magnitude)
+        tallest = qMax(tallest, value);
+    if (tallest <= 0.0)
+        return;
+
+    const QColor colour = QColor::fromRgba(m_model->series(index).color);
+    QColor fill = colour;
+    fill.setAlpha(150);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(fill);
+
+    const int bins = int(result.magnitude.size());
+    for (int i = 0; i < bins; ++i) {
+        const double left = area.left() + double(i) / double(bins) * area.width();
+        const double right = area.left() + double(i + 1) / double(bins) * area.width();
+        const int height = int(result.magnitude.at(i) / tallest * area.height());
+        painter.drawRect(
+            QRectF(left, area.bottom() - height, qMax(1.0, right - left), height));
+    }
+    painter.setBrush(Qt::NoBrush);
+
+    const QFontMetrics metrics(font());
+    painter.setPen(muted);
+    painter.drawText(area.left(), area.bottom() + metrics.height(), QStringLiteral("0 Hz"));
+    const QString right =
+        tr("%1 Hz").arg(PlotFormat::number(result.binHz * double(bins), 4));
+    painter.drawText(area.right() - metrics.horizontalAdvance(right),
+                     area.bottom() + metrics.height(), right);
+
+    QString note = m_model->series(index).name;
+    if (result.resampled) {
+        // Молча пересэмплировать и показать уверенную ось частот значило бы соврать:
+        // строки приходят когда устройству вздумается.
+        note += QStringLiteral(" · ") + tr("resampled to an even grid");
+    }
+    painter.drawText(area.adjusted(4, 2, -4, 0), Qt::AlignRight | Qt::AlignTop, note);
+}
+
 void PlotCanvas::drawCursor(QPainter &painter, const QRect &area, const XTransform &transform,
                             const QList<SeriesFrame> &frames) const
 {
@@ -803,11 +987,17 @@ void PlotCanvas::paintEvent(QPaintEvent *event)
         break;
 
     case PlotViewState::Mode::Histogram:
+        // По горизонтали — значения, а не время: временна́я сетка и перекрестие тут ни при
+        // чём, поэтому рисуется только рамка.
+        painter.setPen(m_host->color(IPanelHost::ColorRole::Border));
+        painter.drawRect(area);
+        drawHistogram(painter, area);
+        break;
+
     case PlotViewState::Mode::Spectrum:
-        // Появятся следующим шагом; пока показываем развёртку, а не пустое поле.
-        drawFrame(painter, area, transform, frames);
-        drawTimeSeries(painter, area, transform, frames);
-        drawCursor(painter, area, transform, frames);
+        painter.setPen(m_host->color(IPanelHost::ColorRole::Border));
+        painter.drawRect(area);
+        drawSpectrum(painter, area);
         break;
     }
 

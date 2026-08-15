@@ -34,6 +34,7 @@ target_sources(spotty-api
         Decimator.cpp
         MacroStore.cpp
         PlotFormat.cpp
+        PlotMath.cpp
         PlotModel.cpp
         PlotTransform.cpp
         PlotViewState.cpp
@@ -60,6 +61,7 @@ target_sources(spotty-api
         "${CMAKE_SOURCE_DIR}/include/spotty/data/MacroStore.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/Decimator.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotFormat.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotMath.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotModel.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotTransform.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotViewState.h"

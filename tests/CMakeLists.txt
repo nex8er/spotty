@@ -58,6 +58,7 @@ spotty_add_test(spotty-tests
         test_plot_model.cpp
         test_plot_view.cpp
         test_decimator.cpp
+        test_plot_math.cpp
         test_interface_registry.cpp
         test_session.cpp
         test_data_filter.cpp

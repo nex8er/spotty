@@ -147,7 +147,19 @@ private:
 
     /// \brief По мини-графику на ряд, общая ось X, своя шкала у каждого.
     void drawMultiPlot(QPainter &painter, const QRect &area, const XTransform &transform);
+
+    /// \brief Распределение значений активного ряда с кривой нормального и метками μ, ±σ.
+    void drawHistogram(QPainter &painter, const QRect &area) const;
+
+    /// \brief Амплитудный спектр активного ряда.
+    void drawSpectrum(QPainter &painter, const QRect &area) const;
     /// @}
+
+    /// \brief Ряд, по которому строится одномерный режим: активный либо первый видимый.
+    int subjectSeries() const;
+
+    /// \brief Значения активного ряда в видимом окне вместе с метками времени.
+    void visibleValues(QList<double> *values, QList<qint64> *timestamps) const;
 
     /// \brief Кривая одного ряда отрезками; общая для развёртки и мультиплота.
     void drawCurve(QPainter &painter, const QRect &area, const SeriesFrame &frame,
