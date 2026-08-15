@@ -540,6 +540,14 @@ TRANSLATIONS = {
     # --- Плоттер ---
     "Plotter": "Плоттер",
     "Buffer": "Буфер",
+    "Jump to the newest data": "Перейти к свежим данным",
+    "Follow new data": "Следовать за новыми данными",
+    "Reset vertical zoom": "Сбросить масштаб по вертикали",
+    "Whole buffer": "Весь буфер",
+    "Last 1 s": "Последняя 1 с",
+    "Last 10 s": "Последние 10 с",
+    "Last 1 min": "Последняя 1 мин",
+    "Last 10 min": "Последние 10 мин",
     " samples": " отсчётов",
     "How many samples to keep. What part of them is on screen is set by scrolling and "
     "zooming the plot itself.":

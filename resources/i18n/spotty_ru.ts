@@ -1268,8 +1268,40 @@ Double-click to edit, right-click for options</source>
         <translation>Замораживает картинку, но не сбор: накопление продолжается.</translation>
     </message>
     <message>
+        <source>Jump to the newest data</source>
+        <translation>Перейти к свежим данным</translation>
+    </message>
+    <message>
         <source>Clear</source>
         <translation>Очистить</translation>
+    </message>
+    <message>
+        <source>Last 1 s</source>
+        <translation>Последняя 1 с</translation>
+    </message>
+    <message>
+        <source>Last 10 s</source>
+        <translation>Последние 10 с</translation>
+    </message>
+    <message>
+        <source>Last 1 min</source>
+        <translation>Последняя 1 мин</translation>
+    </message>
+    <message>
+        <source>Last 10 min</source>
+        <translation>Последние 10 мин</translation>
+    </message>
+    <message>
+        <source>Whole buffer</source>
+        <translation>Весь буфер</translation>
+    </message>
+    <message>
+        <source>Follow new data</source>
+        <translation>Следовать за новыми данными</translation>
+    </message>
+    <message>
+        <source>Reset vertical zoom</source>
+        <translation>Сбросить масштаб по вертикали</translation>
     </message>
     <message>
         <source>Waiting for numeric lines in the output</source>

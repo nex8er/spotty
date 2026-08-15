@@ -12,10 +12,13 @@
 #include <spotty/ui/MdiCodepoints.h>
 
 #include <QAction>
+#include <QContextMenuEvent>
+#include <QMenu>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
 #include <QTimer>
+#include <QWheelEvent>
 
 namespace spotty {
 
@@ -107,6 +110,19 @@ void PlotCanvas::createActions()
     });
     addAction(pauseAction);
 
+    // «В конец» — тот же смысл, что «Follow output» в терминале, только по горизонтали:
+    // вернуться к свежим данным после того, как график утащили назад.
+    auto *followAction = new QAction(tr("Jump to the newest data"), this);
+    followAction->setCheckable(true);
+    followAction->setChecked(m_view->following());
+    followAction->setIcon(m_host->icon(mdi::ArrowCollapseRight, 18));
+    connect(followAction, &QAction::toggled, m_view, &PlotViewState::setFollowing);
+    connect(m_view, &PlotViewState::followingChanged, followAction, [followAction](bool on) {
+        const QSignalBlocker blocker(followAction);
+        followAction->setChecked(on);
+    });
+    addAction(followAction);
+
     auto *clearAction = new QAction(tr("Clear"), this);
     clearAction->setIcon(m_host->icon(mdi::Broom, 18));
     connect(clearAction, &QAction::triggered, m_model, &PlotModel::clearSamples);
@@ -121,9 +137,50 @@ void PlotCanvas::mouseDoubleClickEvent(QMouseEvent *event)
     event->accept();
 }
 
+void PlotCanvas::mousePressEvent(QMouseEvent *event)
+{
+    if (event->button() != Qt::LeftButton || !plotArea().contains(event->pos())) {
+        QWidget::mousePressEvent(event);
+        return;
+    }
+
+    m_dragging = true;
+    m_dragOrigin = event->pos();
+    m_dragFrom = m_view->windowFrom();
+    // Слежение снимается один раз, на нажатие. Снимать его на каждое движение значило бы
+    // спорить с clampTo(), который у правого края включает его обратно: две стороны
+    // переключали бы флаг в одном кадре, и график дрожал бы у края.
+    m_view->setFollowing(false);
+    setCursor(Qt::ClosedHandCursor);
+    event->accept();
+}
+
+void PlotCanvas::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (m_dragging) {
+        m_dragging = false;
+        unsetCursor();
+        event->accept();
+        return;
+    }
+    QWidget::mouseReleaseEvent(event);
+}
+
 void PlotCanvas::mouseMoveEvent(QMouseEvent *event)
 {
     const QRect area = plotArea();
+
+    if (m_dragging && area.width() > 0) {
+        // Сдвиг считается от точки нажатия, а не от прошлого события: так перетаскивание
+        // не накапливает ошибку округления и график не уползает при возврате мыши назад.
+        const int delta = event->pos().x() - m_dragOrigin.x();
+        const qint64 duration = m_view->windowDuration();
+        const qint64 shift = qint64(-double(delta) / double(area.width()) * double(duration));
+        m_view->setWindow(m_dragFrom + shift, m_dragFrom + shift + duration);
+        event->accept();
+        return;
+    }
+
     m_cursorX = area.contains(event->pos()) ? event->pos().x() : -1;
     update();
 }
@@ -133,6 +190,103 @@ void PlotCanvas::leaveEvent(QEvent *event)
     Q_UNUSED(event);
     m_cursorX = -1;
     update();
+}
+
+void PlotCanvas::wheelEvent(QWheelEvent *event)
+{
+    const QRect area = plotArea();
+    if (area.width() < 2) {
+        QWidget::wheelEvent(event);
+        return;
+    }
+
+    // Трекпад даёт пиксели, мышь — щелчки по 120 восьмых долей градуса. Берём то, что
+    // пришло, и копим остаток, иначе плавное движение пальцем идёт рывками.
+    const QPoint pixels = event->pixelDelta();
+    const QPoint angle = event->angleDelta();
+    double steps = 0.0;
+    if (!pixels.isNull()) {
+        m_wheelRemainder += QPointF(pixels);
+        steps = (m_wheelRemainder.y() + m_wheelRemainder.x()) / 50.0;
+        if (qAbs(steps) < 0.05) {
+            // Остаток копится дальше — движение пальцем продолжается.
+            event->accept();
+            return;
+        }
+        m_wheelRemainder = QPointF();
+    } else {
+        steps = double(angle.y() != 0 ? angle.y() : angle.x()) / 120.0;
+    }
+    if (qFuzzyIsNull(steps))
+        return;
+
+    const Qt::KeyboardModifiers modifiers = event->modifiers();
+
+    if (modifiers.testFlag(Qt::ControlModifier)) {
+        // Точка под курсором остаётся на месте — иначе приближение уводит из-под указателя
+        // то самое место, ради которого его и делают.
+        const XTransform transform{m_view->windowFrom(), m_view->windowTo(),
+                                   double(area.left()), double(area.width())};
+        const qint64 anchor = transform.timeAt(event->position().x());
+        m_view->zoomX(steps > 0 ? 0.85 : 1.0 / 0.85, anchor);
+    } else if (modifiers.testFlag(Qt::AltModifier)) {
+        m_view->zoomY(steps > 0 ? 1.15 : 1.0 / 1.15);
+    } else if (modifiers.testFlag(Qt::ShiftModifier)) {
+        m_view->panY(steps * -0.05);
+    } else {
+        m_view->panBy(qint64(-steps * 0.1 * double(m_view->windowDuration())));
+    }
+
+    event->accept();
+}
+
+void PlotCanvas::contextMenuEvent(QContextMenuEvent *event)
+{
+    QMenu menu(this);
+
+    // Готовые длительности вместо числового поля: масштаб подбирают глазами, а «последние
+    // десять секунд» — это то, что спрашивают у графика чаще всего.
+    const QList<QPair<QString, qint64>> spans = {
+        {tr("Last 1 s"), 1'000'000'000LL},
+        {tr("Last 10 s"), 10'000'000'000LL},
+        {tr("Last 1 min"), 60'000'000'000LL},
+        {tr("Last 10 min"), 600'000'000'000LL},
+    };
+    for (const auto &[label, duration] : spans) {
+        connect(menu.addAction(label), &QAction::triggered, this, [this, duration] {
+            m_view->setWindowDuration(duration);
+            m_view->setFollowing(true);
+        });
+    }
+
+    connect(menu.addAction(tr("Whole buffer")), &QAction::triggered, this, [this] {
+        const SampleBuffer &samples = m_model->samples();
+        if (samples.sampleCount() < 2)
+            return;
+        m_view->setFollowing(false);
+        m_view->setWindow(samples.timestamp(0),
+                          samples.timestamp(samples.sampleCount() - 1));
+    });
+
+    menu.addSeparator();
+
+    QAction *follow = menu.addAction(tr("Follow new data"));
+    follow->setCheckable(true);
+    follow->setChecked(m_view->following());
+    connect(follow, &QAction::toggled, m_view, &PlotViewState::setFollowing);
+
+    QAction *pause = menu.addAction(tr("Pause"));
+    pause->setCheckable(true);
+    pause->setChecked(m_view->paused());
+    connect(pause, &QAction::toggled, m_view, &PlotViewState::setPaused);
+
+    menu.addSeparator();
+    connect(menu.addAction(tr("Reset vertical zoom")), &QAction::triggered,
+            m_view, &PlotViewState::resetVertical);
+    connect(menu.addAction(tr("Clear")), &QAction::triggered,
+            m_model, &PlotModel::clearSamples);
+
+    menu.exec(event->globalPos());
 }
 
 QRect PlotCanvas::plotArea() const

@@ -66,8 +66,24 @@ public:
 protected:
     void paintEvent(QPaintEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
     void leaveEvent(QEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
+
+    /**
+     * \brief Колесо: прокрутка и масштаб под модификаторами.
+     *
+     * Без модификаторов — по горизонтали, потому что горизонталь у графика и есть главная
+     * ось. Shift — по вертикали, Ctrl — масштаб X, Alt — масштаб Y.
+     *
+     * \note На macOS Qt отображает в `Qt::ControlModifier` клавишу Cmd, а в `Qt::AltModifier`
+     *       — Option. Это то же соответствие, что у Ctrl+колеса в терминале, поэтому жест
+     *       остаётся привычным в пределах программы.
+     */
+    void wheelEvent(QWheelEvent *event) override;
+
+    void contextMenuEvent(QContextMenuEvent *event) override;
 
 private:
     /// \brief Наибольший интервал между перерисовками: 16 мс — это 60 кадров в секунду.
@@ -115,6 +131,21 @@ private:
 
     /// \brief Положение курсора в поле графика; -1, когда курсора нет.
     int m_cursorX = -1;
+
+    /// \name Перетаскивание поля
+    /// @{
+    bool m_dragging = false;
+    QPoint m_dragOrigin;
+    qint64 m_dragFrom = 0;
+    /// @}
+
+    /**
+     * \brief Непотраченные пиксели прокрутки трекпада.
+     *
+     * Трекпад сообщает движение в пикселях, а не щелчками колеса. Отбрасывая остаток,
+     * плавное движение пальцем шло бы рывками — тот же приём, что в TerminalView.
+     */
+    QPointF m_wheelRemainder;
 
     QTimer *m_repaintTimer = nullptr;
     bool m_dirty = false;
