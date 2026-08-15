@@ -6,8 +6,10 @@
 
 #include "PlotCanvas.h"
 #include "PlotWidget.h"
+#include "SeriesSwatchDelegate.h"
 #include <spotty/data/PlotFormat.h>
 #include <spotty/data/PlotModel.h>
+#include <spotty/data/PlotFormat.h>
 #include <spotty/data/PlotViewState.h>
 
 #include <spotty/ui/IPanelHost.h>
@@ -16,7 +18,10 @@
 #include <QColorDialog>
 #include <QFormLayout>
 #include <QHBoxLayout>
+#include <QColorDialog>
 #include <QHeaderView>
+#include <QInputDialog>
+#include <QMenu>
 #include <QPainter>
 #include <QSpinBox>
 #include <QTableWidget>
@@ -49,31 +54,16 @@ constexpr int kDefaultCapacity = SampleBuffer::kDefaultCapacity;
  * самом графике, а таблица отвечает на другой вопрос — «в каких пределах гуляет ряд».
  */
 enum Column {
-    ColumnVisible = 0, ///< Флажок «показывать».
+    ColumnSwatch = 0, ///< Цвет ряда и галочка видимости на нём же.
     ColumnName,
-    ColumnColor,
     ColumnMin,
     ColumnMax,
     ColumnAverage,
     ColumnCount,
 };
 
-/// \brief Квадратик цвета ряда. Значком, а не фоном ячейки: фон перебивает QSS.
-QIcon colorSwatch(const QColor &color)
-{
-    constexpr int kSwatch = 14;
-
-    QPixmap pixmap(kSwatch, kSwatch);
-    pixmap.fill(Qt::transparent);
-
-    QPainter painter(&pixmap);
-    painter.setRenderHint(QPainter::Antialiasing);
-    painter.setPen(QPen(QColor(0x80, 0x80, 0x80), 1));
-    painter.setBrush(color);
-    painter.drawRoundedRect(QRectF(0.5, 0.5, kSwatch - 1, kSwatch - 1), 2, 2);
-
-    return QIcon(pixmap);
-}
+/// \brief Колонки со статистикой — у них общее правило ширины и формата.
+constexpr Column kStatColumns[] = {ColumnMin, ColumnMax, ColumnAverage};
 
 } // namespace
 
@@ -110,16 +100,27 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
     // Таблица рядов. Она же легенда: прежде кривые различались только цветом, что и WCAG
     // нарушает, и просто не позволяет понять, какая из них чья.
     m_table = new QTableWidget(0, ColumnCount, this);
-    m_table->setHorizontalHeaderLabels({QString(), tr("Series"), tr("Colour"),
-                                        tr("Min"), tr("Max"), tr("Avg")});
+    m_table->setHorizontalHeaderLabels(
+        {QString(), tr("Series"), tr("Min"), tr("Max"), tr("Avg")});
     // Растягивается только имя ряда; остальные колонки ужимаются под содержимое. Иначе
     // равные доли отдают под галочку и квадратик цвета столько же, сколько под число.
-    m_table->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    m_table->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+    m_table->horizontalHeader()->setSectionResizeMode(ColumnSwatch,
+                                                      QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(ColumnName, QHeaderView::Stretch);
     m_table->horizontalHeader()->setStretchLastSection(false);
     m_table->verticalHeader()->setVisible(false);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    // Выделение нескольких строк — это второй механизм из запроса: две и более выделенные
+    // строки сводятся на общую шкалу. Активный ряд задаётся отдельно, «текущей» строкой.
+    m_table->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    // Правится только имя ряда, и только по двойному щелчку: одиночный по первой колонке
+    // переключает видимость, и режим «правка по клику» отнял бы это у пользователя.
+    m_table->setEditTriggers(QAbstractItemView::DoubleClicked);
+    m_table->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    m_swatch = new SeriesSwatchDelegate(m_table);
+    m_table->setItemDelegateForColumn(ColumnSwatch, m_swatch);
     // Горизонтальная прокрутка запрещена: в узкой панели она появлялась всегда и прятала
     // половину колонок. Числа при нехватке места сокращаются многоточием — увидеть, что
     // значение не поместилось, лучше, чем не увидеть колонку вовсе.
@@ -150,24 +151,52 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
     connect(m_model, &PlotModel::seriesAdded, this, &PlotterPanel::rebuildTable);
     connect(m_model, &PlotModel::changed, this, &PlotterPanel::scheduleStatistics);
 
-    connect(m_table, &QTableWidget::cellDoubleClicked, this, [this](int row, int column) {
-        if (column != ColumnColor || row >= m_model->seriesCount())
+    // Первая колонка: одиночный щелчок переключает видимость, двойной открывает цвет.
+    connect(m_swatch, &SeriesSwatchDelegate::visibilityToggled, this, [this](int row) {
+        if (row >= 0 && row < m_model->seriesCount())
+            m_model->setSeriesVisible(row, !m_model->series(row).visible);
+    });
+    connect(m_swatch, &SeriesSwatchDelegate::colourRequested, this, &PlotterPanel::pickColour);
+
+    // Правка имени: сигнал приходит и от нашей же перестройки таблицы, поэтому флаг
+    // m_populating обязателен — иначе панель писала бы имя обратно в модель на каждый
+    // пришедший отсчёт.
+    connect(m_table, &QTableWidget::itemChanged, this, [this](QTableWidgetItem *item) {
+        if (m_populating || item->column() != ColumnName)
             return;
-        const QColor chosen = QColorDialog::getColor(
-            QColor::fromRgba(m_model->series(row).color), this, tr("Series colour"));
-        // Отменённый диалог отдаёт недействительный цвет: перестраивать таблицу тогда не за
-        // чем, а лишняя перестройка сбрасывает выделение строки под курсором.
-        if (!chosen.isValid())
-            return;
-        m_model->setSeriesColor(row, chosen.rgba());
-        rebuildTable();
+        m_model->setSeriesName(item->row(), item->text());
     });
 
-    connect(m_table, &QTableWidget::itemChanged, this, [this](QTableWidgetItem *item) {
-        if (m_populating || item->column() != ColumnVisible)
+    connect(m_table, &QTableWidget::customContextMenuRequested,
+            this, &PlotterPanel::showTableMenu);
+
+    // Два независимых механизма из запроса, и Qt даёт под них два готовых канала:
+    // «текущая» строка (рамка фокуса) — активный ряд, чья шкала подписана слева;
+    // «выделенные» строки (заливка) — группа с общей шкалой. Спорить им не о чем.
+    connect(m_table->selectionModel(), &QItemSelectionModel::selectionChanged, this, [this] {
+        if (m_populating)
             return;
-        m_model->setSeriesVisible(item->row(), item->checkState() == Qt::Checked);
+        QList<int> rows;
+        const QModelIndexList selected = m_table->selectionModel()->selectedRows();
+        rows.reserve(selected.size());
+        for (const QModelIndex &index : selected)
+            rows.append(index.row());
+        m_view->setSelectionGroup(rows);
     });
+    connect(m_table->selectionModel(), &QItemSelectionModel::currentRowChanged, this,
+            [this](const QModelIndex &current) {
+                if (!m_populating && current.isValid())
+                    m_view->setActiveSeries(current.row());
+            });
+
+    // Клик по шкале на графике тоже назначает активный ряд — таблица обязана это
+    // отразить, не трогая при этом выделение.
+    connect(m_view, &PlotViewState::changed, this, &PlotterPanel::syncActiveRow);
+
+    // Ширина колонок статистики пересчитывается только при изменении ширины, и никогда по
+    // приходу данных: именно это держит число знаков неподвижным.
+    connect(m_table->horizontalHeader(), &QHeaderView::sectionResized, this,
+            [this] { updateStatisticsWidth(); });
 
     reloadFromSettings();
     rebuildTable();
@@ -209,23 +238,37 @@ void PlotterPanel::rebuildTable()
     for (int row = 0; row < m_model->seriesCount(); ++row) {
         const PlotSeries &series = m_model->series(row);
 
-        auto *visible = new QTableWidgetItem;
-        visible->setCheckState(series.visible ? Qt::Checked : Qt::Unchecked);
-        visible->setFlags(Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-        m_table->setItem(row, ColumnVisible, visible);
+        auto *swatch = m_table->item(row, ColumnSwatch);
+        if (!swatch) {
+            swatch = new QTableWidgetItem;
+            swatch->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+            m_table->setItem(row, ColumnSwatch, swatch);
+        }
+        swatch->setData(Qt::CheckStateRole, series.visible ? Qt::Checked : Qt::Unchecked);
+        swatch->setData(SeriesSwatchDelegate::kColorRole, series.color);
+        swatch->setToolTip(tr("Click to show or hide, double-click to change the colour"));
 
-        m_table->setItem(row, ColumnName, new QTableWidgetItem(series.name));
+        auto *name = m_table->item(row, ColumnName);
+        if (!name) {
+            name = new QTableWidgetItem;
+            name->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsEditable);
+            m_table->setItem(row, ColumnName, name);
+        }
+        name->setText(series.name);
+        name->setToolTip(tr("Double-click to rename"));
 
-        auto *color = new QTableWidgetItem;
-        color->setIcon(colorSwatch(QColor::fromRgba(series.color)));
-        color->setToolTip(tr("Double-click to change"));
-        m_table->setItem(row, ColumnColor, color);
-
-        for (const int column : {ColumnMin, ColumnMax, ColumnAverage})
-            m_table->setItem(row, column, new QTableWidgetItem);
+        for (const Column column : kStatColumns) {
+            if (!m_table->item(row, column)) {
+                auto *cell = new QTableWidgetItem;
+                cell->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+                cell->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+                m_table->setItem(row, column, cell);
+            }
+        }
     }
 
     m_populating = false;
+    updateStatisticsWidth();
     refreshStatistics();
 }
 
@@ -248,15 +291,129 @@ void PlotterPanel::refreshStatistics()
         // Пустая колонка отдаёт finiteCount == 0, и в ячейке появляется тире: ноль там
         // читался бы как измеренное значение.
         const SampleBuffer::ColumnStats stats = m_model->samples().stats(row);
-        const double minimum = stats.finiteCount > 0 ? stats.minimum : qQNaN();
-        const double maximum = stats.finiteCount > 0 ? stats.maximum : qQNaN();
-        const double mean = stats.finiteCount > 0 ? stats.mean : qQNaN();
+        const bool any = stats.finiteCount > 0;
 
-        m_table->item(row, ColumnMin)->setText(PlotFormat::number(minimum, 5));
-        m_table->item(row, ColumnMax)->setText(PlotFormat::number(maximum, 5));
-        m_table->item(row, ColumnAverage)->setText(PlotFormat::number(mean, 5));
+        m_table->item(row, ColumnMin)
+            ->setText(PlotFormat::number(any ? stats.minimum : qQNaN(), m_statisticsDigits));
+        m_table->item(row, ColumnMax)
+            ->setText(PlotFormat::number(any ? stats.maximum : qQNaN(), m_statisticsDigits));
+        m_table->item(row, ColumnAverage)
+            ->setText(PlotFormat::number(any ? stats.mean : qQNaN(), m_statisticsDigits));
     }
     m_populating = false;
+}
+
+void PlotterPanel::updateStatisticsWidth()
+{
+    // Число знаков выводится из ширины колонки в знакоместах и **не зависит от значения**.
+    // Это и есть требование владельца: пока идут данные, цифры в таблице не прыгают —
+    // ширина меняется только тогда, когда панель тянут за край.
+    const int zero = qMax(1, m_table->fontMetrics().horizontalAdvance(u'0'));
+    int narrowest = m_table->columnWidth(ColumnMin);
+    for (const Column column : kStatColumns)
+        narrowest = qMin(narrowest, m_table->columnWidth(column));
+
+    const int digits = PlotFormat::digitsForCharacters(narrowest / zero);
+    if (digits == m_statisticsDigits)
+        return;
+
+    m_statisticsDigits = digits;
+    refreshStatistics();
+}
+
+void PlotterPanel::syncActiveRow()
+{
+    const int active = m_view->activeSeries();
+    if (active < 0 || active >= m_table->rowCount())
+        return;
+    if (m_table->currentRow() == active)
+        return;
+
+    // NoUpdate: «текущая» строка ставится, не трогая выделение. Qt различает эти два
+    // состояния изначально — рамка фокуса против заливки, — и на этом различии и держатся
+    // два независимых механизма: активная ось и группа с общей шкалой.
+    const QSignalBlocker blocker(m_table->selectionModel());
+    m_table->selectionModel()->setCurrentIndex(m_table->model()->index(active, ColumnName),
+                                               QItemSelectionModel::NoUpdate);
+}
+
+void PlotterPanel::pickColour(int row)
+{
+    if (row < 0 || row >= m_model->seriesCount())
+        return;
+
+    const QColor chosen = QColorDialog::getColor(
+        QColor::fromRgba(m_model->series(row).color), window(), tr("Series colour"));
+    // Отменённый диалог отдаёт недействительный цвет: перестраивать таблицу тогда незачем.
+    if (chosen.isValid())
+        m_model->setSeriesColor(row, chosen.rgba());
+}
+
+void PlotterPanel::showTableMenu(const QPoint &at)
+{
+    const int row = m_table->rowAt(at.y());
+    if (row < 0 || row >= m_model->seriesCount())
+        return;
+
+    QMenu menu(m_table);
+    connect(menu.addAction(tr("Change colour…")), &QAction::triggered, this,
+            [this, row] { pickColour(row); });
+    connect(menu.addAction(tr("Rename…")), &QAction::triggered, this, [this, row] {
+        m_table->editItem(m_table->item(row, ColumnName));
+    });
+
+    menu.addSeparator();
+
+    // Пределы шкалы задаются на ряд и переживают всё остальное: их не перебивает ни
+    // автомасштаб, ни общая шкала группы.
+    const PlotSeries &series = m_model->series(row);
+    QAction *limits = menu.addAction(series.hasCustomRange ? tr("Change scale limits…")
+                                                           : tr("Set scale limits…"));
+    connect(limits, &QAction::triggered, this, [this, row] { editRange(row); });
+
+    if (series.hasCustomRange) {
+        connect(menu.addAction(tr("Back to automatic scale")), &QAction::triggered, this,
+                [this, row] { m_model->setSeriesRange(row, false, 0.0, 1.0); });
+    }
+
+    menu.addSeparator();
+
+    // Очистка одной колонки, а не всего: остальные ряды при этом продолжают идти.
+    connect(menu.addAction(tr("Clear this series only")), &QAction::triggered, this,
+            [this, row] { m_model->clearColumn(row); });
+
+    menu.exec(m_table->viewport()->mapToGlobal(at));
+}
+
+void PlotterPanel::editRange(int row)
+{
+    if (row < 0 || row >= m_model->seriesCount())
+        return;
+
+    const PlotSeries &series = m_model->series(row);
+    const SampleBuffer::ColumnStats stats = m_model->samples().stats(row);
+
+    // Начальные значения — нынешние пределы, а при их отсутствии измеренные: так диалог
+    // отвечает на вопрос «а какие они сейчас» ещё до того, как его зададут.
+    const double presetMin = series.hasCustomRange ? series.customMinimum
+                                                   : (stats.finiteCount > 0 ? stats.minimum : 0.0);
+    const double presetMax = series.hasCustomRange ? series.customMaximum
+                                                   : (stats.finiteCount > 0 ? stats.maximum : 1.0);
+
+    bool ok = false;
+    const double minimum = QInputDialog::getDouble(
+        window(), tr("Scale limits"), tr("Minimum for %1:").arg(series.name), presetMin,
+        -1e12, 1e12, 6, &ok);
+    if (!ok)
+        return;
+
+    const double maximum = QInputDialog::getDouble(
+        window(), tr("Scale limits"), tr("Maximum for %1:").arg(series.name), presetMax,
+        -1e12, 1e12, 6, &ok);
+    if (!ok)
+        return;
+
+    m_model->setSeriesRange(row, true, minimum, maximum);
 }
 
 } // namespace spotty

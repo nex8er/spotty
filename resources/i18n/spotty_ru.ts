@@ -1438,10 +1438,6 @@ Double-click to edit, right-click for options</source>
         <translation>Ряд</translation>
     </message>
     <message>
-        <source>Colour</source>
-        <translation>Цвет</translation>
-    </message>
-    <message>
         <source>Min</source>
         <translation>Мин</translation>
     </message>
@@ -1454,12 +1450,52 @@ Double-click to edit, right-click for options</source>
         <translation>Среднее</translation>
     </message>
     <message>
+        <source>Click to show or hide, double-click to change the colour</source>
+        <translation>Клик — показать или скрыть, двойной клик — сменить цвет</translation>
+    </message>
+    <message>
+        <source>Double-click to rename</source>
+        <translation>Двойной клик — переименовать</translation>
+    </message>
+    <message>
         <source>Series colour</source>
         <translation>Цвет ряда</translation>
     </message>
     <message>
-        <source>Double-click to change</source>
-        <translation>Двойной щелчок меняет цвет</translation>
+        <source>Change colour…</source>
+        <translation>Сменить цвет…</translation>
+    </message>
+    <message>
+        <source>Rename…</source>
+        <translation>Переименовать…</translation>
+    </message>
+    <message>
+        <source>Change scale limits…</source>
+        <translation>Изменить пределы шкалы…</translation>
+    </message>
+    <message>
+        <source>Set scale limits…</source>
+        <translation>Задать пределы шкалы…</translation>
+    </message>
+    <message>
+        <source>Back to automatic scale</source>
+        <translation>Вернуть автомасштаб</translation>
+    </message>
+    <message>
+        <source>Clear this series only</source>
+        <translation>Очистить только этот ряд</translation>
+    </message>
+    <message>
+        <source>Scale limits</source>
+        <translation>Пределы шкалы</translation>
+    </message>
+    <message>
+        <source>Minimum for %1:</source>
+        <translation>Минимум для %1:</translation>
+    </message>
+    <message>
+        <source>Maximum for %1:</source>
+        <translation>Максимум для %1:</translation>
     </message>
 </context>
 <context>

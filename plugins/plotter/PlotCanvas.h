@@ -115,6 +115,19 @@ private:
     /// \brief Ряд, чья шкала подписана слева; -1, если рисовать нечего.
     int labelledSeries(const QList<SeriesFrame> &frames) const;
 
+    /**
+     * \brief Вкладка ряда на левом поле — по ней выбирают, чья шкала подписана.
+     * \param position Номер ряда среди видимых, сверху вниз.
+     * \param count Сколько видимых рядов всего.
+     *
+     * Узкая цветная полоска у самого края поля: подписи значений занимают остальное левое
+     * поле, и класть вкладки поверх них значило бы перекрыть то, ради чего поле и заведено.
+     */
+    QRect seriesTabRect(int position, int count, const QRect &area) const;
+
+    /// \brief Ряд под точкой на левом поле; -1, если там ничего нет.
+    int seriesTabAt(const QPoint &point) const;
+
     void drawFrame(QPainter &painter, const QRect &area, const XTransform &transform,
                    const QList<SeriesFrame> &frames) const;
     void drawSeries(QPainter &painter, const QRect &area, const XTransform &transform,
@@ -131,6 +144,14 @@ private:
 
     /// \brief Положение курсора в поле графика; -1, когда курсора нет.
     int m_cursorX = -1;
+
+    /**
+     * \brief Номера видимых рядов с прошлой отрисовки, сверху вниз.
+     *
+     * Нужны, чтобы попадание мышью по вкладке оси не требовало заново сводить данные:
+     * состав видимых рядов между кадром и щелчком не меняется.
+     */
+    QList<int> m_visibleOrder;
 
     /// \name Перетаскивание поля
     /// @{

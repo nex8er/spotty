@@ -51,6 +51,9 @@ constexpr int kDimmedAlpha = 90;
 /// \brief Число значащих цифр в подписях шкалы и перекрестия.
 constexpr int kLabelDigits = 5;
 
+/// \brief Ширина цветной вкладки оси у левого края поля, px.
+constexpr int kAxisTabWidth = 5;
+
 } // namespace
 
 PlotCanvas::PlotCanvas(IPanelHost *host, PlotModel *model, PlotViewState *view,
@@ -139,6 +142,17 @@ void PlotCanvas::mouseDoubleClickEvent(QMouseEvent *event)
 
 void PlotCanvas::mousePressEvent(QMouseEvent *event)
 {
+    if (event->button() == Qt::LeftButton) {
+        // Щелчок по вкладке оси делает ряд активным. Проверяется до перетаскивания:
+        // вкладки лежат вне поля графика, и тащить за них нечего.
+        const int series = seriesTabAt(event->pos());
+        if (series >= 0) {
+            m_view->setActiveSeries(series);
+            event->accept();
+            return;
+        }
+    }
+
     if (event->button() != Qt::LeftButton || !plotArea().contains(event->pos())) {
         QWidget::mousePressEvent(event);
         return;
@@ -388,6 +402,31 @@ int PlotCanvas::labelledSeries(const QList<SeriesFrame> &frames) const
     return frames.first().index;
 }
 
+QRect PlotCanvas::seriesTabRect(int position, int count, const QRect &area) const
+{
+    if (count <= 0)
+        return {};
+
+    const int height = area.height() / count;
+    return QRect(area.left() - kAxisTabWidth - 1, area.top() + position * height,
+                 kAxisTabWidth, qMax(2, height - 2));
+}
+
+int PlotCanvas::seriesTabAt(const QPoint &point) const
+{
+    const QRect area = plotArea();
+    for (int position = 0; position < m_visibleOrder.size(); ++position) {
+        // Прямоугольник расширяется по горизонтали: попасть в полоску шириной пять
+        // пикселей мышью трудно, а промах здесь ничего не ломает.
+        if (seriesTabRect(position, int(m_visibleOrder.size()), area)
+                .adjusted(-3, 0, 3, 0)
+                .contains(point)) {
+            return m_visibleOrder.at(position);
+        }
+    }
+    return -1;
+}
+
 void PlotCanvas::drawFrame(QPainter &painter, const QRect &area, const XTransform &transform,
                            const QList<SeriesFrame> &frames) const
 {
@@ -439,6 +478,21 @@ void PlotCanvas::drawFrame(QPainter &painter, const QRect &area, const XTransfor
     const QString right = QStringLiteral("%1 s").arg(seconds, 0, 'f', seconds < 10 ? 2 : 1);
     painter.drawText(area.right() - metrics.horizontalAdvance(right),
                      area.bottom() + metrics.height(), right);
+
+    // Вкладки осей: по одной на видимый ряд, у самого края поля. Щелчок по вкладке делает
+    // ряд активным, то есть переносит на него подписи слева, — это и есть «нажать на ось».
+    if (frames.size() > 1) {
+        painter.setPen(Qt::NoPen);
+        for (int position = 0; position < frames.size(); ++position) {
+            const SeriesFrame &frame = frames.at(position);
+            QColor colour = QColor::fromRgba(m_model->series(frame.index).color);
+            if (frame.index != labelled)
+                colour.setAlpha(kDimmedAlpha);
+            painter.setBrush(colour);
+            painter.drawRect(seriesTabRect(position, int(frames.size()), area));
+        }
+        painter.setBrush(Qt::NoBrush);
+    }
 }
 
 void PlotCanvas::drawSeries(QPainter &painter, const QRect &area, const XTransform &transform,
@@ -599,6 +653,11 @@ void PlotCanvas::paintEvent(QPaintEvent *event)
 
     const XTransform transform = transformFor(area);
     const QList<SeriesFrame> frames = buildFrames(area, transform);
+
+    m_visibleOrder.clear();
+    m_visibleOrder.reserve(frames.size());
+    for (const SeriesFrame &frame : frames)
+        m_visibleOrder.append(frame.index);
 
     drawFrame(painter, area, transform, frames);
     drawSeries(painter, area, transform, frames);

@@ -10,4 +10,6 @@ spotty_add_plugin(spotty-plugin-plotter
         PlotCanvas.h
         PlotWidget.cpp
         PlotWidget.h
+        SeriesSwatchDelegate.cpp
+        SeriesSwatchDelegate.h
         )

@@ -6,10 +6,6 @@
 
 #include <spotty/ui/PanelWidget.h>
 
-class QCheckBox;
-class QComboBox;
-class QLabel;
-class QPushButton;
 class QSpinBox;
 class QTableWidget;
 class QTimer;
@@ -20,6 +16,7 @@ class PlotCanvas;
 class PlotModel;
 class PlotWidget;
 class PlotViewState;
+class SeriesSwatchDelegate;
 
 /**
  * \class PlotterPanel
@@ -73,8 +70,25 @@ private:
     /// \brief Завести таймер обновления статистики, если он ещё не идёт.
     void scheduleStatistics();
 
-    /// \brief Открыть график в отдельном окне.
+    /**
+     * \brief Пересчитать число знаков в колонках статистики по их ширине.
+     *
+     * Зовётся при изменении ширины и никогда — по приходу данных. Именно это и держит
+     * цифры неподвижными: они меняются, только когда панель тянут за край.
+     */
+    void updateStatisticsWidth();
 
+    /// \brief Отразить в таблице активный ряд, не трогая выделение.
+    void syncActiveRow();
+
+    /// \brief Спросить цвет ряда и применить его.
+    void pickColour(int row);
+
+    /// \brief Меню строки: цвет, переименование, пределы шкалы, очистка одной колонки.
+    void showTableMenu(const QPoint &at);
+
+    /// \brief Спросить пользовательские пределы шкалы ряда.
+    void editRange(int row);
 
     PlotModel *m_model = nullptr;
     PlotViewState *m_view = nullptr;
@@ -82,8 +96,10 @@ private:
 
     QSpinBox *m_points = nullptr;
     QTableWidget *m_table = nullptr;
+    SeriesSwatchDelegate *m_swatch = nullptr;
 
-    /// \brief Отдельное окно с графиком; создаётся по требованию и живёт до закрытия.
+    /// \brief Сколько значащих цифр показывать в статистике; см. updateStatisticsWidth().
+    int m_statisticsDigits = 5;
 
     /// \brief Ограничитель частоты пересчёта статистики; см. #kStatisticsIntervalMs.
     QTimer *m_statisticsTimer = nullptr;
