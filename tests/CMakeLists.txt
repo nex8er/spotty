@@ -51,6 +51,7 @@ spotty_add_test(spotty-tests
         test_data_generator.cpp
         test_macro_store.cpp
         test_log_writer.cpp
+        test_plot_format.cpp
         test_interface_registry.cpp
         test_session.cpp
         test_data_filter.cpp

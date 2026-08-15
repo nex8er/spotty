@@ -32,6 +32,7 @@ target_sources(spotty-api
         IInterfaceChannel.cpp
         LogWriter.cpp
         MacroStore.cpp
+        PlotFormat.cpp
         # Заголовки перечислены, чтобы AUTOMOC обработал классы с Q_OBJECT: они лежат вне
         # каталога цели, и без явного указания moc до них не доберётся.
         "${CMAKE_SOURCE_DIR}/include/spotty/api/IInterfaceChannel.h"
@@ -51,6 +52,7 @@ target_sources(spotty-api
         "${CMAKE_SOURCE_DIR}/include/spotty/data/HighlightRules.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/LogWriter.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/MacroStore.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotFormat.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/TextStyle.h"
 )
 
