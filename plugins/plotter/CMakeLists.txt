@@ -8,4 +8,6 @@ spotty_add_plugin(spotty-plugin-plotter
         PlotterPanel.h
         PlotCanvas.cpp
         PlotCanvas.h
+        PlotWidget.cpp
+        PlotWidget.h
         )

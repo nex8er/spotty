@@ -105,6 +105,7 @@ void PlotModel::setSeriesVisible(int index, bool visible)
         return;
     m_series[index].visible = visible;
     Q_EMIT changed();
+    Q_EMIT configurationChanged();
 }
 
 void PlotModel::setSeriesColor(int index, quint32 color)
@@ -113,6 +114,7 @@ void PlotModel::setSeriesColor(int index, quint32 color)
         return;
     m_series[index].color = color;
     Q_EMIT changed();
+    Q_EMIT configurationChanged();
 }
 
 void PlotModel::setSeriesName(int index, const QString &name)
@@ -131,6 +133,7 @@ void PlotModel::setSeriesName(int index, const QString &name)
         m_series[index].nameIsCustom = true;
     }
     Q_EMIT seriesAdded();
+    Q_EMIT configurationChanged();
 }
 
 void PlotModel::setSeriesRange(int index, bool hasRange, double minimum, double maximum)
@@ -148,6 +151,7 @@ void PlotModel::setSeriesRange(int index, bool hasRange, double minimum, double 
             m_series[index].customMaximum = m_series[index].customMinimum + 1.0;
     }
     Q_EMIT changed();
+    Q_EMIT configurationChanged();
 }
 
 QStringList PlotModel::seriesNames() const
@@ -166,6 +170,7 @@ void PlotModel::setXAxisSeries(int index)
         return;
     m_xAxis = wanted;
     Q_EMIT changed();
+    Q_EMIT configurationChanged();
 }
 
 void PlotModel::setCapacity(int samples)
@@ -174,6 +179,7 @@ void PlotModel::setCapacity(int samples)
         return;
     m_samples.setCapacity(samples);
     Q_EMIT changed();
+    Q_EMIT configurationChanged();
 }
 
 void PlotModel::setSeparator(QChar separator)
@@ -182,6 +188,7 @@ void PlotModel::setSeparator(QChar separator)
         return;
     m_parser.setSeparator(separator);
     Q_EMIT changed();
+    Q_EMIT configurationChanged();
 }
 
 } // namespace spotty

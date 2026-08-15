@@ -5,6 +5,7 @@
 #include "PlotterPanel.h"
 
 #include "PlotCanvas.h"
+#include "PlotWidget.h"
 #include <spotty/data/PlotFormat.h>
 #include <spotty/data/PlotModel.h>
 #include <spotty/data/PlotViewState.h>
@@ -13,15 +14,10 @@
 #include <spotty/ui/MdiCodepoints.h>
 
 #include <QColorDialog>
-#include <QComboBox>
-#include <QFileDialog>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
-#include <QLabel>
 #include <QPainter>
-#include <QPushButton>
-#include <QSaveFile>
 #include <QSpinBox>
 #include <QTableWidget>
 #include <QTimer>
@@ -90,38 +86,16 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
     setPanelTitle(tr("Plotter"));
     QVBoxLayout *layout = content();
 
-    auto *hint = new QLabel(tr("Plots numeric lines from the output, such as \"12.5,3,-7\"."),
-                            this);
-    hint->setObjectName(QStringLiteral("hintLabel"));
-    hint->setWordWrap(true);
-    layout->addWidget(hint);
+    // Подсказка убрана: она объясняла очевидное каждый раз, а место в узкой панели
+    // дороже. Что рисует плоттер, видно по самому плоттеру.
 
-    // График прямо в панели: узкий, но отвечает на вопрос «как это выглядит» без единого
-    // лишнего действия. Для настоящего разглядывания есть отдельное окно.
-    m_chart = new PlotCanvas(panelHost, m_model, m_view, this);
-    m_chart->setMinimumHeight(140);
-    layout->addWidget(m_chart);
-
-    auto *buttonRow = new QHBoxLayout;
-    buttonRow->setSpacing(4);
-
-    m_pause = new QPushButton(tr("Pause"), this);
-    m_pause->setCheckable(true);
-    m_pause->setToolTip(tr("Freezes the picture, not the data: collecting continues."));
-    buttonRow->addWidget(m_pause);
-
-    auto *windowButton = new QPushButton(tr("Open in window"), this);
-    buttonRow->addWidget(windowButton);
-    layout->addLayout(buttonRow);
+    // Плоттер целиком, вместе со своим рядом кнопок: тот же композит, что в полосе вместо
+    // терминала и в отдельном окне.
+    m_plot = new PlotWidget(panelHost, m_model, m_view, PlotWidget::Placement::Panel, this);
+    m_plot->canvas()->setMinimumHeight(140);
+    layout->addWidget(m_plot);
 
     auto *form = new QFormLayout;
-
-    m_separator = new QComboBox(this);
-    m_separator->addItem(tr("Comma"), QStringLiteral(","));
-    m_separator->addItem(tr("Semicolon"), QStringLiteral(";"));
-    m_separator->addItem(tr("Tab"), QStringLiteral("\t"));
-    m_separator->addItem(tr("Space"), QStringLiteral(" "));
-    form->addRow(tr("Separator"), m_separator);
 
     m_points = new QSpinBox(this);
     m_points->setRange(100, 1'000'000);
@@ -130,11 +104,6 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
     m_points->setToolTip(tr("How many samples to keep. What part of them is on screen is "
                             "set by scrolling and zooming the plot itself."));
     form->addRow(tr("Buffer"), m_points);
-
-    m_xAxis = new QComboBox(this);
-    m_xAxis->setToolTip(tr("Which column supplies X. Time is honest when the device does "
-                           "not send a coordinate of its own."));
-    form->addRow(tr("X axis"), m_xAxis);
 
     layout->addLayout(form);
 
@@ -158,49 +127,20 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
     m_table->setTextElideMode(Qt::ElideRight);
     layout->addWidget(m_table, 1);
 
-    // Кнопки значками, а не подписями: три подписи в узкой панели обрезались до
-    // «грузить С» и «кранить Р», что хуже, чем совсем без слов. Смысл несут подсказки.
-    auto *exportRow = new QHBoxLayout;
-    exportRow->setSpacing(4);
-
-    const auto makeTool = [this](char32_t glyph, const QString &tip) {
-        auto *button = new QToolButton(this);
-        button->setAutoRaise(true);
-        button->setIcon(host()->icon(glyph, 18));
-        button->setToolTip(tip);
-        return button;
-    };
-
-    auto *csvButton = makeTool(mdi::FileExport, tr("Export CSV"));
-    auto *pngButton = makeTool(mdi::ContentSave, tr("Save PNG"));
-    auto *clearButton = makeTool(mdi::Broom, tr("Clear"));
-    exportRow->addWidget(csvButton);
-    exportRow->addWidget(pngButton);
-    exportRow->addWidget(clearButton);
-    exportRow->addStretch(1);
-    layout->addLayout(exportRow);
-
-    connect(m_separator, &QComboBox::currentIndexChanged, this, &PlotterPanel::commit);
     connect(m_points, &QSpinBox::valueChanged, this, &PlotterPanel::commit);
-    connect(m_xAxis, &QComboBox::currentIndexChanged, this, [this] {
-        if (!m_populating)
-            m_model->setXAxisSeries(m_xAxis->currentData().toInt());
+
+    // Окно единственное на всю программу, и владеет им плагин: и миниатюра, и полоса
+    // просят открыть его одним и тем же сигналом.
+    connect(m_plot, &PlotWidget::openInWindowRequested,
+            this, &PlotterPanel::openInWindowRequested);
+
+    // Разделитель и выбор оси X правят меню под графиком. Сохраняем по сигналу настройки,
+    // а не по changed(): тот приходит на каждый отсчёт, тысячами в секунду.
+    connect(m_model, &PlotModel::configurationChanged, this, [this] {
+        if (m_populating)
+            return;
+        host()->setValue(QLatin1String(kKeySeparator), QString(m_model->separator()));
     });
-
-    connect(m_pause, &QPushButton::toggled, m_view, &PlotViewState::setPaused);
-    // Пауза общая на все виды и переключается ещё и двойным щелчком по полю —
-    // кнопка обязана это отразить, иначе она показывала бы одно, а график делал
-    // другое.
-    connect(m_view, &PlotViewState::pausedChanged, this, [this](bool paused) {
-        const QSignalBlocker blocker(m_pause);
-        m_pause->setChecked(paused);
-    });
-
-    connect(windowButton, &QPushButton::clicked, this, &PlotterPanel::openInWindow);
-    connect(csvButton, &QToolButton::clicked, this, &PlotterPanel::exportCsv);
-    connect(pngButton, &QToolButton::clicked, this, &PlotterPanel::exportImage);
-    connect(clearButton, &QToolButton::clicked, this, [this] { m_model->clearSamples(); });
-
     // Одиночный таймер: когда данные не идут, ничего не тикает.
     m_statisticsTimer = new QTimer(this);
     m_statisticsTimer->setSingleShot(true);
@@ -239,8 +179,7 @@ void PlotterPanel::reloadFromSettings()
 
     const QString separator =
         host()->value(QLatin1String(kKeySeparator), QStringLiteral(",")).toString();
-    const int index = m_separator->findData(separator);
-    m_separator->setCurrentIndex(index >= 0 ? index : 0);
+    m_model->setSeparator(separator.isEmpty() ? u',' : separator.at(0));
     m_points->setValue(host()->value(QLatin1String(kKeyCapacity), kDefaultCapacity).toInt());
 
     m_populating = false;
@@ -249,14 +188,12 @@ void PlotterPanel::reloadFromSettings()
 
 void PlotterPanel::commit()
 {
-    const QString separator = m_separator->currentData().toString();
-    m_model->setSeparator(separator.isEmpty() ? u',' : separator.at(0));
     m_model->setCapacity(m_points->value());
 
-    if (!m_populating) {
-        host()->setValue(QLatin1String(kKeySeparator), separator);
+    // Разделитель и ось X теперь меняют меню под графиком, а не поля панели, поэтому
+    // сохраняются они по сигналу модели, а не отсюда: см. подписку в конструкторе.
+    if (!m_populating)
         host()->setValue(QLatin1String(kKeyCapacity), m_points->value());
-    }
 }
 
 void PlotterPanel::settingsReset()
@@ -287,15 +224,6 @@ void PlotterPanel::rebuildTable()
         for (const int column : {ColumnMin, ColumnMax, ColumnAverage})
             m_table->setItem(row, column, new QTableWidgetItem);
     }
-
-    // Список колонок для оси X перестраивается вместе с таблицей: пункты в нём — те же
-    // ряды, и держать два независимых списка одного и того же нельзя.
-    const int previous = m_xAxis->currentData().isValid() ? m_xAxis->currentData().toInt() : -1;
-    m_xAxis->clear();
-    m_xAxis->addItem(tr("Time"), -1);
-    for (int row = 0; row < m_model->seriesCount(); ++row)
-        m_xAxis->addItem(m_model->series(row).name, row);
-    m_xAxis->setCurrentIndex(qMax(0, m_xAxis->findData(previous)));
 
     m_populating = false;
     refreshStatistics();
@@ -329,69 +257,6 @@ void PlotterPanel::refreshStatistics()
         m_table->item(row, ColumnAverage)->setText(PlotFormat::number(mean, 5));
     }
     m_populating = false;
-}
-
-void PlotterPanel::openInWindow()
-{
-    if (m_window) {
-        // Второе окно того же графика ничего не добавляет: поднимаем уже открытое.
-        m_window->raise();
-        m_window->activateWindow();
-        return;
-    }
-
-    // Окно без родителя: с родителем оно всегда оставалось бы поверх главного, а график
-    // затем и открывают отдельно, чтобы положить его рядом, а не сверху.
-    m_window = new QWidget;
-    m_window->setAttribute(Qt::WA_DeleteOnClose);
-    m_window->setWindowTitle(tr("Spotty — plotter"));
-    m_window->resize(720, 420);
-
-    auto *layout = new QVBoxLayout(m_window);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(new PlotCanvas(host(), m_model, m_view, m_window));
-
-    connect(m_window, &QObject::destroyed, this, [this] { m_window = nullptr; });
-    m_window->show();
-}
-
-void PlotterPanel::exportCsv()
-{
-    const QString data = m_model->toCsv();
-    if (data.isEmpty()) {
-        host()->showStatusMessage(tr("There is nothing to export yet."));
-        return;
-    }
-
-    const QString path = QFileDialog::getSaveFileName(
-        window(), tr("Export chart data"),
-        host()->documentsDir() + QStringLiteral("/chart.csv"), tr("CSV files (*.csv)"));
-    if (path.isEmpty())
-        return;
-
-    // QSaveFile, а не QFile: прерванная запись не должна оставить обрезанный файл, из
-    // которого потом строят выводы.
-    QSaveFile file(path);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)
-        || file.write(data.toUtf8()) < 0 || !file.commit()) {
-        host()->showStatusMessage(tr("Could not write %1").arg(path));
-        return;
-    }
-    host()->showStatusMessage(tr("Exported to %1").arg(path));
-}
-
-void PlotterPanel::exportImage()
-{
-    const QString path = QFileDialog::getSaveFileName(
-        window(), tr("Save chart image"),
-        host()->documentsDir() + QStringLiteral("/chart.png"), tr("PNG images (*.png)"));
-    if (path.isEmpty())
-        return;
-
-    if (!m_chart->saveImage(path))
-        host()->showStatusMessage(tr("Could not write %1").arg(path));
-    else
-        host()->showStatusMessage(tr("Saved to %1").arg(path));
 }
 
 } // namespace spotty

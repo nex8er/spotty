@@ -18,6 +18,7 @@ namespace spotty {
 
 class PlotCanvas;
 class PlotModel;
+class PlotWidget;
 class PlotViewState;
 
 /**
@@ -40,6 +41,10 @@ class PlotterPanel : public PanelWidget
 public:
     PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewState *view,
                  QWidget *parent = nullptr);
+
+Q_SIGNALS:
+    /// \brief Просьба показать плоттер отдельным окном; окно единственное, им владеет плагин.
+    void openInWindowRequested();
 
 protected:
     void settingsReset() override;
@@ -69,23 +74,16 @@ private:
     void scheduleStatistics();
 
     /// \brief Открыть график в отдельном окне.
-    void openInWindow();
 
-    void exportCsv();
-    void exportImage();
 
     PlotModel *m_model = nullptr;
     PlotViewState *m_view = nullptr;
-    PlotCanvas *m_chart = nullptr;
+    PlotWidget *m_plot = nullptr;
 
-    QComboBox *m_separator = nullptr;
     QSpinBox *m_points = nullptr;
-    QComboBox *m_xAxis = nullptr;
     QTableWidget *m_table = nullptr;
-    QPushButton *m_pause = nullptr;
 
     /// \brief Отдельное окно с графиком; создаётся по требованию и живёт до закрытия.
-    QWidget *m_window = nullptr;
 
     /// \brief Ограничитель частоты пересчёта статистики; см. #kStatisticsIntervalMs.
     QTimer *m_statisticsTimer = nullptr;

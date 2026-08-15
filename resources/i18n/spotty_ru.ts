@@ -1313,46 +1313,113 @@ Double-click to edit, right-click for options</source>
     </message>
 </context>
 <context>
-    <name>spotty::PlotterPanel</name>
+    <name>spotty::PlotWidget</name>
     <message>
-        <source>Plotter</source>
-        <translation>Плоттер</translation>
+        <source>Jump to the newest data and keep following it</source>
+        <translation>Перейти к свежим данным и следовать за ними</translation>
     </message>
     <message>
-        <source>Plots numeric lines from the output, such as &quot;12.5,3,-7&quot;.</source>
-        <translation>Строит график по числовым строкам вывода — например, «12.5,3,-7».</translation>
+        <source>Field separator</source>
+        <translation>Разделитель полей</translation>
     </message>
     <message>
-        <source>Pause</source>
-        <translation>Пауза</translation>
+        <source>What goes on the X axis</source>
+        <translation>Что отложено по оси X</translation>
     </message>
     <message>
-        <source>Freezes the picture, not the data: collecting continues.</source>
-        <translation>Замораживает картинку, но не сбор: накопление продолжается.</translation>
+        <source>Export CSV</source>
+        <translation>Выгрузить CSV</translation>
     </message>
     <message>
-        <source>Open in window</source>
-        <translation>Открыть в окне</translation>
+        <source>Copy the plot as an image. Right-click to save a file</source>
+        <translation>Скопировать график картинкой. Правый клик — сохранить в файл</translation>
     </message>
     <message>
-        <source>Comma</source>
-        <translation>Запятая</translation>
+        <source>Save to file…</source>
+        <translation>Сохранить в файл…</translation>
     </message>
     <message>
-        <source>Semicolon</source>
-        <translation>Точка с запятой</translation>
+        <source>Open in a separate window</source>
+        <translation>Открыть отдельным окном</translation>
+    </message>
+    <message>
+        <source>Clear the collected data</source>
+        <translation>Очистить накопленное</translation>
+    </message>
+    <message>
+        <source>Resume drawing; data kept coming while paused</source>
+        <translation>Продолжить отрисовку; данные копились и на паузе</translation>
+    </message>
+    <message>
+        <source>Freeze the picture, not the data</source>
+        <translation>Заморозить картинку, но не данные</translation>
+    </message>
+    <message>
+        <source>Comma (,)</source>
+        <translation>Запятая (,)</translation>
+    </message>
+    <message>
+        <source>Semicolon (;)</source>
+        <translation>Точка с запятой (;)</translation>
     </message>
     <message>
         <source>Tab</source>
         <translation>Табуляция</translation>
     </message>
     <message>
-        <source>Space</source>
-        <translation>Ноль</translation>
+        <source>Space character</source>
+        <translation>Пробел</translation>
     </message>
     <message>
-        <source>Separator</source>
-        <translation>Разделитель</translation>
+        <source>Pipe (|)</source>
+        <translation>Вертикальная черта (|)</translation>
+    </message>
+    <message>
+        <source>Custom…</source>
+        <translation>Другой…</translation>
+    </message>
+    <message>
+        <source>Separator character:</source>
+        <translation>Символ-разделитель:</translation>
+    </message>
+    <message>
+        <source>Time</source>
+        <translation>Время</translation>
+    </message>
+    <message>
+        <source>Plot copied to the clipboard</source>
+        <translation>График скопирован в буфер обмена</translation>
+    </message>
+    <message>
+        <source>Save plot</source>
+        <translation>Сохранить график</translation>
+    </message>
+    <message>
+        <source>PNG image (*.png)</source>
+        <translation>Изображение PNG (*.png)</translation>
+    </message>
+    <message>
+        <source>Saved %1</source>
+        <translation>Сохранено: %1</translation>
+    </message>
+    <message>
+        <source>Cannot save %1</source>
+        <translation>Не удалось сохранить %1</translation>
+    </message>
+    <message>
+        <source>Nothing to export yet</source>
+        <translation>Экспортировать пока нечего</translation>
+    </message>
+    <message>
+        <source>CSV file (*.csv)</source>
+        <translation>Файл CSV (*.csv)</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::PlotterPanel</name>
+    <message>
+        <source>Plotter</source>
+        <translation>Плоттер</translation>
     </message>
     <message>
         <source> samples</source>
@@ -1365,14 +1432,6 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Buffer</source>
         <translation>Буфер</translation>
-    </message>
-    <message>
-        <source>Which column supplies X. Time is honest when the device does not send a coordinate of its own.</source>
-        <translation>Какая колонка даёт X. Время честнее, когда устройство не шлёт свою координату.</translation>
-    </message>
-    <message>
-        <source>X axis</source>
-        <translation>Ось X</translation>
     </message>
     <message>
         <source>Series</source>
@@ -1395,18 +1454,6 @@ Double-click to edit, right-click for options</source>
         <translation>Среднее</translation>
     </message>
     <message>
-        <source>Export CSV</source>
-        <translation>Выгрузить CSV</translation>
-    </message>
-    <message>
-        <source>Save PNG</source>
-        <translation>Сохранить PNG</translation>
-    </message>
-    <message>
-        <source>Clear</source>
-        <translation>Очистить</translation>
-    </message>
-    <message>
         <source>Series colour</source>
         <translation>Цвет ряда</translation>
     </message>
@@ -1414,52 +1461,16 @@ Double-click to edit, right-click for options</source>
         <source>Double-click to change</source>
         <translation>Двойной щелчок меняет цвет</translation>
     </message>
-    <message>
-        <source>Time</source>
-        <translation>Время</translation>
-    </message>
-    <message>
-        <source>Spotty — plotter</source>
-        <translation>Spotty — плоттер</translation>
-    </message>
-    <message>
-        <source>There is nothing to export yet.</source>
-        <translation>Пока нечего выгружать.</translation>
-    </message>
-    <message>
-        <source>Export chart data</source>
-        <translation>Выгрузка данных графика</translation>
-    </message>
-    <message>
-        <source>CSV files (*.csv)</source>
-        <translation>Файлы CSV (*.csv)</translation>
-    </message>
-    <message>
-        <source>Could not write %1</source>
-        <translation>Не удалось записать %1</translation>
-    </message>
-    <message>
-        <source>Exported to %1</source>
-        <translation>Экспортировано в %1</translation>
-    </message>
-    <message>
-        <source>Save chart image</source>
-        <translation>Сохранение снимка графика</translation>
-    </message>
-    <message>
-        <source>PNG images (*.png)</source>
-        <translation>Изображения PNG (*.png)</translation>
-    </message>
-    <message>
-        <source>Saved to %1</source>
-        <translation>Сохранено в %1</translation>
-    </message>
 </context>
 <context>
     <name>spotty::PlotterPlugin</name>
     <message>
         <source>Plotter</source>
         <translation>Плоттер</translation>
+    </message>
+    <message>
+        <source>Spotty — plotter</source>
+        <translation>Spotty — плоттер</translation>
     </message>
 </context>
 <context>

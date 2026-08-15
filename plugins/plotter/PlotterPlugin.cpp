@@ -5,11 +5,14 @@
 #include "PlotterPlugin.h"
 
 #include "PlotterPanel.h"
-#include "PlotCanvas.h"
+#include "PlotWidget.h"
 #include <spotty/data/PlotModel.h>
 #include <spotty/data/PlotViewState.h>
 
 #include <spotty/ui/MdiCodepoints.h>
+
+#include <QVBoxLayout>
+#include <QWidget>
 
 namespace spotty {
 
@@ -89,11 +92,48 @@ QWidget *PlotterPlugin::createPanel(const QString &panelId, IPanelHost *host, QW
                 });
     }
 
-    if (panelId == QLatin1String("plotter"))
-        return new PlotterPanel(host, m_model, m_view, parent);
-    if (panelId == QLatin1String("plotter.plot"))
-        return new PlotCanvas(host, m_model, m_view, parent);
+    if (panelId == QLatin1String("plotter")) {
+        auto *panel = new PlotterPanel(host, m_model, m_view, parent);
+        connect(panel, &PlotterPanel::openInWindowRequested, this,
+                [this, host] { openInWindow(host); });
+        return panel;
+    }
+    if (panelId == QLatin1String("plotter.plot")) {
+        // Полоса вместо терминала — тот же композит, что миниатюра и окно: холст плюс свой
+        // ряд кнопок. Кнопки полосы, которые подхватывает главное окно, объявляет холст.
+        auto *strip = new PlotWidget(host, m_model, m_view, PlotWidget::Placement::Strip,
+                                     parent);
+        connect(strip, &PlotWidget::openInWindowRequested, this,
+                [this, host] { openInWindow(host); });
+        return strip;
+    }
     return nullptr;
+}
+
+void PlotterPlugin::openInWindow(IPanelHost *host)
+{
+    // Окно ровно одно: второе показывало бы те же данные в том же состоянии вида и лишь
+    // отнимало бы место. Повторное нажатие поднимает уже открытое.
+    if (m_window) {
+        m_window->raise();
+        m_window->activateWindow();
+        return;
+    }
+
+    // Без родителя и с WA_DeleteOnClose: окно живёт само по себе, чтобы не закрываться
+    // вместе с панелью, которую пользователь может свернуть.
+    m_window = new QWidget;
+    m_window->setAttribute(Qt::WA_DeleteOnClose);
+    m_window->setWindowTitle(tr("Spotty — plotter"));
+    m_window->resize(820, 480);
+
+    auto *layout = new QVBoxLayout(m_window);
+    layout->setContentsMargins(6, 6, 6, 6);
+    layout->addWidget(new PlotWidget(host, m_model, m_view, PlotWidget::Placement::Window,
+                                     m_window));
+
+    connect(m_window, &QObject::destroyed, this, [this] { m_window = nullptr; });
+    m_window->show();
 }
 
 } // namespace spotty

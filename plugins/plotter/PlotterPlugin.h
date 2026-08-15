@@ -6,6 +6,8 @@
 
 #include <spotty/ui/IPanelPlugin.h>
 
+#include <QPointer>
+
 namespace spotty {
 
 class PlotModel;
@@ -46,6 +48,9 @@ public:
     QList<PanelDescriptor> panels() const override;
     QWidget *createPanel(const QString &panelId, IPanelHost *host, QWidget *parent) override;
 
+    /// \brief Показать плоттер отдельным окном либо поднять уже открытое.
+    void openInWindow(IPanelHost *host);
+
 private:
     /**
      * \brief Общая модель обеих панелей.
@@ -57,6 +62,9 @@ private:
 
     /// \brief Состояние вида, общее на все три холста: миниатюру, полосу и окно.
     PlotViewState *m_view = nullptr;
+
+    /// \brief Единственное отдельное окно плоттера; создаётся по требованию.
+    QPointer<QWidget> m_window;
 
     /// \brief Хост, с которым связана подписка на строки; один на плагин.
     IPanelHost *m_host = nullptr;
