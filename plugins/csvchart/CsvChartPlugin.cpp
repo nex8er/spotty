@@ -6,14 +6,14 @@
 
 #include "CsvChartPanel.h"
 #include "CsvChartView.h"
-#include "CsvSeries.h"
+#include <spotty/data/PlotModel.h>
 
 #include <spotty/ui/MdiCodepoints.h>
 
 namespace spotty {
 
 CsvChartPlugin::CsvChartPlugin()
-    : m_series(new CsvSeries(this))
+    : m_model(new PlotModel(this))
 {
 }
 
@@ -80,7 +80,7 @@ QWidget *CsvChartPlugin::createPanel(const QString &panelId, IPanelHost *host, Q
                         if (line.direction == DataDirection::Rx) {
                             // Отметка времени идёт вместе со строкой: точки приходят
                             // неравномерно, и равноотстоящая ось искажает форму сигнала.
-                            m_series->feed(line.text.trimmed(), line.monotonicNs);
+                            m_model->feed(line.text.trimmed(), line.monotonicNs);
                         }
                         ++m_nextLine;
                     }
@@ -88,9 +88,9 @@ QWidget *CsvChartPlugin::createPanel(const QString &panelId, IPanelHost *host, Q
     }
 
     if (panelId == QLatin1String("csvchart"))
-        return new CsvChartPanel(host, m_series, parent);
+        return new CsvChartPanel(host, m_model, parent);
     if (panelId == QLatin1String("csvchart.plot"))
-        return new CsvChartView(host, m_series, parent);
+        return new CsvChartView(host, m_model, parent);
     return nullptr;
 }
 

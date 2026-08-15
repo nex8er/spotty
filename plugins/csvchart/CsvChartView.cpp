@@ -4,7 +4,8 @@
  */
 #include "CsvChartView.h"
 
-#include "CsvSeries.h"
+#include <spotty/data/PlotFormat.h>
+#include <spotty/data/PlotModel.h>
 
 #include <spotty/ui/IPanelHost.h>
 #include <spotty/ui/MdiCodepoints.h>
@@ -43,10 +44,10 @@ constexpr int kGridLines = 3;
 
 } // namespace
 
-CsvChartView::CsvChartView(IPanelHost *host, CsvSeries *series, QWidget *parent)
+CsvChartView::CsvChartView(IPanelHost *host, PlotModel *model, QWidget *parent)
     : QWidget(parent)
     , m_host(host)
-    , m_series(series)
+    , m_model(model)
 {
     setObjectName(QStringLiteral("csvChart"));
     // Перекрестие следует за курсором без нажатия: снимать значение зажатой кнопкой
@@ -66,7 +67,7 @@ CsvChartView::CsvChartView(IPanelHost *host, CsvSeries *series, QWidget *parent)
         update();
     });
 
-    connect(m_series, &CsvSeries::changed, this, &CsvChartView::scheduleRepaint);
+    connect(m_model, &PlotModel::changed, this, &CsvChartView::scheduleRepaint);
 
     createActions();
 }
@@ -97,7 +98,7 @@ void CsvChartView::createActions()
 
     auto *clearAction = new QAction(tr("Clear"), this);
     clearAction->setIcon(m_host->icon(mdi::Broom, 18));
-    connect(clearAction, &QAction::triggered, m_series, &CsvSeries::clear);
+    connect(clearAction, &QAction::triggered, m_model, &PlotModel::clearSamples);
     addAction(clearAction);
 }
 
@@ -181,9 +182,10 @@ void CsvChartView::drawFrame(QPainter &painter, const QRect &area, double minimu
     // Ось X: длительность накопленного окна. Номер отсчёта здесь бесполезен — точки
     // приходят неравномерно, и «сколько прошло секунд» отвечает на вопрос, который к
     // графику задают.
-    const QList<qint64> &stamps = m_series->timestamps();
-    if (stamps.size() >= 2) {
-        const double seconds = double(stamps.last() - stamps.first()) / 1e9;
+    const SampleBuffer &samples = m_model->samples();
+    if (samples.sampleCount() >= 2) {
+        const double seconds =
+            double(samples.timestamp(samples.sampleCount() - 1) - samples.timestamp(0)) / 1e9;
         painter.drawText(area.left(), area.bottom() + metrics.height(),
                          QStringLiteral("0 s"));
         const QString right = QStringLiteral("%1 s").arg(seconds, 0, 'f', 1);
@@ -198,21 +200,21 @@ void CsvChartView::drawCursor(QPainter &painter, const QRect &area, double minim
     if (m_cursorX < 0)
         return;
 
-    const int count = m_series->seriesCount();
+    const int count = m_model->seriesCount();
     if (count == 0)
         return;
 
-    // Номер точки под курсором. Берём длину первого видимого ряда: ряды заполняются
-    // синхронно, и расхождение возможно только на последнюю точку.
-    int longest = 0;
-    for (int s = 0; s < count; ++s)
-        longest = qMax(longest, int(m_series->series(s).values.size()));
-    if (longest < 2)
+    // Номер отсчёта под курсором. Счётчик один на все колонки — это и есть та гарантия,
+    // из-за отсутствия которой курсор раньше подписывал значение одной колонки именем
+    // другой: индекс брался от самого длинного ряда и применялся ко всем подряд.
+    const SampleBuffer &samples = m_model->samples();
+    const int total = samples.sampleCount();
+    if (total < 2)
         return;
 
     const double fraction = double(m_cursorX - area.left()) / double(area.width());
-    const int index = qBound(0, int(fraction * (longest - 1) + 0.5), longest - 1);
-    const int x = area.left() + int(double(index) / double(longest - 1) * area.width());
+    const int index = qBound(0, int(fraction * (total - 1) + 0.5), total - 1);
+    const int x = area.left() + int(double(index) / double(total - 1) * area.width());
 
     painter.setPen(QPen(m_host->color(IPanelHost::ColorRole::TextMuted), 1, Qt::DashLine));
     painter.drawLine(x, area.top(), x, area.bottom());
@@ -221,20 +223,25 @@ void CsvChartView::drawCursor(QPainter &painter, const QRect &area, double minim
     const QFontMetrics metrics(font());
     int textY = area.top() + metrics.height();
     for (int s = 0; s < count; ++s) {
-        const CsvSeries::Series &series = m_series->series(s);
-        if (!series.visible || index >= series.values.size())
+        const PlotSeries &series = m_model->series(s);
+        // Ряд оси X исключается ровно так же, как в отрисовке: раньше здесь этой проверки
+        // не было, и курсор перечислял колонку, которой на графике нет.
+        if (!series.visible || s == m_model->xAxisSeries())
             continue;
 
-        const QString label = QStringLiteral("%1  %2")
-                                  .arg(series.name)
-                                  .arg(series.values.at(index), 0, 'g', 5);
+        const double value = samples.at(index, s);
+        if (!qIsFinite(value))
+            continue;
+
+        const QString label =
+            QStringLiteral("%1  %2").arg(series.name, PlotFormat::number(value, 5));
 
         // Подпись уходит на ту сторону от курсора, где больше места: иначе у правого края
         // она обрезается ровно тогда, когда смотрят на свежие данные.
         const int width = metrics.horizontalAdvance(label);
         const int labelX = (x + 8 + width < area.right()) ? x + 8 : x - 8 - width;
 
-        painter.setPen(series.color);
+        painter.setPen(QColor::fromRgba(series.color));
         painter.drawText(labelX, textY, label);
         textY += metrics.height();
     }
@@ -243,12 +250,13 @@ void CsvChartView::drawCursor(QPainter &painter, const QRect &area, double minim
     Q_UNUSED(maximum);
 }
 
-QPolygonF CsvChartView::seriesPolyline(const QList<double> &values, const QRect &area,
-                                       double minimum, double span) const
+QPolygonF CsvChartView::seriesPolyline(int column, const QRect &area, double minimum,
+                                       double span) const
 {
     QPolygonF polyline;
 
-    const int count = int(values.size());
+    const SampleBuffer &samples = m_model->samples();
+    const int count = samples.sampleCount();
     if (count < 2)
         return polyline;
 
@@ -263,8 +271,13 @@ QPolygonF CsvChartView::seriesPolyline(const QList<double> &values, const QRect 
         // Точек меньше, чем пикселей: прореживать нечего, и каждая из них видна отдельно.
         polyline.reserve(count);
         const double step = double(width) / double(count - 1);
-        for (int i = 0; i < count; ++i)
-            polyline.append(QPointF(area.left() + step * i, yOf(values.at(i))));
+        for (int i = 0; i < count; ++i) {
+            const double value = samples.at(i, column);
+            // Пропуск не рисуется вовсе: соединив соседей прямой, мы показали бы данные,
+            // которых устройство не присылало.
+            if (qIsFinite(value))
+                polyline.append(QPointF(area.left() + step * i, yOf(value)));
+        }
         return polyline;
     }
 
@@ -275,13 +288,24 @@ QPolygonF CsvChartView::seriesPolyline(const QList<double> &values, const QRect 
         const int from = int(qint64(x) * count / width);
         const int to = qMax(from + 1, int(qint64(x + 1) * count / width));
 
-        double lowest = values.at(from);
-        double highest = lowest;
-        for (int i = from + 1; i < to && i < count; ++i) {
-            const double value = values.at(i);
-            lowest = qMin(lowest, value);
-            highest = qMax(highest, value);
+        double lowest = 0.0;
+        double highest = 0.0;
+        bool any = false;
+        for (int i = from; i < to && i < count; ++i) {
+            const double value = samples.at(i, column);
+            if (!qIsFinite(value))
+                continue;
+            if (!any) {
+                lowest = value;
+                highest = value;
+                any = true;
+            } else {
+                lowest = qMin(lowest, value);
+                highest = qMax(highest, value);
+            }
         }
+        if (!any)
+            continue;
 
         // Сверху вниз в экранных координатах: порядок один и тот же во всех колонках,
         // поэтому соседние отрезки смыкаются, а не расходятся зигзагом.
@@ -291,6 +315,42 @@ QPolygonF CsvChartView::seriesPolyline(const QList<double> &values, const QRect 
     }
 
     return polyline;
+}
+
+void CsvChartView::valueRange(double *minimum, double *maximum) const
+{
+    const SampleBuffer &samples = m_model->samples();
+
+    double lo = 0.0;
+    double hi = 0.0;
+    bool any = false;
+
+    for (int s = 0; s < m_model->seriesCount(); ++s) {
+        // Скрытый ряд не участвует: иначе выключение выброса не меняло бы масштаб, а ради
+        // этого его чаще всего и выключают.
+        if (!m_model->series(s).visible || s == m_model->xAxisSeries())
+            continue;
+
+        const SampleBuffer::ColumnStats stats = samples.stats(s);
+        if (stats.finiteCount == 0)
+            continue;
+
+        lo = any ? qMin(lo, stats.minimum) : stats.minimum;
+        hi = any ? qMax(hi, stats.maximum) : stats.maximum;
+        any = true;
+    }
+
+    if (!any) {
+        lo = 0.0;
+        hi = 1.0;
+    } else if (qFuzzyCompare(lo, hi)) {
+        // Постоянный сигнал: без запаса линия легла бы точно на край и стала невидимой.
+        lo -= 1.0;
+        hi += 1.0;
+    }
+
+    *minimum = lo;
+    *maximum = hi;
 }
 
 void CsvChartView::paintEvent(QPaintEvent *event)
@@ -316,7 +376,7 @@ void CsvChartView::paintEvent(QPaintEvent *event)
     if (area.width() < 2 || area.height() < 2)
         return;
 
-    const int count = m_series->seriesCount();
+    const int count = m_model->seriesCount();
     if (count == 0) {
         painter.setPen(m_host->color(IPanelHost::ColorRole::TextMuted));
         painter.drawText(rect(), Qt::AlignCenter,
@@ -326,29 +386,30 @@ void CsvChartView::paintEvent(QPaintEvent *event)
 
     double minimum = 0.0;
     double maximum = 1.0;
-    m_series->range(&minimum, &maximum);
+    valueRange(&minimum, &maximum);
     const double span = maximum - minimum;
 
-    int longest = 0;
+    const int total = m_model->samples().sampleCount();
     int visible = 0;
     for (int s = 0; s < count; ++s) {
-        longest = qMax(longest, int(m_series->series(s).values.size()));
-        if (m_series->series(s).visible && s != m_series->xAxisSeries())
+        if (m_model->series(s).visible && s != m_model->xAxisSeries())
             ++visible;
     }
-    const bool dense = longest > area.width();
+    const bool dense = total > area.width();
     const bool withFill = visible <= kMaxFilledSeries;
 
     drawFrame(painter, area, minimum, maximum);
 
     for (int s = 0; s < count; ++s) {
-        const CsvSeries::Series &series = m_series->series(s);
-        if (!series.visible || s == m_series->xAxisSeries() || series.values.size() < 2)
+        const PlotSeries &series = m_model->series(s);
+        if (!series.visible || s == m_model->xAxisSeries() || total < 2)
             continue;
 
-        const QPolygonF polyline = seriesPolyline(series.values, area, minimum, span);
+        const QPolygonF polyline = seriesPolyline(s, area, minimum, span);
         if (polyline.size() < 2)
             continue;
+
+        const QColor color = QColor::fromRgba(series.color);
 
         if (withFill) {
             // Заливается верхняя огибающая, а не сама полилиния. Прореженная полилиния —
@@ -357,8 +418,7 @@ void CsvChartView::paintEvent(QPaintEvent *event)
             // самопересечений на каждой строке развёртки. Огибающая монотонна по x, а
             // выглядит ровно так же — нижняя граница заливки всё равно у основания.
             QPolygonF filled;
-            const bool decimated = int(series.values.size()) > area.width();
-            if (decimated) {
+            if (dense) {
                 filled.reserve(polyline.size() / 2 + 2);
                 for (qsizetype i = 0; i < polyline.size(); i += 2)
                     filled.append(polyline.at(i));
@@ -368,7 +428,7 @@ void CsvChartView::paintEvent(QPaintEvent *event)
             filled.append(QPointF(polyline.last().x(), area.bottom()));
             filled.append(QPointF(polyline.first().x(), area.bottom()));
 
-            QColor fill = series.color;
+            QColor fill = color;
             fill.setAlpha(kFillAlpha);
             painter.setPen(Qt::NoPen);
             painter.setBrush(fill);
@@ -378,7 +438,7 @@ void CsvChartView::paintEvent(QPaintEvent *event)
 
         // Дробная толщина без сглаживания всё равно округлится до целой, и просить её
         // означало бы платить за подготовку пера впустую.
-        painter.setPen(QPen(series.color, dense ? 1.0 : 1.5));
+        painter.setPen(QPen(color, dense ? 1.0 : 1.5));
         painter.drawPolyline(polyline);
     }
 

@@ -52,6 +52,9 @@ spotty_add_test(spotty-tests
         test_macro_store.cpp
         test_log_writer.cpp
         test_plot_format.cpp
+        test_sample_buffer.cpp
+        test_sample_parser.cpp
+        test_plot_model.cpp
         test_interface_registry.cpp
         test_session.cpp
         test_data_filter.cpp
@@ -64,14 +67,10 @@ spotty_add_test(spotty-tests
 spotty_add_test(spotty-ui-tests
     SOURCES
         test_panel_registry.cpp
-        test_csv_series.cpp
         # Реестр живёт в src/ui и входит в исполняемый файл приложения, а не в
         # библиотеку. Проще взять его исходник сюда напрямую, чем заводить библиотеку
         # ради одного класса.
         "${CMAKE_SOURCE_DIR}/src/ui/PanelPluginRegistry.cpp"
-        # Разбор CSV — логика плагина-примера, и она заслуживает проверки не меньше
-        # ядровой: именно она решает, что считать данными, а что сообщением устройства.
-        "${CMAKE_SOURCE_DIR}/plugins/csvchart/CsvSeries.cpp"
     LINK
         spotty-ui-test-main
     # Панель-двойник умеет вернуть настоящий QLabel, и как только этим воспользуется хоть
@@ -80,9 +79,7 @@ spotty_add_test(spotty-ui-tests
     ENVIRONMENT
         QT_QPA_PLATFORM=offscreen
 )
-target_include_directories(spotty-ui-tests PRIVATE
-    "${CMAKE_SOURCE_DIR}/src/ui"
-    "${CMAKE_SOURCE_DIR}/plugins/csvchart")
+target_include_directories(spotty-ui-tests PRIVATE "${CMAKE_SOURCE_DIR}/src/ui")
 
 # Цель `coverage` объявляется после исполняемого файла тестов: инструментам нужен его
 # путь, чтобы прочитать карту покрытия. Меряется только spotty-tests.

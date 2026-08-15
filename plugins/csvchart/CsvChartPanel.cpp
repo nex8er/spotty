@@ -5,7 +5,8 @@
 #include "CsvChartPanel.h"
 
 #include "CsvChartView.h"
-#include "CsvSeries.h"
+#include <spotty/data/PlotFormat.h>
+#include <spotty/data/PlotModel.h>
 
 #include <spotty/ui/IPanelHost.h>
 #include <spotty/ui/MdiCodepoints.h>
@@ -71,9 +72,9 @@ QIcon colorSwatch(const QColor &color)
 
 } // namespace
 
-CsvChartPanel::CsvChartPanel(IPanelHost *panelHost, CsvSeries *series, QWidget *parent)
+CsvChartPanel::CsvChartPanel(IPanelHost *panelHost, PlotModel *model, QWidget *parent)
     : PanelWidget(panelHost, parent)
-    , m_series(series)
+    , m_model(model)
 {
     setPanelTitle(tr("Chart"));
     QVBoxLayout *layout = content();
@@ -86,7 +87,7 @@ CsvChartPanel::CsvChartPanel(IPanelHost *panelHost, CsvSeries *series, QWidget *
 
     // График прямо в панели: узкий, но отвечает на вопрос «как это выглядит» без единого
     // лишнего действия. Для настоящего разглядывания есть отдельное окно.
-    m_chart = new CsvChartView(panelHost, m_series, this);
+    m_chart = new CsvChartView(panelHost, m_model, this);
     m_chart->setMinimumHeight(140);
     layout->addWidget(m_chart);
 
@@ -170,7 +171,7 @@ CsvChartPanel::CsvChartPanel(IPanelHost *panelHost, CsvSeries *series, QWidget *
     connect(m_points, &QSpinBox::valueChanged, this, &CsvChartPanel::commit);
     connect(m_xAxis, &QComboBox::currentIndexChanged, this, [this] {
         if (!m_populating)
-            m_series->setXAxisSeries(m_xAxis->currentData().toInt());
+            m_model->setXAxisSeries(m_xAxis->currentData().toInt());
     });
 
     connect(m_pause, &QPushButton::toggled, m_chart, &CsvChartView::setPaused);
@@ -184,7 +185,7 @@ CsvChartPanel::CsvChartPanel(IPanelHost *panelHost, CsvSeries *series, QWidget *
     connect(windowButton, &QPushButton::clicked, this, &CsvChartPanel::openInWindow);
     connect(csvButton, &QToolButton::clicked, this, &CsvChartPanel::exportCsv);
     connect(pngButton, &QToolButton::clicked, this, &CsvChartPanel::exportImage);
-    connect(clearButton, &QToolButton::clicked, this, [this] { m_series->clear(); });
+    connect(clearButton, &QToolButton::clicked, this, [this] { m_model->clearSamples(); });
 
     // Одиночный таймер: когда данные не идут, ничего не тикает.
     m_statisticsTimer = new QTimer(this);
@@ -192,23 +193,26 @@ CsvChartPanel::CsvChartPanel(IPanelHost *panelHost, CsvSeries *series, QWidget *
     m_statisticsTimer->setInterval(kStatisticsIntervalMs);
     connect(m_statisticsTimer, &QTimer::timeout, this, &CsvChartPanel::refreshStatistics);
 
-    connect(m_series, &CsvSeries::seriesAdded, this, &CsvChartPanel::rebuildTable);
-    connect(m_series, &CsvSeries::changed, this, &CsvChartPanel::scheduleStatistics);
+    connect(m_model, &PlotModel::seriesAdded, this, &CsvChartPanel::rebuildTable);
+    connect(m_model, &PlotModel::changed, this, &CsvChartPanel::scheduleStatistics);
 
     connect(m_table, &QTableWidget::cellDoubleClicked, this, [this](int row, int column) {
-        if (column != ColumnColor || row >= m_series->seriesCount())
+        if (column != ColumnColor || row >= m_model->seriesCount())
             return;
-        const QColor chosen = QColorDialog::getColor(m_series->series(row).color, this,
-                                                     tr("Series colour"));
-        if (chosen.isValid())
-            m_series->setSeriesColor(row, chosen);
+        const QColor chosen = QColorDialog::getColor(
+            QColor::fromRgba(m_model->series(row).color), this, tr("Series colour"));
+        // Отменённый диалог отдаёт недействительный цвет: перестраивать таблицу тогда не за
+        // чем, а лишняя перестройка сбрасывает выделение строки под курсором.
+        if (!chosen.isValid())
+            return;
+        m_model->setSeriesColor(row, chosen.rgba());
         rebuildTable();
     });
 
     connect(m_table, &QTableWidget::itemChanged, this, [this](QTableWidgetItem *item) {
         if (m_populating || item->column() != ColumnVisible)
             return;
-        m_series->setSeriesVisible(item->row(), item->checkState() == Qt::Checked);
+        m_model->setSeriesVisible(item->row(), item->checkState() == Qt::Checked);
     });
 
     reloadFromSettings();
@@ -232,8 +236,8 @@ void CsvChartPanel::reloadFromSettings()
 void CsvChartPanel::commit()
 {
     const QString separator = m_separator->currentData().toString();
-    m_series->setSeparator(separator.isEmpty() ? u',' : separator.at(0));
-    m_series->setCapacity(m_points->value());
+    m_model->setSeparator(separator.isEmpty() ? u',' : separator.at(0));
+    m_model->setCapacity(m_points->value());
 
     if (!m_populating) {
         host()->setValue(QLatin1String(kKeySeparator), separator);
@@ -250,9 +254,9 @@ void CsvChartPanel::rebuildTable()
 {
     m_populating = true;
 
-    m_table->setRowCount(m_series->seriesCount());
-    for (int row = 0; row < m_series->seriesCount(); ++row) {
-        const CsvSeries::Series &series = m_series->series(row);
+    m_table->setRowCount(m_model->seriesCount());
+    for (int row = 0; row < m_model->seriesCount(); ++row) {
+        const PlotSeries &series = m_model->series(row);
 
         auto *visible = new QTableWidgetItem;
         visible->setCheckState(series.visible ? Qt::Checked : Qt::Unchecked);
@@ -262,7 +266,7 @@ void CsvChartPanel::rebuildTable()
         m_table->setItem(row, ColumnName, new QTableWidgetItem(series.name));
 
         auto *color = new QTableWidgetItem;
-        color->setIcon(colorSwatch(series.color));
+        color->setIcon(colorSwatch(QColor::fromRgba(series.color)));
         color->setToolTip(tr("Double-click to change"));
         m_table->setItem(row, ColumnColor, color);
 
@@ -275,8 +279,8 @@ void CsvChartPanel::rebuildTable()
     const int previous = m_xAxis->currentData().isValid() ? m_xAxis->currentData().toInt() : -1;
     m_xAxis->clear();
     m_xAxis->addItem(tr("Time"), -1);
-    for (int row = 0; row < m_series->seriesCount(); ++row)
-        m_xAxis->addItem(m_series->series(row).name, row);
+    for (int row = 0; row < m_model->seriesCount(); ++row)
+        m_xAxis->addItem(m_model->series(row).name, row);
     m_xAxis->setCurrentIndex(qMax(0, m_xAxis->findData(previous)));
 
     m_populating = false;
@@ -291,20 +295,24 @@ void CsvChartPanel::scheduleStatistics()
 
 void CsvChartPanel::refreshStatistics()
 {
-    if (m_table->rowCount() != m_series->seriesCount()) {
+    if (m_table->rowCount() != m_model->seriesCount()) {
         rebuildTable();
         return;
     }
 
     m_populating = true;
-    for (int row = 0; row < m_series->seriesCount(); ++row) {
-        const CsvSeries::Series &series = m_series->series(row);
-        m_table->item(row, ColumnMin)
-            ->setText(QString::number(m_series->minimumOf(row), 'g', 5));
-        m_table->item(row, ColumnMax)
-            ->setText(QString::number(m_series->maximumOf(row), 'g', 5));
-        m_table->item(row, ColumnAverage)
-            ->setText(QString::number(m_series->averageOf(row), 'g', 5));
+    for (int row = 0; row < m_model->seriesCount(); ++row) {
+        // Одна сводка на три числа вместо трёх независимых обходов окна, как было раньше.
+        // Пустая колонка отдаёт finiteCount == 0, и в ячейке появляется тире: ноль там
+        // читался бы как измеренное значение.
+        const SampleBuffer::ColumnStats stats = m_model->samples().stats(row);
+        const double minimum = stats.finiteCount > 0 ? stats.minimum : qQNaN();
+        const double maximum = stats.finiteCount > 0 ? stats.maximum : qQNaN();
+        const double mean = stats.finiteCount > 0 ? stats.mean : qQNaN();
+
+        m_table->item(row, ColumnMin)->setText(PlotFormat::number(minimum, 5));
+        m_table->item(row, ColumnMax)->setText(PlotFormat::number(maximum, 5));
+        m_table->item(row, ColumnAverage)->setText(PlotFormat::number(mean, 5));
     }
     m_populating = false;
 }
@@ -327,7 +335,7 @@ void CsvChartPanel::openInWindow()
 
     auto *layout = new QVBoxLayout(m_window);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(new CsvChartView(host(), m_series, m_window));
+    layout->addWidget(new CsvChartView(host(), m_model, m_window));
 
     connect(m_window, &QObject::destroyed, this, [this] { m_window = nullptr; });
     m_window->show();
@@ -335,7 +343,7 @@ void CsvChartPanel::openInWindow()
 
 void CsvChartPanel::exportCsv()
 {
-    const QString data = m_series->toCsv();
+    const QString data = m_model->toCsv();
     if (data.isEmpty()) {
         host()->showStatusMessage(tr("There is nothing to export yet."));
         return;

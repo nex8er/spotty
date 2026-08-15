@@ -8,7 +8,7 @@
 
 namespace spotty {
 
-class CsvSeries;
+class PlotModel;
 
 /**
  * \class CsvChartPlugin
@@ -52,7 +52,7 @@ private:
      * Владеет плагин, а не панель: график должен продолжать накапливать данные, даже
      * когда страница настроек не выбрана в рейке и её виджет не на экране.
      */
-    CsvSeries *m_series = nullptr;
+    PlotModel *m_model = nullptr;
 
     /// \brief Хост, с которым связана подписка на строки; один на плагин.
     IPanelHost *m_host = nullptr;

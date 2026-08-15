@@ -17,7 +17,7 @@ class QTimer;
 namespace spotty {
 
 class CsvChartView;
-class CsvSeries;
+class PlotModel;
 
 /**
  * \class CsvChartPanel
@@ -37,7 +37,7 @@ class CsvChartPanel : public PanelWidget
     Q_OBJECT
 
 public:
-    CsvChartPanel(IPanelHost *host, CsvSeries *series, QWidget *parent = nullptr);
+    CsvChartPanel(IPanelHost *host, PlotModel *model, QWidget *parent = nullptr);
 
 protected:
     void settingsReset() override;
@@ -72,7 +72,7 @@ private:
     void exportCsv();
     void exportImage();
 
-    CsvSeries *m_series = nullptr;
+    PlotModel *m_model = nullptr;
     CsvChartView *m_chart = nullptr;
 
     QComboBox *m_separator = nullptr;

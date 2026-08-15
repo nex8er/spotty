@@ -12,7 +12,7 @@ class QTimer;
 
 namespace spotty {
 
-class CsvSeries;
+class PlotModel;
 class IPanelHost;
 
 /**
@@ -59,7 +59,7 @@ class CsvChartView : public QWidget
     Q_OBJECT
 
 public:
-    CsvChartView(IPanelHost *host, CsvSeries *series, QWidget *parent = nullptr);
+    CsvChartView(IPanelHost *host, PlotModel *model, QWidget *parent = nullptr);
 
     void setPaused(bool paused);
     bool isPaused() const { return m_paused; }
@@ -102,7 +102,7 @@ private:
 
     /**
      * \brief Точки ряда, сведённые к разрешению поля графика.
-     * \param values Значения ряда от старого к новому.
+     * \param column Номер колонки в буфере отсчётов.
      * \param area Поле графика в координатах виджета.
      * \param minimum Нижняя граница вертикальной шкалы.
      * \param span Высота шкалы; вызывающий гарантирует, что она не ноль.
@@ -111,15 +111,22 @@ private:
      * колонку пикселей приходится по паре точек — наибольшее и наименьшее значение из
      * попавших в колонку. Форма кривой и выбросы при этом сохраняются полностью: разрешения
      * экрана всё равно не хватило бы, чтобы показать больше.
+     *
+     * \note Число точек берётся из `SampleBuffer::sampleCount()` — оно **одно на все
+     *       колонки**. Раньше каждый ряд растягивался на всю ширину по своей длине, и два
+     *       ряда разной длины ложились на график в разных временных масштабах.
      */
-    QPolygonF seriesPolyline(const QList<double> &values, const QRect &area, double minimum,
+    QPolygonF seriesPolyline(int column, const QRect &area, double minimum,
                              double span) const;
+
+    /// \brief Наименьшее и наибольшее среди видимых рядов; при пустых данных — 0 и 1.
+    void valueRange(double *minimum, double *maximum) const;
 
     /// \brief Пометить картинку устаревшей и завести таймер перерисовки, если он не идёт.
     void scheduleRepaint();
 
     IPanelHost *m_host = nullptr;
-    CsvSeries *m_series = nullptr;
+    PlotModel *m_model = nullptr;
 
     bool m_paused = false;
 
