@@ -70,6 +70,14 @@ public:
     };
     Q_ENUM(ViewMode)
 
+    /// \brief Что делать с нечитаемым символом, пока включён фильтр; см. setUnreadableMode().
+    enum class UnreadableMode {
+        Dots,     ///< Заменять точкой на его месте — видно, что байт был, но не что в нём.
+        Hide,     ///< Вырезать символ из строки совсем: он не рисуется и не занимает места.
+        HideLine, ///< Прятать всю строку, если в ней есть хоть один такой символ.
+    };
+    Q_ENUM(UnreadableMode)
+
     explicit TerminalView(QWidget *parent = nullptr);
     ~TerminalView() override;
 
@@ -109,6 +117,20 @@ public:
 
     /// \brief Разделитель полей для распознавания данных.
     void setCsvSeparator(QChar separator);
+
+    /**
+     * \brief Включить фильтр нечитаемых символов; что именно он делает — см. #UnreadableMode.
+     *
+     * Фильтр показа, как и #setCsvFilterEnabled: строка в буфере не меняется. Управляющие
+     * коды, не распознанные ANSI-парсером как последовательность, и символ-заменитель битой
+     * кодировки иначе рисовались бы как есть.
+     */
+    void setHideUnreadableEnabled(bool enabled);
+    bool hideUnreadableEnabled() const { return m_hideUnreadable; }
+
+    /// \brief Способ показа нечитаемых символов, пока фильтр включён. По умолчанию — точками.
+    void setUnreadableMode(UnreadableMode mode);
+    UnreadableMode unreadableMode() const { return m_unreadableMode; }
 
     /**
      * \brief Показывать метку транспорта в колонке слева.
@@ -356,6 +378,16 @@ private:
     /// \brief Текст одного экранного ряда без колонок слева.
     QString rowText(const TerminalBuffer::Line &line, int row) const;
 
+    /**
+     * \brief Отрезки оформления строки, годные для текста, отданного rowText().
+     *
+     * В режиме UnreadableMode::Hide нечитаемые байты физически вырезаны из текста, и
+     * #TerminalBuffer::Line::runs, посчитанные под исходный line.text, красили бы не то и
+     * не там. В остальных случаях (включая Dots — там замена посимвольная и той же длины)
+     * возвращает line.runs без изменений.
+     */
+    QList<TerminalBuffer::StyleRun> styleRunsForRow(const TerminalBuffer::Line &line) const;
+
     /// \brief Ширина колонки меток времени в знакоместах, вместе с отбивкой.
     int timestampColumns() const;
 
@@ -409,6 +441,8 @@ private:
     bool m_showTimestamps = false;
     bool m_showLineNumbers = false;
     bool m_csvFilterEnabled = false;
+    bool m_hideUnreadable = false;
+    UnreadableMode m_unreadableMode = UnreadableMode::Dots;
     bool m_showSource = false;
     CsvDetector m_csvDetector;
 

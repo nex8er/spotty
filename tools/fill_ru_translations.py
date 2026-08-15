@@ -453,8 +453,23 @@ TRANSLATIONS = {
     "Show line numbers": "Показывать номера строк",
     "Line numbers": "Номера строк",
     "Count from Here": "Считать отсюда",
-    "Hide telemetry lines: values separated by the delimiter set in Settings":
-        "Скрывать телеметрию: числа через разделитель, заданный в настройках",
+    "Hide telemetry lines: values separated by the delimiter set in Settings. "
+    "Right-click to change the delimiter":
+        "Скрывать телеметрию: числа через разделитель, заданный в настройках. "
+        "Разделитель можно сменить по правому клику",
+    "Hide unreadable characters: control codes and invalid encoding. "
+    "Right-click to choose how":
+        "Скрывать нечитаемые символы: управляющие коды и битую кодировку. "
+        "Способ показа — по правому клику",
+    "Show as dots": "Точками",
+    "Hide": "Скрывать",
+    "Hide the whole line": "Скрывать строку целиком",
+    "Comma (,)": "Запятая (,)",
+    "Semicolon (;)": "Точка с запятой (;)",
+    "Pipe (|)": "Вертикальная черта (|)",
+    "Space character": "Пробел",
+    "Custom…": "Другой…",
+    "Delimiter character:": "Символ-разделитель:",
     "Side &panel": "&Боковая панель",
     "Show / hide the side panel": "Показать или скрыть боковую панель",
 
@@ -465,9 +480,11 @@ TRANSLATIONS = {
     # --- Настройки телеметрии ---
     "Telemetry delimiter": "Разделитель телеметрии",
     "Lines made only of numbers separated by this character can be hidden from the "
-    "terminal with the toolbar button. They still reach the chart, the search and the log.":
-        "Строки из одних чисел через этот знак можно скрыть из терминала кнопкой в панели. "
-        "В график, поиск и журнал они при этом попадают.",
+    "terminal — right-click the toolbar button for quick presets. Hidden lines still "
+    "reach the chart, the search and the log.":
+        "Строки из одних чисел через этот знак можно скрыть из терминала — быстрый выбор "
+        "разделителя по правому клику на кнопке в панели. В график, поиск и журнал "
+        "скрытые строки при этом попадают.",
 
     # --- Строка отправки ---
     "%1 of %2 — Tab for next": "%1 из %2 — Tab дальше",

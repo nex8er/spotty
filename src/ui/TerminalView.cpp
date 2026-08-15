@@ -43,6 +43,18 @@ constexpr int kMaxFontPointSize = 48;
 /// \brief Частота перерисовки, мс. Примерно 60 кадров в секунду.
 constexpr int kRepaintIntervalMs = 16;
 
+/// \brief Символ-заменитель битой кодировки: QStringDecoder ставит его вместо байтов,
+/// которые не удалось декодировать. QChar::isPrint() его не ловит — по категории Unicode
+/// это обычный символ, — поэтому сравнивается отдельно.
+constexpr char16_t kReplacementChar = 0xFFFD;
+
+/// \brief Управляющий код, не распознанный ANSI-парсером, либо символ-заменитель битой
+/// кодировки. Общий признак для всех трёх режимов #TerminalView::UnreadableMode.
+bool isUnreadableChar(QChar ch)
+{
+    return !ch.isPrint() || ch.unicode() == kReplacementChar;
+}
+
 /// \brief Отступ содержимого от левого края, px.
 constexpr int kLeftMargin = 6;
 
@@ -513,6 +525,34 @@ void TerminalView::setCsvSeparator(QChar separator)
     }
 }
 
+void TerminalView::setHideUnreadableEnabled(bool enabled)
+{
+    if (m_hideUnreadable == enabled)
+        return;
+    m_hideUnreadable = enabled;
+    // В режиме HideLine включение и выключение меняют сам список видимых строк, а не
+    // только их отрисовку — как и переключение csvFilterEnabled.
+    if (m_unreadableMode == UnreadableMode::HideLine)
+        rebuildVisible();
+    viewport()->update();
+}
+
+void TerminalView::setUnreadableMode(UnreadableMode mode)
+{
+    if (m_unreadableMode == mode)
+        return;
+    // Список видимых строк пересобирается, только если смена режима меняет то, что в нём
+    // должно быть: переход в HideLine или из него при включённом фильтре. Переключение
+    // между Dots и Hide меняет лишь отрисовку уже показанных строк.
+    const bool visibilitySwitched = m_hideUnreadable
+        && (m_unreadableMode == UnreadableMode::HideLine || mode == UnreadableMode::HideLine);
+    m_unreadableMode = mode;
+    if (visibilitySwitched)
+        rebuildVisible();
+    if (m_hideUnreadable)
+        viewport()->update();
+}
+
 bool TerminalView::passesFilter(const TerminalBuffer::Line &line) const
 {
     // Системные сообщения не скрываются ни одним из фильтров: «порт открыт», «устройство
@@ -524,6 +564,15 @@ bool TerminalView::passesFilter(const TerminalBuffer::Line &line) const
     // Скрытые здесь, они остаются в буфере и достаются графику, поиску и журналу.
     if (m_csvFilterEnabled && m_csvDetector.isDataLine(line.text))
         return false;
+
+    // Как и телеметрия: строка остаётся в буфере, её видят график, поиск и журнал —
+    // прячется только показ в терминале.
+    if (m_hideUnreadable && m_unreadableMode == UnreadableMode::HideLine) {
+        for (const QChar ch : line.text) {
+            if (isUnreadableChar(ch))
+                return false;
+        }
+    }
 
     if (!m_filterEnabled || !m_searchActive)
         return true;
@@ -671,8 +720,35 @@ TerminalView::Position TerminalView::positionAtRow(qint64 rowIndex) const
 
 QString TerminalView::rowText(const TerminalBuffer::Line &line, int row) const
 {
-    if (m_viewMode == ViewMode::Text)
-        return line.text;
+    if (m_viewMode == ViewMode::Text) {
+        // В HideLine строка с нечитаемым символом сюда не попадает вовсе — passesFilter()
+        // не пускает её в список видимых, — а без единого такого символа менять нечего.
+        if (!m_hideUnreadable || m_unreadableMode == UnreadableMode::HideLine)
+            return line.text;
+
+        if (m_unreadableMode == UnreadableMode::Hide) {
+            // Байт не просто не рисуется — его нет и в строке: место под него не остаётся.
+            // Индексы после такой правки уже не совпадают с исходным line.text, и отрезки
+            // StyleRun, посчитанные под него, пересчитывает mapStyleRuns() — единственное
+            // место, где они читаются напрямую.
+            QString stripped;
+            stripped.reserve(line.text.size());
+            for (const QChar ch : line.text) {
+                if (!isUnreadableChar(ch))
+                    stripped.append(ch);
+            }
+            return stripped;
+        }
+
+        // Dots: замена посимвольная и той же длины, поэтому индексы StyleRun, выделения и
+        // совпадений поиска не съезжают и пересчёта не требуют.
+        QString filtered = line.text;
+        for (QChar &ch : filtered) {
+            if (isUnreadableChar(ch))
+                ch = u'.';
+        }
+        return filtered;
+    }
 
     if (line.raw.isEmpty())
         return line.text;
@@ -710,6 +786,36 @@ QString TerminalView::rowText(const TerminalBuffer::Line &line, int row) const
     }
 
     return result + hexPart + u' ' + asciiPart;
+}
+
+QList<TerminalBuffer::StyleRun> TerminalView::styleRunsForRow(const TerminalBuffer::Line &line) const
+{
+    if (!m_hideUnreadable || m_unreadableMode != UnreadableMode::Hide)
+        return line.runs;
+
+    // Префиксная сумма уцелевших символов: у отрезка исходного текста [a, b) остаётся ровно
+    // counts[b] - counts[a] символов, и вырезание не переставляет их местами — значит, они
+    // занимают непрерывный кусок урезанной строки, начиная с counts[a].
+    QList<int> counts;
+    counts.reserve(line.text.size() + 1);
+    counts.append(0);
+    int kept = 0;
+    for (const QChar ch : line.text) {
+        if (!isUnreadableChar(ch))
+            ++kept;
+        counts.append(kept);
+    }
+
+    QList<TerminalBuffer::StyleRun> mapped;
+    mapped.reserve(line.runs.size());
+    for (const TerminalBuffer::StyleRun &run : line.runs) {
+        const int start = qBound(0, run.start, int(counts.size()) - 1);
+        const int end = qBound(start, run.start + run.length, int(counts.size()) - 1);
+        const int length = counts[end] - counts[start];
+        if (length > 0)
+            mapped.append({counts[start], length, run.style});
+    }
+    return mapped;
 }
 
 QString TerminalView::timestampText(const TerminalBuffer::Line &line, qint64 lineNumber) const
@@ -1138,11 +1244,14 @@ void TerminalView::paintEvent(QPaintEvent *event)
             painter.drawText(contentX, textY, content);
             painter.setFont(m_font);
         } else {
-            // Текстовый режим: рисуем отрезками, у каждого своё оформление.
+            // Текстовый режим: рисуем отрезками, у каждого своё оформление. Отрезки берём
+            // не из line->runs напрямую, а через styleRunsForRow(): в режиме Hide content
+            // короче исходного текста, и без пересчёта окраска съехала бы на чужие байты.
             const QColor defaultForeground =
                 line->direction == DataDirection::Tx ? colors.txText : colors.rxText;
 
-            for (const TerminalBuffer::StyleRun &styleRun : line->runs) {
+            const QList<TerminalBuffer::StyleRun> runs = styleRunsForRow(*line);
+            for (const TerminalBuffer::StyleRun &styleRun : runs) {
                 if (styleRun.start >= content.size())
                     break;
                 const int length = qMin(styleRun.length, int(content.size()) - styleRun.start);

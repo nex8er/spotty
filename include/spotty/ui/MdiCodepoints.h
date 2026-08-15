@@ -73,5 +73,6 @@ inline constexpr char32_t TableOff = 0xF13CA;
 inline constexpr char32_t FormatLetterCase = 0xF0B34;
 inline constexpr char32_t Regex = 0xF0451;
 inline constexpr char32_t FormatLetterMatches = 0xF0FB9;
+inline constexpr char32_t ImageBrokenVariant = 0xF02EE;
 
 } // namespace spotty::mdi

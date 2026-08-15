@@ -36,7 +36,7 @@ chevron-right folder-open file-document-outline open-in-new send keyboard histor
 filter-off palette translate format-font format-size theme-light-dark weather-night
 white-balance-sunny information-outline alert-outline timer-outline puzzle rename-box
 content-duplicate file-import file-export chart-line file-upload format-list-numbered table-off
-format-letter-case regex format-letter-matches
+format-letter-case regex format-letter-matches image-broken-variant
 """.split()
 
 HEADER = Path(__file__).resolve().parent.parent / "include" / "spotty" / "ui" / "MdiCodepoints.h"

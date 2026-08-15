@@ -21,37 +21,6 @@
     </message>
 </context>
 <context>
-    <name>spotty::ThemeManager</name>
-    <message>
-        <source>Undo</source>
-        <translation>Отменить</translation>
-    </message>
-    <message>
-        <source>Redo</source>
-        <translation>Повторить</translation>
-    </message>
-    <message>
-        <source>Cut</source>
-        <translation>Вырезать</translation>
-    </message>
-    <message>
-        <source>Copy</source>
-        <translation>Копировать</translation>
-    </message>
-    <message>
-        <source>Paste</source>
-        <translation>Вставить</translation>
-    </message>
-    <message>
-        <source>Delete</source>
-        <translation>Удалить</translation>
-    </message>
-    <message>
-        <source>Select All</source>
-        <translation>Выделить всё</translation>
-    </message>
-</context>
-<context>
     <name>spotty::CsvChartPanel</name>
     <message>
         <source>Chart</source>
@@ -1205,10 +1174,6 @@ Double-click to edit, right-click for options</source>
         <translation>Показывать номера строк</translation>
     </message>
     <message>
-        <source>Hide telemetry lines: values separated by the delimiter set in Settings</source>
-        <translation>Скрывать телеметрию: числа через разделитель, заданный в настройках</translation>
-    </message>
-    <message>
         <source>Clear the terminal</source>
         <translation>Очистить терминал</translation>
     </message>
@@ -1283,6 +1248,58 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Focus &amp;send bar</source>
         <translation>Фокус в &amp;строку отправки</translation>
+    </message>
+    <message>
+        <source>Hide telemetry lines: values separated by the delimiter set in Settings. Right-click to change the delimiter</source>
+        <translation>Скрывать телеметрию: числа через разделитель, заданный в настройках. Разделитель можно сменить по правому клику</translation>
+    </message>
+    <message>
+        <source>Hide unreadable characters: control codes and invalid encoding. Right-click to choose how</source>
+        <translation>Скрывать нечитаемые символы: управляющие коды и битую кодировку. Способ показа — по правому клику</translation>
+    </message>
+    <message>
+        <source>Comma (,)</source>
+        <translation>Запятая (,)</translation>
+    </message>
+    <message>
+        <source>Semicolon (;)</source>
+        <translation>Точка с запятой (;)</translation>
+    </message>
+    <message>
+        <source>Tab</source>
+        <translation>Табуляция</translation>
+    </message>
+    <message>
+        <source>Space character</source>
+        <translation>Пробел</translation>
+    </message>
+    <message>
+        <source>Pipe (|)</source>
+        <translation>Вертикальная черта (|)</translation>
+    </message>
+    <message>
+        <source>Custom…</source>
+        <translation>Другой…</translation>
+    </message>
+    <message>
+        <source>Telemetry delimiter</source>
+        <translation>Разделитель телеметрии</translation>
+    </message>
+    <message>
+        <source>Delimiter character:</source>
+        <translation>Символ-разделитель:</translation>
+    </message>
+    <message>
+        <source>Show as dots</source>
+        <translation>Точками</translation>
+    </message>
+    <message>
+        <source>Hide</source>
+        <translation>Скрывать</translation>
+    </message>
+    <message>
+        <source>Hide the whole line</source>
+        <translation>Скрывать строку целиком</translation>
     </message>
     <message>
         <source>&amp;Theme</source>
@@ -1861,12 +1878,12 @@ Continue?</source>
         <translation>Отражать отправленное в терминале</translation>
     </message>
     <message>
-        <source>Telemetry delimiter</source>
-        <translation>Разделитель телеметрии</translation>
+        <source>Lines made only of numbers separated by this character can be hidden from the terminal — right-click the toolbar button for quick presets. Hidden lines still reach the chart, the search and the log.</source>
+        <translation>Строки из одних чисел через этот знак можно скрыть из терминала — быстрый выбор разделителя по правому клику на кнопке в панели. В график, поиск и журнал скрытые строки при этом попадают.</translation>
     </message>
     <message>
-        <source>Lines made only of numbers separated by this character can be hidden from the terminal with the toolbar button. They still reach the chart, the search and the log.</source>
-        <translation>Строки из одних чисел через этот знак можно скрыть из терминала кнопкой в панели. В график, поиск и журнал они при этом попадают.</translation>
+        <source>Telemetry delimiter</source>
+        <translation>Разделитель телеметрии</translation>
     </message>
     <message>
         <source>ANSI colours</source>
@@ -1978,6 +1995,136 @@ Continue?</source>
     </message>
 </context>
 <context>
+    <name>spotty::SignalGenChannel</name>
+    <message>
+        <source>Virtual signal source</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>spotty::SignalGenPlugin</name>
+    <message>
+        <source>Virtual math signal source</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Waveform</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sine</source>
+        <translation>Синус</translation>
+    </message>
+    <message>
+        <source>Cosine</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Triangle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sawtooth</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Noise</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Chirp (rising frequency)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Damped sine (retriggered)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pulse train</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Staircase</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>All waveforms (6 columns)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Growing column count</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&quot;All waveforms&quot; and &quot;Growing column count&quot; emit several columns at once - handy for testing the chart panel&apos;s series table, its colours, and how it reacts to a series appearing mid-stream.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Period</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ms</source>
+        <translation>мс</translation>
+    </message>
+    <message>
+        <source>Length of one cycle. Chirp and the retriggered sine use it as the starting period of a longer, repeating pattern.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Amplitude</source>
+        <translation>Амплитуда</translation>
+    </message>
+    <message>
+        <source>Offset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Added to every value; shifts the curve up or down.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Random jitter layered on top of the waveform, as a percentage of the amplitude.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sample interval</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Output</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>How often a new line is emitted.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Prepend time column</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>First column holds seconds elapsed since the channel opened - a steady reference axis, useful as a custom X axis in the chart panel.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Emit status text lines</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Occasionally sends a non-numeric line, like a device mixing log messages into telemetry - checks that the chart skips it instead of breaking.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Signal generator</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>spotty::TerminalView</name>
     <message>
         <source>No lines match the filter</source>
@@ -2006,6 +2153,37 @@ Continue?</source>
     <message>
         <source>Scroll to Bottom</source>
         <translation>Прокрутить вниз</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::ThemeManager</name>
+    <message>
+        <source>Undo</source>
+        <translation>Отменить</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>Повторить</translation>
+    </message>
+    <message>
+        <source>Cut</source>
+        <translation>Вырезать</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Копировать</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>Вставить</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Удалить</translation>
+    </message>
+    <message>
+        <source>Select All</source>
+        <translation>Выделить всё</translation>
     </message>
 </context>
 <context>

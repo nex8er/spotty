@@ -33,7 +33,9 @@
 #include <QFontDatabase>
 #include <QFrame>
 #include <QHBoxLayout>
+#include <QInputDialog>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -104,6 +106,30 @@ QStringConverter::Encoding encodingFromName(const QString &name)
 {
     return name == QLatin1String("latin1") ? QStringConverter::Latin1
                                            : QStringConverter::Utf8;
+}
+
+/// \brief Способ показа нечитаемых символов по имени из настроек.
+TerminalView::UnreadableMode unreadableModeFromName(const QString &name)
+{
+    if (name == QLatin1String("hide"))
+        return TerminalView::UnreadableMode::Hide;
+    if (name == QLatin1String("line"))
+        return TerminalView::UnreadableMode::HideLine;
+    return TerminalView::UnreadableMode::Dots;
+}
+
+/// \brief Имя способа показа нечитаемых символов для настроек.
+QString unreadableModeName(TerminalView::UnreadableMode mode)
+{
+    switch (mode) {
+    case TerminalView::UnreadableMode::Hide:
+        return QStringLiteral("hide");
+    case TerminalView::UnreadableMode::HideLine:
+        return QStringLiteral("line");
+    case TerminalView::UnreadableMode::Dots:
+        break;
+    }
+    return QStringLiteral("dots");
 }
 
 } // namespace
@@ -482,7 +508,12 @@ QWidget *MainWindow::buildTerminalToolbar()
     m_echoButton = makeButton(tr("Echo sent data into the terminal"), true);
     m_lineNumberButton = makeButton(tr("Show line numbers"), true);
     m_csvFilterButton = makeButton(
-        tr("Hide telemetry lines: values separated by the delimiter set in Settings"), true);
+        tr("Hide telemetry lines: values separated by the delimiter set in Settings. "
+           "Right-click to change the delimiter"), true);
+    m_hideUnreadableButton = makeButton(
+        tr("Hide unreadable characters: control codes and invalid encoding. "
+           "Right-click to choose how"),
+        true);
     m_clearButton = makeButton(tr("Clear the terminal"), false);
     m_followButton = makeButton(tr("Follow output"), true);
     m_followButton->setChecked(true);
@@ -516,6 +547,95 @@ QWidget *MainWindow::buildTerminalToolbar()
         m_settings.csvFilter = hide;
         m_settings.save(*m_context.settings);
     });
+
+    // Разделитель подбирают под конкретную прошивку, и делают это по ходу работы — тем же
+    // жестом, каким включают саму кнопку, а не походом в Settings ради одного символа. Поле
+    // в диалоге остаётся: там его выставляют один раз и надолго, вместе с остальными
+    // настройками терминала.
+    m_csvFilterButton->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_csvFilterButton, &QToolButton::customContextMenuRequested, this,
+            [this](const QPoint &pos) {
+        const QChar current = m_settings.csvSeparator.isEmpty()
+                                  ? u',' : m_settings.csvSeparator.at(0);
+
+        QMenu menu(m_csvFilterButton);
+        auto *group = new QActionGroup(&menu);
+        group->setExclusive(true);
+
+        const QList<QPair<QString, QChar>> presets = {
+            {tr("Comma (,)"), u','},
+            {tr("Semicolon (;)"), u';'},
+            {tr("Tab"), u'\t'},
+            // Не просто "Space": то же слово в настройках UART означает чётность Space
+            // (бит всегда 0), и общий словарь переводов сопоставляет строки без учёта
+            // контекста tr() — общее слово увело бы перевод одного из двух не туда.
+            {tr("Space character"), u' '},
+            {tr("Pipe (|)"), u'|'},
+        };
+        for (const auto &[label, separator] : presets) {
+            QAction *action = menu.addAction(label);
+            action->setCheckable(true);
+            action->setChecked(current == separator);
+            action->setActionGroup(group);
+            connect(action, &QAction::triggered, this, [this, separator] {
+                applyCsvSeparator(separator);
+            });
+        }
+
+        menu.addSeparator();
+        connect(menu.addAction(tr("Custom…")), &QAction::triggered, this, [this] {
+            bool ok = false;
+            const QString text = QInputDialog::getText(
+                this, tr("Telemetry delimiter"), tr("Delimiter character:"),
+                QLineEdit::Normal, m_settings.csvSeparator, &ok);
+            if (ok && !text.isEmpty())
+                applyCsvSeparator(text.at(0));
+        });
+
+        menu.exec(m_csvFilterButton->mapToGlobal(pos));
+    });
+
+    connect(m_hideUnreadableButton, &QToolButton::toggled, this, [this](bool hide) {
+        m_terminal->setHideUnreadableEnabled(hide);
+        m_settings.hideUnreadable = hide;
+        m_settings.save(*m_context.settings);
+    });
+
+    // Способ показа подбирают по ходу работы, тем же жестом, каким подбирают разделитель
+    // телеметрии: точка на месте байта годится, когда важно видеть, что он вообще был;
+    // Hide вырезает байт из строки совсем, без следа и без сдвига остального текста в
+    // отдельный столбец; целая строка — когда битый пакет изредка портит чистый текстовый
+    // лог и его проще не видеть совсем.
+    m_hideUnreadableButton->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_hideUnreadableButton, &QToolButton::customContextMenuRequested, this,
+            [this](const QPoint &pos) {
+        const TerminalView::UnreadableMode current =
+            unreadableModeFromName(m_settings.hideUnreadableMode);
+
+        QMenu menu(m_hideUnreadableButton);
+        auto *group = new QActionGroup(&menu);
+        group->setExclusive(true);
+
+        const QList<QPair<QString, TerminalView::UnreadableMode>> options = {
+            {tr("Show as dots"), TerminalView::UnreadableMode::Dots},
+            {tr("Hide"), TerminalView::UnreadableMode::Hide},
+            {tr("Hide the whole line"), TerminalView::UnreadableMode::HideLine},
+        };
+        for (const auto &[label, mode] : options) {
+            QAction *action = menu.addAction(label);
+            action->setCheckable(true);
+            action->setChecked(current == mode);
+            action->setActionGroup(group);
+            connect(action, &QAction::triggered, this, [this, mode] {
+                m_settings.hideUnreadableMode = unreadableModeName(mode);
+                m_terminal->setUnreadableMode(mode);
+                m_settings.save(*m_context.settings);
+            });
+        }
+
+        menu.exec(m_hideUnreadableButton->mapToGlobal(pos));
+    });
+
     connect(m_lineNumberButton, &QToolButton::toggled, this, [this](bool show) {
         m_terminal->setShowLineNumbers(show);
         m_settings.showLineNumbers = show;
@@ -546,8 +666,15 @@ QWidget *MainWindow::buildTerminalToolbar()
     //
     // «Очистить» — крайняя справа, как и просил владелец. Она единственная здесь
     // необратима, и место в углу отделяет её от переключателей, которые жмут не глядя.
-    // Режим области вывода. Список, а не кнопки: три взаимоисключающих состояния читаются
-    // списком быстрее, чем тремя переключателями, из которых нажат один.
+    //
+    // Режим области вывода — список, а не кнопки: три взаимоисключающих состояния читаются
+    // списком быстрее, чем тремя переключателями, из которых нажат один. Стоит он в правой
+    // группе, рядом с «Follow» и «Clear», а не среди переключателей показа: те читаются
+    // слева направо как одна плотная группа однотипных кнопок (принцип подобия), а список —
+    // это выбор области вывода, действие того же рода, что и «Follow»/«Clear», просто
+    // сделанное не кнопкой. Полосы плагинов вставляют свои кнопки сразу за ним же, см.
+    // showStripActions() — переезд combo их не трогает, там используется
+    // indexOf(m_modeCombo), а не жёсткая позиция.
     m_modeCombo = new QComboBox(bar);
     m_modeCombo->addItem(tr("One interface"), QStringList{
                                                   QString::number(int(ViewMode::SingleTransport)),
@@ -568,15 +695,16 @@ QWidget *MainWindow::buildTerminalToolbar()
     QHBoxLayout *layout = m_toolbarLayout;
     layout->setContentsMargins(8, 3, 8, 3);
     layout->setSpacing(2);
-    layout->addWidget(m_modeCombo);
-    layout->addSpacing(8);
     layout->addWidget(m_hexButton);
     layout->addWidget(m_timestampButton);
     layout->addWidget(m_directionButton);
     layout->addWidget(m_echoButton);
     layout->addWidget(m_lineNumberButton);
     layout->addWidget(m_csvFilterButton);
+    layout->addWidget(m_hideUnreadableButton);
     layout->addStretch(1);
+    layout->addWidget(m_modeCombo);
+    layout->addSpacing(8);
     layout->addWidget(m_followButton);
     layout->addWidget(m_clearButton);
 
@@ -881,6 +1009,8 @@ void MainWindow::applySettings()
                                     ? u','
                                     : m_settings.csvSeparator.at(0));
     m_terminal->setCsvFilterEnabled(m_settings.csvFilter);
+    m_terminal->setUnreadableMode(unreadableModeFromName(m_settings.hideUnreadableMode));
+    m_terminal->setHideUnreadableEnabled(m_settings.hideUnreadable);
     m_terminal->setHexBytesPerRow(m_settings.hexBytesPerRow);
     m_terminal->setAnsiPalette(m_settings.ansiPalette);
     m_terminal->setViewMode(m_settings.viewMode == QLatin1String("hex")
@@ -895,12 +1025,14 @@ void MainWindow::applySettings()
     const QSignalBlocker echoBlocker(m_echoButton);
     const QSignalBlocker numbersBlocker(m_lineNumberButton);
     const QSignalBlocker csvBlocker(m_csvFilterButton);
+    const QSignalBlocker unreadableBlocker(m_hideUnreadableButton);
     m_hexButton->setChecked(m_settings.viewMode == QLatin1String("hex"));
     m_timestampButton->setChecked(m_settings.showTimestamps);
     m_directionButton->setChecked(m_settings.showDirection);
     m_echoButton->setChecked(m_settings.localEcho);
     m_lineNumberButton->setChecked(m_settings.showLineNumbers);
     m_csvFilterButton->setChecked(m_settings.csvFilter);
+    m_hideUnreadableButton->setChecked(m_settings.hideUnreadable);
 
     if (m_context.session) {
         m_context.session->buffer()->setMaxLines(m_settings.maxLines);
@@ -920,6 +1052,13 @@ void MainWindow::applySettings()
     m_sendBar->setSendTarget(SendBar::SendTarget(m_settings.sendTarget));
 
     applyShortcuts();
+}
+
+void MainWindow::applyCsvSeparator(QChar separator)
+{
+    m_settings.csvSeparator = QString(separator);
+    m_terminal->setCsvSeparator(separator);
+    m_settings.save(*m_context.settings);
 }
 
 void MainWindow::applyShortcuts()
@@ -1215,7 +1354,7 @@ void MainWindow::applyViewMode(ViewMode mode, const QString &stripId)
     // Оставить их доступными значило бы обещать действия, которых не произойдёт.
     for (QToolButton *button : {m_hexButton, m_timestampButton, m_directionButton,
                                 m_echoButton, m_lineNumberButton, m_csvFilterButton,
-                                m_followButton, m_clearButton}) {
+                                m_hideUnreadableButton, m_followButton, m_clearButton}) {
         button->setVisible(!strip);
     }
 
@@ -1471,6 +1610,7 @@ void MainWindow::updateIcons()
     m_echoButton->setIcon(MdiIcons::icon(mdi::Keyboard, kToolGlyphSize));
     m_lineNumberButton->setIcon(MdiIcons::icon(mdi::FormatListNumbered, kToolGlyphSize));
     m_csvFilterButton->setIcon(MdiIcons::icon(mdi::TableOff, kToolGlyphSize));
+    m_hideUnreadableButton->setIcon(MdiIcons::icon(mdi::ImageBrokenVariant, kToolGlyphSize));
     m_clearButton->setIcon(MdiIcons::icon(mdi::Broom, kToolGlyphSize));
     m_followButton->setIcon(MdiIcons::icon(mdi::ArrowCollapseDown, kToolGlyphSize));
 }

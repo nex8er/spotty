@@ -315,23 +315,22 @@ QWidget *SettingsDialog::buildTerminalPage()
     layout->addWidget(m_showDirection);
     layout->addWidget(m_localEcho);
 
-    // Разделитель телеметрии. Сам фильтр включается кнопкой в панели терминала — его
-    // трогают по ходу работы, — а разделитель подбирают один раз под прошивку, и место
-    // ему здесь.
+    // Разделитель телеметрии. Сам фильтр включается кнопкой в панели терминала — её же
+    // контекстное меню теперь даёт пресеты разделителя без похода сюда, — а здесь его
+    // подбирают один раз под прошивку или вводят символ, которого нет среди пресетов.
+    // Пояснение — всплывающей подсказкой на самом поле, как у соседнего формата метки
+    // времени (m_timestampFormat) чуть выше: оба поля принимают компактную запись, которую
+    // не разжуёшь без примера, а отдельная строка подписи под однобуквенным полем занимала
+    // непропорционально много места ради текста, нужного один раз.
     auto *csvForm = new QFormLayout;
     m_csvSeparator = new QLineEdit(m_initial.csvSeparator, page);
     m_csvSeparator->setMaxLength(1);
     m_csvSeparator->setFixedWidth(48);
-    csvForm->addRow(tr("Telemetry delimiter"), m_csvSeparator);
-
-    auto *csvHint = new QLabel(
+    m_csvSeparator->setToolTip(
         tr("Lines made only of numbers separated by this character can be hidden from the "
-           "terminal with the toolbar button. They still reach the chart, the search and "
-           "the log."),
-        page);
-    csvHint->setObjectName(QStringLiteral("hintLabel"));
-    csvHint->setWordWrap(true);
-    csvForm->addRow(QString(), csvHint);
+           "terminal — right-click the toolbar button for quick presets. Hidden lines still "
+           "reach the chart, the search and the log."));
+    csvForm->addRow(tr("Telemetry delimiter"), m_csvSeparator);
     layout->addLayout(csvForm);
 
     connect(m_showTimestamps, &QCheckBox::toggled, this, &SettingsDialog::updateEnabledState);
