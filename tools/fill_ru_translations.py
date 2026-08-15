@@ -537,6 +537,53 @@ TRANSLATIONS = {
         "Период считается в посылках, а не в миллисекундах: интервал отправки система не "
         "выдерживает точно, и форма, привязанная к часам, поплыла бы.",
 
+    # --- Генератор сигналов (signalgen) ---
+    "Signal generator": "Генератор сигналов",
+    "Virtual signal source": "Виртуальный источник сигналов",
+    "Virtual math signal source": "Виртуальный источник математических сигналов",
+    "Waveform": "Форма сигнала",
+    "Cosine": "Косинус",
+    "Square": "Меандр",
+    "Triangle": "Треугольник",
+    "Sawtooth": "Пила",
+    "Noise": "Шум",
+    "Chirp (rising frequency)": "Свип (растущая частота)",
+    "Damped sine (retriggered)": "Затухающая синусоида (с перезапуском)",
+    "Pulse train": "Импульсы",
+    "Staircase": "Лестница",
+    "All waveforms (6 columns)": "Все формы разом (6 колонок)",
+    "Growing column count": "Растущее число колонок",
+    "Period": "Период",
+    "Amplitude": "Амплитуда",
+    "Offset": "Смещение",
+    "Sample interval": "Интервал отсчётов",
+    "Output": "Вывод",
+    "Prepend time column": "Первой колонкой — время",
+    "Emit status text lines": "Слать текстовые строки состояния",
+    "Added to every value; shifts the curve up or down.":
+        "Прибавляется к каждому значению; поднимает или опускает кривую.",
+    "How often a new line is emitted.": "Как часто выдаётся новая строка.",
+    "Length of one cycle. Chirp and the retriggered sine use it as the starting period of "
+    "a longer, repeating pattern.":
+        "Длительность одного цикла. Свип и затухающая синусоида берут её как начальный "
+        "период более длинного повторяющегося узора.",
+    "Random jitter layered on top of the waveform, as a percentage of the amplitude.":
+        "Случайный разброс поверх формы, в процентах от амплитуды.",
+    "First column holds seconds elapsed since the channel opened - a steady reference axis, "
+    "useful as a custom X axis in the chart panel.":
+        "Первая колонка — секунды с открытия канала: ровная опорная ось, годится как своя "
+        "ось X в плоттере.",
+    "Occasionally sends a non-numeric line, like a device mixing log messages into "
+    "telemetry - checks that the chart skips it instead of breaking.":
+        "Изредка шлёт нечисловую строку, как устройство, мешающее сообщения с телеметрией, "
+        "— проверяет, что плоттер её пропустит, а не сломается.",
+    '"All waveforms" and "Growing column count" emit several columns at once - handy for '
+    "testing the chart panel's series table, its colours, and how it reacts to a series "
+    "appearing mid-stream.":
+        "«Все формы разом» и «Растущее число колонок» выдают несколько колонок сразу — "
+        "удобно проверять таблицу рядов плоттера, её цвета и то, как он встречает колонку, "
+        "появившуюся посреди потока.",
+
     # --- Плоттер ---
     "Plotter": "Плоттер",
     "Buffer": "Буфер",
@@ -749,7 +796,9 @@ def escape(text: str) -> str:
 
 def unescape(text: str) -> str:
     """Обратное преобразование: в словаре ключи записаны обычным текстом."""
-    return (text.replace("&quot;", '"').replace("&amp;", "&")
+    # &apos; сюда попадает от lupdate: апостроф в исходной строке он экранирует, а в
+    # словаре ключи записаны обычным текстом, и без этой замены строка не находилась.
+    return (text.replace("&quot;", '"').replace("&apos;", "'").replace("&amp;", "&")
                 .replace("&lt;", "<").replace("&gt;", ">"))
 
 

@@ -2182,18 +2182,18 @@ Continue?</source>
     <name>spotty::SignalGenChannel</name>
     <message>
         <source>Virtual signal source</source>
-        <translation type="unfinished"></translation>
+        <translation>Виртуальный источник сигналов</translation>
     </message>
 </context>
 <context>
     <name>spotty::SignalGenPlugin</name>
     <message>
         <source>Virtual math signal source</source>
-        <translation type="unfinished"></translation>
+        <translation>Виртуальный источник математических сигналов</translation>
     </message>
     <message>
         <source>Waveform</source>
-        <translation type="unfinished"></translation>
+        <translation>Форма сигнала</translation>
     </message>
     <message>
         <source>Sine</source>
@@ -2201,55 +2201,55 @@ Continue?</source>
     </message>
     <message>
         <source>Cosine</source>
-        <translation type="unfinished"></translation>
+        <translation>Косинус</translation>
     </message>
     <message>
         <source>Square</source>
-        <translation type="unfinished"></translation>
+        <translation>Меандр</translation>
     </message>
     <message>
         <source>Triangle</source>
-        <translation type="unfinished"></translation>
+        <translation>Треугольник</translation>
     </message>
     <message>
         <source>Sawtooth</source>
-        <translation type="unfinished"></translation>
+        <translation>Пила</translation>
     </message>
     <message>
         <source>Noise</source>
-        <translation type="unfinished"></translation>
+        <translation>Шум</translation>
     </message>
     <message>
         <source>Chirp (rising frequency)</source>
-        <translation type="unfinished"></translation>
+        <translation>Свип (растущая частота)</translation>
     </message>
     <message>
         <source>Damped sine (retriggered)</source>
-        <translation type="unfinished"></translation>
+        <translation>Затухающая синусоида (с перезапуском)</translation>
     </message>
     <message>
         <source>Pulse train</source>
-        <translation type="unfinished"></translation>
+        <translation>Импульсы</translation>
     </message>
     <message>
         <source>Staircase</source>
-        <translation type="unfinished"></translation>
+        <translation>Лестница</translation>
     </message>
     <message>
         <source>All waveforms (6 columns)</source>
-        <translation type="unfinished"></translation>
+        <translation>Все формы разом (6 колонок)</translation>
     </message>
     <message>
         <source>Growing column count</source>
-        <translation type="unfinished"></translation>
+        <translation>Растущее число колонок</translation>
     </message>
     <message>
         <source>&quot;All waveforms&quot; and &quot;Growing column count&quot; emit several columns at once - handy for testing the chart panel&apos;s series table, its colours, and how it reacts to a series appearing mid-stream.</source>
-        <translation type="unfinished"></translation>
+        <translation>«Все формы разом» и «Растущее число колонок» выдают несколько колонок сразу — удобно проверять таблицу рядов плоттера, её цвета и то, как он встречает колонку, появившуюся посреди потока.</translation>
     </message>
     <message>
         <source>Period</source>
-        <translation type="unfinished"></translation>
+        <translation>Период</translation>
     </message>
     <message>
         <source>ms</source>
@@ -2257,7 +2257,7 @@ Continue?</source>
     </message>
     <message>
         <source>Length of one cycle. Chirp and the retriggered sine use it as the starting period of a longer, repeating pattern.</source>
-        <translation type="unfinished"></translation>
+        <translation>Длительность одного цикла. Свип и затухающая синусоида берут её как начальный период более長ого повторяющегося узора.</translation>
     </message>
     <message>
         <source>Amplitude</source>
@@ -2265,47 +2265,47 @@ Continue?</source>
     </message>
     <message>
         <source>Offset</source>
-        <translation type="unfinished"></translation>
+        <translation>Смещение</translation>
     </message>
     <message>
         <source>Added to every value; shifts the curve up or down.</source>
-        <translation type="unfinished"></translation>
+        <translation>Прибавляется к каждому значению; поднимает или опускает кривую.</translation>
     </message>
     <message>
         <source>Random jitter layered on top of the waveform, as a percentage of the amplitude.</source>
-        <translation type="unfinished"></translation>
+        <translation>Случайный разброс поверх формы, в процентах от амплитуды.</translation>
     </message>
     <message>
         <source>Sample interval</source>
-        <translation type="unfinished"></translation>
+        <translation>Интервал отсчётов</translation>
     </message>
     <message>
         <source>Output</source>
-        <translation type="unfinished"></translation>
+        <translation>Вывод</translation>
     </message>
     <message>
         <source>How often a new line is emitted.</source>
-        <translation type="unfinished"></translation>
+        <translation>Как часто выдаётся новая строка.</translation>
     </message>
     <message>
         <source>Prepend time column</source>
-        <translation type="unfinished"></translation>
+        <translation>Первой колонкой — время</translation>
     </message>
     <message>
         <source>First column holds seconds elapsed since the channel opened - a steady reference axis, useful as a custom X axis in the chart panel.</source>
-        <translation type="unfinished"></translation>
+        <translation>Первая колонка — секунды с открытия канала: ровная опорная ось, годится как своя ось X в плоттере.</translation>
     </message>
     <message>
         <source>Emit status text lines</source>
-        <translation type="unfinished"></translation>
+        <translation>Слать текстовые строки состояния</translation>
     </message>
     <message>
         <source>Occasionally sends a non-numeric line, like a device mixing log messages into telemetry - checks that the chart skips it instead of breaking.</source>
-        <translation type="unfinished"></translation>
+        <translation>Изредка шлёт нечисловую строку, как устройство, мешающее сообщения с телеметрией, — проверяет, что плоттер её пропустит, а не сломается.</translation>
     </message>
     <message>
         <source>Signal generator</source>
-        <translation type="unfinished"></translation>
+        <translation>Генератор сигналов</translation>
     </message>
 </context>
 <context>
