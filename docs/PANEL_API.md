@@ -45,7 +45,7 @@
 
 Готовые примеры в дереве: `plugins/generator` (проще некуда), `plugins/search`,
 `plugins/logging` (схема настроек и чтение потока), `plugins/macros` (таблица, свой
-делегат, горячие клавиши), `plugins/csvchart` (две панели и слой поверх вывода),
+делегат, горячие клавиши), `plugins/plotter` (две панели: рейка и полоса вместо терминала),
 `plugins/filesend` (длительная операция с прогрессом и отменой).
 
 ---
@@ -97,7 +97,7 @@ new QShortcut(QKeySequence("Ctrl+K"), window());
 
 `PanelDescriptor::id` попадает в настройки как выбранная панель и служит адресом для
 `activatePanel()`. Он уникален среди **всех** панельных плагинов, а не внутри своего.
-Принято составлять из идентификатора плагина: `"csvchart"`, `"csvchart.plot"`.
+Принято составлять из идентификатора плагина: `"plotter"`, `"plotter.plot"`.
 
 ### 5. Идентификатор плагина — часть путей
 
@@ -111,8 +111,8 @@ new QShortcut(QKeySequence("Ctrl+K"), window());
 ### Обязательные методы
 
 ```cpp
-QString pluginId() const;     // "csvchart"
-QString displayName() const;  // tr("CSV chart")
+QString pluginId() const;     // "plotter"
+QString displayName() const;  // tr("Plotter")
 ```
 
 Всё. Плагин без панелей законен: звено цепочки преобразования может ничего не показывать.
@@ -140,7 +140,7 @@ QString displayName() const;  // tr("CSV chart")
 
 ```cpp
 PanelDescriptor{
-    .id = QStringLiteral("csvchart.plot"),
+    .id = QStringLiteral("plotter.plot"),
     .title = tr("CSV plot"),
     .glyph = mdi::ChartLine,
     .placement = PanelPlacement::Overlay,

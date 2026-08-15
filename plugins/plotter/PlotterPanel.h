@@ -1,5 +1,5 @@
 /**
- * \file CsvChartPanel.h
+ * \file PlotterPanel.h
  * \brief Панель графика: таблица рядов, настройки и сам график.
  */
 #pragma once
@@ -16,11 +16,11 @@ class QTimer;
 
 namespace spotty {
 
-class CsvChartView;
+class PlotCanvas;
 class PlotModel;
 
 /**
- * \class CsvChartPanel
+ * \class PlotterPanel
  * \brief Что показывать на графике, из чего его строить и куда выгрузить.
  *
  * \par Таблица рядов
@@ -32,12 +32,12 @@ class PlotModel;
  * Она же заменяет легенду. Прежде ряды различались только цветом — это нарушало
  * требование WCAG «не полагаться на цвет» и просто не позволяло понять, какая кривая чья.
  */
-class CsvChartPanel : public PanelWidget
+class PlotterPanel : public PanelWidget
 {
     Q_OBJECT
 
 public:
-    CsvChartPanel(IPanelHost *host, PlotModel *model, QWidget *parent = nullptr);
+    PlotterPanel(IPanelHost *host, PlotModel *model, QWidget *parent = nullptr);
 
 protected:
     void settingsReset() override;
@@ -73,7 +73,7 @@ private:
     void exportImage();
 
     PlotModel *m_model = nullptr;
-    CsvChartView *m_chart = nullptr;
+    PlotCanvas *m_chart = nullptr;
 
     QComboBox *m_separator = nullptr;
     QSpinBox *m_points = nullptr;

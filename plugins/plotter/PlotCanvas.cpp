@@ -1,8 +1,8 @@
 /**
- * \file CsvChartView.cpp
- * \brief Реализация spotty::CsvChartView.
+ * \file PlotCanvas.cpp
+ * \brief Реализация spotty::PlotCanvas.
  */
-#include "CsvChartView.h"
+#include "PlotCanvas.h"
 
 #include <spotty/data/PlotFormat.h>
 #include <spotty/data/PlotModel.h>
@@ -44,12 +44,12 @@ constexpr int kGridLines = 3;
 
 } // namespace
 
-CsvChartView::CsvChartView(IPanelHost *host, PlotModel *model, QWidget *parent)
+PlotCanvas::PlotCanvas(IPanelHost *host, PlotModel *model, QWidget *parent)
     : QWidget(parent)
     , m_host(host)
     , m_model(model)
 {
-    setObjectName(QStringLiteral("csvChart"));
+    setObjectName(QStringLiteral("plotterChart"));
     // Перекрестие следует за курсором без нажатия: снимать значение зажатой кнопкой
     // неудобно, а другого смысла у нажатия здесь нет.
     setMouseTracking(true);
@@ -67,12 +67,12 @@ CsvChartView::CsvChartView(IPanelHost *host, PlotModel *model, QWidget *parent)
         update();
     });
 
-    connect(m_model, &PlotModel::changed, this, &CsvChartView::scheduleRepaint);
+    connect(m_model, &PlotModel::changed, this, &PlotCanvas::scheduleRepaint);
 
     createActions();
 }
 
-void CsvChartView::scheduleRepaint()
+void PlotCanvas::scheduleRepaint()
 {
     if (m_paused)
         return;
@@ -82,15 +82,15 @@ void CsvChartView::scheduleRepaint()
         m_repaintTimer->start();
 }
 
-void CsvChartView::createActions()
+void PlotCanvas::createActions()
 {
     m_pauseAction = new QAction(tr("Pause"), this);
     m_pauseAction->setCheckable(true);
     m_pauseAction->setIcon(m_host->icon(mdi::Pause, 18));
     m_pauseAction->setToolTip(tr("Freezes the picture, not the data: collecting continues."));
-    connect(m_pauseAction, &QAction::toggled, this, &CsvChartView::setPaused);
+    connect(m_pauseAction, &QAction::toggled, this, &PlotCanvas::setPaused);
     // Пауза переключается и двойным щелчком по полю — кнопка обязана это отразить.
-    connect(this, &CsvChartView::pausedChanged, m_pauseAction, [this](bool paused) {
+    connect(this, &PlotCanvas::pausedChanged, m_pauseAction, [this](bool paused) {
         const QSignalBlocker blocker(m_pauseAction);
         m_pauseAction->setChecked(paused);
     });
@@ -102,7 +102,7 @@ void CsvChartView::createActions()
     addAction(clearAction);
 }
 
-void CsvChartView::setPaused(bool paused)
+void PlotCanvas::setPaused(bool paused)
 {
     if (m_paused == paused)
         return;
@@ -110,7 +110,7 @@ void CsvChartView::setPaused(bool paused)
     update();
 }
 
-void CsvChartView::mouseDoubleClickEvent(QMouseEvent *event)
+void PlotCanvas::mouseDoubleClickEvent(QMouseEvent *event)
 {
     // Двойной щелчок по полю — самый быстрый способ заморозить картинку, когда нужное
     // мелькнуло и вот-вот уедет за край.
@@ -119,26 +119,26 @@ void CsvChartView::mouseDoubleClickEvent(QMouseEvent *event)
     event->accept();
 }
 
-void CsvChartView::mouseMoveEvent(QMouseEvent *event)
+void PlotCanvas::mouseMoveEvent(QMouseEvent *event)
 {
     const QRect area = plotArea();
     m_cursorX = area.contains(event->pos()) ? event->pos().x() : -1;
     update();
 }
 
-void CsvChartView::leaveEvent(QEvent *event)
+void PlotCanvas::leaveEvent(QEvent *event)
 {
     Q_UNUSED(event);
     m_cursorX = -1;
     update();
 }
 
-QRect CsvChartView::plotArea() const
+QRect PlotCanvas::plotArea() const
 {
     return rect().adjusted(kMarginLeft, kMarginTop, -kMarginRight, -kMarginBottom);
 }
 
-bool CsvChartView::saveImage(const QString &filePath)
+bool PlotCanvas::saveImage(const QString &filePath)
 {
     // Снимок рисуется в отступе устройства, а не в логических точках: на экране Retina
     // сохранённый в точках график выходит вдвое мельче и выглядит размытым.
@@ -149,7 +149,7 @@ bool CsvChartView::saveImage(const QString &filePath)
     return pixmap.save(filePath, "PNG");
 }
 
-void CsvChartView::drawFrame(QPainter &painter, const QRect &area, double minimum,
+void PlotCanvas::drawFrame(QPainter &painter, const QRect &area, double minimum,
                              double maximum) const
 {
     const QColor grid = m_host->color(IPanelHost::ColorRole::Border);
@@ -194,7 +194,7 @@ void CsvChartView::drawFrame(QPainter &painter, const QRect &area, double minimu
     }
 }
 
-void CsvChartView::drawCursor(QPainter &painter, const QRect &area, double minimum,
+void PlotCanvas::drawCursor(QPainter &painter, const QRect &area, double minimum,
                               double maximum) const
 {
     if (m_cursorX < 0)
@@ -250,7 +250,7 @@ void CsvChartView::drawCursor(QPainter &painter, const QRect &area, double minim
     Q_UNUSED(maximum);
 }
 
-QPolygonF CsvChartView::seriesPolyline(int column, const QRect &area, double minimum,
+QPolygonF PlotCanvas::seriesPolyline(int column, const QRect &area, double minimum,
                                        double span) const
 {
     QPolygonF polyline;
@@ -317,7 +317,7 @@ QPolygonF CsvChartView::seriesPolyline(int column, const QRect &area, double min
     return polyline;
 }
 
-void CsvChartView::valueRange(double *minimum, double *maximum) const
+void PlotCanvas::valueRange(double *minimum, double *maximum) const
 {
     const SampleBuffer &samples = m_model->samples();
 
@@ -353,7 +353,7 @@ void CsvChartView::valueRange(double *minimum, double *maximum) const
     *maximum = hi;
 }
 
-void CsvChartView::paintEvent(QPaintEvent *event)
+void PlotCanvas::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event);
 

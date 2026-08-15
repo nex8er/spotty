@@ -1,25 +1,25 @@
 /**
- * \file CsvChartPlugin.cpp
- * \brief Реализация spotty::CsvChartPlugin.
+ * \file PlotterPlugin.cpp
+ * \brief Реализация spotty::PlotterPlugin.
  */
-#include "CsvChartPlugin.h"
+#include "PlotterPlugin.h"
 
-#include "CsvChartPanel.h"
-#include "CsvChartView.h"
+#include "PlotterPanel.h"
+#include "PlotCanvas.h"
 #include <spotty/data/PlotModel.h>
 
 #include <spotty/ui/MdiCodepoints.h>
 
 namespace spotty {
 
-CsvChartPlugin::CsvChartPlugin()
+PlotterPlugin::PlotterPlugin()
     : m_model(new PlotModel(this))
 {
 }
 
-CsvChartPlugin::~CsvChartPlugin() = default;
+PlotterPlugin::~PlotterPlugin() = default;
 
-QList<PanelDescriptor> CsvChartPlugin::panels() const
+QList<PanelDescriptor> PlotterPlugin::panels() const
 {
     // Одна панель вместо двух. Слоя поверх терминала больше нет: текст под кривой читать
     // трудно, а сама кривая теряется в тексте — страдали оба ради экономии места,
@@ -27,17 +27,17 @@ QList<PanelDescriptor> CsvChartPlugin::panels() const
     // открывается отдельным окном.
     return {
         PanelDescriptor{
-            .id = QStringLiteral("csvchart"),
-            .title = tr("Chart"),
-            .glyph = mdi::ChartLine,
+            .id = QStringLiteral("plotter"),
+            .title = tr("Plotter"),
+            .glyph = mdi::ChartAreaspline,
             .placement = PanelPlacement::Rail,
             .order = 500,
         },
         // Большой график на месте терминала. Скрыт по умолчанию: показывается
         // переключателем режима области вывода, где и появляется его пункт.
         PanelDescriptor{
-            .id = QStringLiteral("csvchart.plot"),
-            .title = tr("Chart"),
+            .id = QStringLiteral("plotter.plot"),
+            .title = tr("Plotter"),
             .placement = PanelPlacement::Splitter,
             .order = 500,
             .side = PanelSide::Below,
@@ -47,7 +47,7 @@ QList<PanelDescriptor> CsvChartPlugin::panels() const
     };
 }
 
-QWidget *CsvChartPlugin::createPanel(const QString &panelId, IPanelHost *host, QWidget *parent)
+QWidget *PlotterPlugin::createPanel(const QString &panelId, IPanelHost *host, QWidget *parent)
 {
     // Подписка ставится один раз, а не при каждом создании панели: хост один на плагин,
     // и повторный connect() удваивал бы разбор каждой строки.
@@ -87,10 +87,10 @@ QWidget *CsvChartPlugin::createPanel(const QString &panelId, IPanelHost *host, Q
                 });
     }
 
-    if (panelId == QLatin1String("csvchart"))
-        return new CsvChartPanel(host, m_model, parent);
-    if (panelId == QLatin1String("csvchart.plot"))
-        return new CsvChartView(host, m_model, parent);
+    if (panelId == QLatin1String("plotter"))
+        return new PlotterPanel(host, m_model, parent);
+    if (panelId == QLatin1String("plotter.plot"))
+        return new PlotCanvas(host, m_model, parent);
     return nullptr;
 }
 

@@ -14,7 +14,7 @@ endif()
 # её отсутствие плагин переживает так же, как UART переживает отсутствие Qt6::SerialPort.
 add_subdirectory(jlinkrtt)
 
-# Виртуальный источник математических сигналов — отладочный транспорт для csvchart, второй
+# Виртуальный источник математических сигналов — отладочный транспорт для плоттера, второй
 # после loopback пример "не требует железа".
 add_subdirectory(signalgen)
 
@@ -27,5 +27,5 @@ add_subdirectory(search)
 
 # Плагины-примеры: они и есть проверка API на прочность — писались с нуля, а не
 # переделывались из встроенных панелей.
-add_subdirectory(csvchart)
+add_subdirectory(plotter)
 add_subdirectory(filesend)

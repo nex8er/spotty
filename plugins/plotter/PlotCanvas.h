@@ -1,5 +1,5 @@
 /**
- * \file CsvChartView.h
+ * \file PlotCanvas.h
  * \brief Виджет графика: рисует накопленные ряды.
  */
 #pragma once
@@ -16,7 +16,7 @@ class PlotModel;
 class IPanelHost;
 
 /**
- * \class CsvChartView
+ * \class PlotCanvas
  * \brief Отрисовка рядов с сеткой, курсором и паузой.
  *
  * \par Обычный виджет, а не слой поверх терминала
@@ -54,12 +54,12 @@ class IPanelHost;
  * paintEvent(). Коротко: цена сглаживания зависит от длины пути пера, а не от числа точек,
  * и разброс достигает трёх порядков, поэтому надёжного правила «здесь оно по карману» нет.
  */
-class CsvChartView : public QWidget
+class PlotCanvas : public QWidget
 {
     Q_OBJECT
 
 public:
-    CsvChartView(IPanelHost *host, PlotModel *model, QWidget *parent = nullptr);
+    PlotCanvas(IPanelHost *host, PlotModel *model, QWidget *parent = nullptr);
 
     void setPaused(bool paused);
     bool isPaused() const { return m_paused; }

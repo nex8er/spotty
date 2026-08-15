@@ -21,6 +21,8 @@ add_library(spotty-core STATIC
     settings/AppSettings.h
     settings/Paths.cpp
     settings/Paths.h
+    settings/SettingsMigration.cpp
+    settings/SettingsMigration.h
     settings/SettingsStore.cpp
     settings/SettingsStore.h
     terminal/AnsiParser.cpp

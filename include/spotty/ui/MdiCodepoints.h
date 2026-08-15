@@ -74,5 +74,15 @@ inline constexpr char32_t FormatLetterCase = 0xF0B34;
 inline constexpr char32_t Regex = 0xF0451;
 inline constexpr char32_t FormatLetterMatches = 0xF0FB9;
 inline constexpr char32_t ImageBrokenVariant = 0xF02EE;
+inline constexpr char32_t ChartAreaspline = 0xF0127;
+inline constexpr char32_t AxisYArrow = 0xF0D51;
+inline constexpr char32_t FormatColumns = 0xF08DF;
+inline constexpr char32_t ArrowCollapseRight = 0xF0794;
+inline constexpr char32_t MonitorScreenshot = 0xF0E51;
+inline constexpr char32_t ChartScatterPlot = 0xF0E92;
+inline constexpr char32_t ChartBellCurve = 0xF0C50;
+inline constexpr char32_t ChartBellCurveCumulative = 0xF0FA7;
+inline constexpr char32_t Poll = 0xF041F;
+inline constexpr char32_t ChartMultiple = 0xF1213;
 
 } // namespace spotty::mdi

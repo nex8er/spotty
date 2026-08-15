@@ -46,6 +46,7 @@ spotty_add_test(spotty-tests
         test_data_codec.cpp
         test_history_store.cpp
         test_settings_store.cpp
+        test_settings_migration.cpp
         test_app_settings.cpp
         test_highlight_rules.cpp
         test_data_generator.cpp

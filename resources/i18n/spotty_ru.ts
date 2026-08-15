@@ -21,186 +21,6 @@
     </message>
 </context>
 <context>
-    <name>spotty::CsvChartPanel</name>
-    <message>
-        <source>Chart</source>
-        <translation>График</translation>
-    </message>
-    <message>
-        <source>Plots numeric lines from the output, such as &quot;12.5,3,-7&quot;.</source>
-        <translation>Строит график по числовым строкам вывода — например, «12.5,3,-7».</translation>
-    </message>
-    <message>
-        <source>Pause</source>
-        <translation>Пауза</translation>
-    </message>
-    <message>
-        <source>Freezes the picture, not the data: collecting continues.</source>
-        <translation>Замораживает картинку, но не сбор: накопление продолжается.</translation>
-    </message>
-    <message>
-        <source>Open in window</source>
-        <translation>Открыть в окне</translation>
-    </message>
-    <message>
-        <source>Comma</source>
-        <translation>Запятая</translation>
-    </message>
-    <message>
-        <source>Semicolon</source>
-        <translation>Точка с запятой</translation>
-    </message>
-    <message>
-        <source>Tab</source>
-        <translation>Табуляция</translation>
-    </message>
-    <message>
-        <source>Space</source>
-        <translation>Ноль</translation>
-    </message>
-    <message>
-        <source>Separator</source>
-        <translation>Разделитель</translation>
-    </message>
-    <message>
-        <source> points</source>
-        <translation> точек</translation>
-    </message>
-    <message>
-        <source>Window</source>
-        <translation>Окно</translation>
-    </message>
-    <message>
-        <source>Which column supplies X. Time is honest when the device does not send a coordinate of its own.</source>
-        <translation>Какая колонка даёт X. Время честнее, когда устройство не шлёт свою координату.</translation>
-    </message>
-    <message>
-        <source>X axis</source>
-        <translation>Ось X</translation>
-    </message>
-    <message>
-        <source>Series</source>
-        <translation>Ряд</translation>
-    </message>
-    <message>
-        <source>Colour</source>
-        <translation>Цвет</translation>
-    </message>
-    <message>
-        <source>Min</source>
-        <translation>Мин</translation>
-    </message>
-    <message>
-        <source>Max</source>
-        <translation>Макс</translation>
-    </message>
-    <message>
-        <source>Avg</source>
-        <translation>Среднее</translation>
-    </message>
-    <message>
-        <source>Export CSV</source>
-        <translation>Выгрузить CSV</translation>
-    </message>
-    <message>
-        <source>Save PNG</source>
-        <translation>Сохранить PNG</translation>
-    </message>
-    <message>
-        <source>Clear</source>
-        <translation>Очистить</translation>
-    </message>
-    <message>
-        <source>Series colour</source>
-        <translation>Цвет ряда</translation>
-    </message>
-    <message>
-        <source>Double-click to change</source>
-        <translation>Двойной щелчок меняет цвет</translation>
-    </message>
-    <message>
-        <source>Time</source>
-        <translation>Время</translation>
-    </message>
-    <message>
-        <source>Spotty — chart</source>
-        <translation>Spotty — график</translation>
-    </message>
-    <message>
-        <source>There is nothing to export yet.</source>
-        <translation>Пока нечего выгружать.</translation>
-    </message>
-    <message>
-        <source>Export chart data</source>
-        <translation>Выгрузка данных графика</translation>
-    </message>
-    <message>
-        <source>CSV files (*.csv)</source>
-        <translation>Файлы CSV (*.csv)</translation>
-    </message>
-    <message>
-        <source>Could not write %1</source>
-        <translation>Не удалось записать %1</translation>
-    </message>
-    <message>
-        <source>Exported to %1</source>
-        <translation>Экспортировано в %1</translation>
-    </message>
-    <message>
-        <source>Save chart image</source>
-        <translation>Сохранение снимка графика</translation>
-    </message>
-    <message>
-        <source>PNG images (*.png)</source>
-        <translation>Изображения PNG (*.png)</translation>
-    </message>
-    <message>
-        <source>Saved to %1</source>
-        <translation>Сохранено в %1</translation>
-    </message>
-</context>
-<context>
-    <name>spotty::CsvChartPlugin</name>
-    <message>
-        <source>Chart</source>
-        <translation>График</translation>
-    </message>
-    <message>
-        <source>CSV chart</source>
-        <translation>График CSV</translation>
-    </message>
-</context>
-<context>
-    <name>spotty::CsvChartView</name>
-    <message>
-        <source>Pause</source>
-        <translation>Пауза</translation>
-    </message>
-    <message>
-        <source>Freezes the picture, not the data: collecting continues.</source>
-        <translation>Замораживает картинку, но не сбор: накопление продолжается.</translation>
-    </message>
-    <message>
-        <source>Clear</source>
-        <translation>Очистить</translation>
-    </message>
-    <message>
-        <source>Waiting for numeric lines in the output</source>
-        <translation>Ждём числовые строки в выводе</translation>
-    </message>
-    <message>
-        <source>PAUSED</source>
-        <translation>ПАУЗА</translation>
-    </message>
-</context>
-<context>
-    <name>spotty::CsvSeries</name>
-    <message>
-        <source>Column %1</source>
-        <translation>Колонка %1</translation>
-    </message>
-</context>
-<context>
     <name>spotty::DataCodec</name>
     <message>
         <source>Not valid Base64.</source>
@@ -1435,6 +1255,175 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Panel id &quot;%1&quot; is already taken.</source>
         <translation>Идентификатор панели «%1» уже занят.</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::PlotCanvas</name>
+    <message>
+        <source>Pause</source>
+        <translation>Пауза</translation>
+    </message>
+    <message>
+        <source>Freezes the picture, not the data: collecting continues.</source>
+        <translation>Замораживает картинку, но не сбор: накопление продолжается.</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Очистить</translation>
+    </message>
+    <message>
+        <source>Waiting for numeric lines in the output</source>
+        <translation>Ждём числовые строки в выводе</translation>
+    </message>
+    <message>
+        <source>PAUSED</source>
+        <translation>ПАУЗА</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::PlotterPanel</name>
+    <message>
+        <source>Plotter</source>
+        <translation>Плоттер</translation>
+    </message>
+    <message>
+        <source>Plots numeric lines from the output, such as &quot;12.5,3,-7&quot;.</source>
+        <translation>Строит график по числовым строкам вывода — например, «12.5,3,-7».</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>Пауза</translation>
+    </message>
+    <message>
+        <source>Freezes the picture, not the data: collecting continues.</source>
+        <translation>Замораживает картинку, но не сбор: накопление продолжается.</translation>
+    </message>
+    <message>
+        <source>Open in window</source>
+        <translation>Открыть в окне</translation>
+    </message>
+    <message>
+        <source>Comma</source>
+        <translation>Запятая</translation>
+    </message>
+    <message>
+        <source>Semicolon</source>
+        <translation>Точка с запятой</translation>
+    </message>
+    <message>
+        <source>Tab</source>
+        <translation>Табуляция</translation>
+    </message>
+    <message>
+        <source>Space</source>
+        <translation>Ноль</translation>
+    </message>
+    <message>
+        <source>Separator</source>
+        <translation>Разделитель</translation>
+    </message>
+    <message>
+        <source> points</source>
+        <translation> точек</translation>
+    </message>
+    <message>
+        <source>Window</source>
+        <translation>Окно</translation>
+    </message>
+    <message>
+        <source>Which column supplies X. Time is honest when the device does not send a coordinate of its own.</source>
+        <translation>Какая колонка даёт X. Время честнее, когда устройство не шлёт свою координату.</translation>
+    </message>
+    <message>
+        <source>X axis</source>
+        <translation>Ось X</translation>
+    </message>
+    <message>
+        <source>Series</source>
+        <translation>Ряд</translation>
+    </message>
+    <message>
+        <source>Colour</source>
+        <translation>Цвет</translation>
+    </message>
+    <message>
+        <source>Min</source>
+        <translation>Мин</translation>
+    </message>
+    <message>
+        <source>Max</source>
+        <translation>Макс</translation>
+    </message>
+    <message>
+        <source>Avg</source>
+        <translation>Среднее</translation>
+    </message>
+    <message>
+        <source>Export CSV</source>
+        <translation>Выгрузить CSV</translation>
+    </message>
+    <message>
+        <source>Save PNG</source>
+        <translation>Сохранить PNG</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Очистить</translation>
+    </message>
+    <message>
+        <source>Series colour</source>
+        <translation>Цвет ряда</translation>
+    </message>
+    <message>
+        <source>Double-click to change</source>
+        <translation>Двойной щелчок меняет цвет</translation>
+    </message>
+    <message>
+        <source>Time</source>
+        <translation>Время</translation>
+    </message>
+    <message>
+        <source>Spotty — plotter</source>
+        <translation>Spotty — плоттер</translation>
+    </message>
+    <message>
+        <source>There is nothing to export yet.</source>
+        <translation>Пока нечего выгружать.</translation>
+    </message>
+    <message>
+        <source>Export chart data</source>
+        <translation>Выгрузка данных графика</translation>
+    </message>
+    <message>
+        <source>CSV files (*.csv)</source>
+        <translation>Файлы CSV (*.csv)</translation>
+    </message>
+    <message>
+        <source>Could not write %1</source>
+        <translation>Не удалось записать %1</translation>
+    </message>
+    <message>
+        <source>Exported to %1</source>
+        <translation>Экспортировано в %1</translation>
+    </message>
+    <message>
+        <source>Save chart image</source>
+        <translation>Сохранение снимка графика</translation>
+    </message>
+    <message>
+        <source>PNG images (*.png)</source>
+        <translation>Изображения PNG (*.png)</translation>
+    </message>
+    <message>
+        <source>Saved to %1</source>
+        <translation>Сохранено в %1</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::PlotterPlugin</name>
+    <message>
+        <source>Plotter</source>
+        <translation>Плоттер</translation>
     </message>
 </context>
 <context>

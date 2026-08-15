@@ -1,10 +1,10 @@
 /**
- * \file CsvChartPanel.cpp
- * \brief Реализация spotty::CsvChartPanel.
+ * \file PlotterPanel.cpp
+ * \brief Реализация spotty::PlotterPanel.
  */
-#include "CsvChartPanel.h"
+#include "PlotterPanel.h"
 
-#include "CsvChartView.h"
+#include "PlotCanvas.h"
 #include <spotty/data/PlotFormat.h>
 #include <spotty/data/PlotModel.h>
 
@@ -72,11 +72,11 @@ QIcon colorSwatch(const QColor &color)
 
 } // namespace
 
-CsvChartPanel::CsvChartPanel(IPanelHost *panelHost, PlotModel *model, QWidget *parent)
+PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, QWidget *parent)
     : PanelWidget(panelHost, parent)
     , m_model(model)
 {
-    setPanelTitle(tr("Chart"));
+    setPanelTitle(tr("Plotter"));
     QVBoxLayout *layout = content();
 
     auto *hint = new QLabel(tr("Plots numeric lines from the output, such as \"12.5,3,-7\"."),
@@ -87,7 +87,7 @@ CsvChartPanel::CsvChartPanel(IPanelHost *panelHost, PlotModel *model, QWidget *p
 
     // График прямо в панели: узкий, но отвечает на вопрос «как это выглядит» без единого
     // лишнего действия. Для настоящего разглядывания есть отдельное окно.
-    m_chart = new CsvChartView(panelHost, m_model, this);
+    m_chart = new PlotCanvas(panelHost, m_model, this);
     m_chart->setMinimumHeight(140);
     layout->addWidget(m_chart);
 
@@ -167,34 +167,34 @@ CsvChartPanel::CsvChartPanel(IPanelHost *panelHost, PlotModel *model, QWidget *p
     exportRow->addStretch(1);
     layout->addLayout(exportRow);
 
-    connect(m_separator, &QComboBox::currentIndexChanged, this, &CsvChartPanel::commit);
-    connect(m_points, &QSpinBox::valueChanged, this, &CsvChartPanel::commit);
+    connect(m_separator, &QComboBox::currentIndexChanged, this, &PlotterPanel::commit);
+    connect(m_points, &QSpinBox::valueChanged, this, &PlotterPanel::commit);
     connect(m_xAxis, &QComboBox::currentIndexChanged, this, [this] {
         if (!m_populating)
             m_model->setXAxisSeries(m_xAxis->currentData().toInt());
     });
 
-    connect(m_pause, &QPushButton::toggled, m_chart, &CsvChartView::setPaused);
+    connect(m_pause, &QPushButton::toggled, m_chart, &PlotCanvas::setPaused);
     // Пауза переключается и двойным щелчком по полю графика — кнопка обязана это
     // отразить, иначе она показывала бы одно, а график делал другое.
-    connect(m_chart, &CsvChartView::pausedChanged, this, [this](bool paused) {
+    connect(m_chart, &PlotCanvas::pausedChanged, this, [this](bool paused) {
         const QSignalBlocker blocker(m_pause);
         m_pause->setChecked(paused);
     });
 
-    connect(windowButton, &QPushButton::clicked, this, &CsvChartPanel::openInWindow);
-    connect(csvButton, &QToolButton::clicked, this, &CsvChartPanel::exportCsv);
-    connect(pngButton, &QToolButton::clicked, this, &CsvChartPanel::exportImage);
+    connect(windowButton, &QPushButton::clicked, this, &PlotterPanel::openInWindow);
+    connect(csvButton, &QToolButton::clicked, this, &PlotterPanel::exportCsv);
+    connect(pngButton, &QToolButton::clicked, this, &PlotterPanel::exportImage);
     connect(clearButton, &QToolButton::clicked, this, [this] { m_model->clearSamples(); });
 
     // Одиночный таймер: когда данные не идут, ничего не тикает.
     m_statisticsTimer = new QTimer(this);
     m_statisticsTimer->setSingleShot(true);
     m_statisticsTimer->setInterval(kStatisticsIntervalMs);
-    connect(m_statisticsTimer, &QTimer::timeout, this, &CsvChartPanel::refreshStatistics);
+    connect(m_statisticsTimer, &QTimer::timeout, this, &PlotterPanel::refreshStatistics);
 
-    connect(m_model, &PlotModel::seriesAdded, this, &CsvChartPanel::rebuildTable);
-    connect(m_model, &PlotModel::changed, this, &CsvChartPanel::scheduleStatistics);
+    connect(m_model, &PlotModel::seriesAdded, this, &PlotterPanel::rebuildTable);
+    connect(m_model, &PlotModel::changed, this, &PlotterPanel::scheduleStatistics);
 
     connect(m_table, &QTableWidget::cellDoubleClicked, this, [this](int row, int column) {
         if (column != ColumnColor || row >= m_model->seriesCount())
@@ -219,7 +219,7 @@ CsvChartPanel::CsvChartPanel(IPanelHost *panelHost, PlotModel *model, QWidget *p
     rebuildTable();
 }
 
-void CsvChartPanel::reloadFromSettings()
+void PlotterPanel::reloadFromSettings()
 {
     m_populating = true;
 
@@ -233,7 +233,7 @@ void CsvChartPanel::reloadFromSettings()
     commit();
 }
 
-void CsvChartPanel::commit()
+void PlotterPanel::commit()
 {
     const QString separator = m_separator->currentData().toString();
     m_model->setSeparator(separator.isEmpty() ? u',' : separator.at(0));
@@ -245,12 +245,12 @@ void CsvChartPanel::commit()
     }
 }
 
-void CsvChartPanel::settingsReset()
+void PlotterPanel::settingsReset()
 {
     reloadFromSettings();
 }
 
-void CsvChartPanel::rebuildTable()
+void PlotterPanel::rebuildTable()
 {
     m_populating = true;
 
@@ -287,13 +287,13 @@ void CsvChartPanel::rebuildTable()
     refreshStatistics();
 }
 
-void CsvChartPanel::scheduleStatistics()
+void PlotterPanel::scheduleStatistics()
 {
     if (!m_statisticsTimer->isActive())
         m_statisticsTimer->start();
 }
 
-void CsvChartPanel::refreshStatistics()
+void PlotterPanel::refreshStatistics()
 {
     if (m_table->rowCount() != m_model->seriesCount()) {
         rebuildTable();
@@ -317,7 +317,7 @@ void CsvChartPanel::refreshStatistics()
     m_populating = false;
 }
 
-void CsvChartPanel::openInWindow()
+void PlotterPanel::openInWindow()
 {
     if (m_window) {
         // Второе окно того же графика ничего не добавляет: поднимаем уже открытое.
@@ -330,18 +330,18 @@ void CsvChartPanel::openInWindow()
     // затем и открывают отдельно, чтобы положить его рядом, а не сверху.
     m_window = new QWidget;
     m_window->setAttribute(Qt::WA_DeleteOnClose);
-    m_window->setWindowTitle(tr("Spotty — chart"));
+    m_window->setWindowTitle(tr("Spotty — plotter"));
     m_window->resize(720, 420);
 
     auto *layout = new QVBoxLayout(m_window);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(new CsvChartView(host(), m_model, m_window));
+    layout->addWidget(new PlotCanvas(host(), m_model, m_window));
 
     connect(m_window, &QObject::destroyed, this, [this] { m_window = nullptr; });
     m_window->show();
 }
 
-void CsvChartPanel::exportCsv()
+void PlotterPanel::exportCsv()
 {
     const QString data = m_model->toCsv();
     if (data.isEmpty()) {
@@ -366,7 +366,7 @@ void CsvChartPanel::exportCsv()
     host()->showStatusMessage(tr("Exported to %1").arg(path));
 }
 
-void CsvChartPanel::exportImage()
+void PlotterPanel::exportImage()
 {
     const QString path = QFileDialog::getSaveFileName(
         window(), tr("Save chart image"),
