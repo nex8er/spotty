@@ -103,8 +103,11 @@ private:
     /// \brief Прямоугольник поля графика без подписей осей.
     QRect plotArea() const;
 
-    /// \brief Окно по времени, прижатое к накопленному.
-    XTransform transformFor(const QRect &area);
+    /// \brief Окно по времени в координатах поля. Состояния не меняет.
+    XTransform transformFor(const QRect &area) const;
+
+    /// \brief Подвинуть окно за пришедшими данными и запросить перерисовку.
+    void followNewData();
 
     /// \brief Свести все видимые ряды и раздать им шкалы.
     QList<SeriesFrame> buildFrames(const QRect &area, const XTransform &transform) const;

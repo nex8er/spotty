@@ -82,7 +82,7 @@ PlotCanvas::PlotCanvas(IPanelHost *host, PlotModel *model, PlotViewState *view,
         update();
     });
 
-    connect(m_model, &PlotModel::changed, this, &PlotCanvas::scheduleRepaint);
+    connect(m_model, &PlotModel::changed, this, &PlotCanvas::followNewData);
     // Состояние вида общее на все три холста, поэтому сдвиг окна в одном перерисовывает
     // остальные — это и означает «единый объект».
     connect(m_view, &PlotViewState::changed, this, &PlotCanvas::scheduleRepaint);
@@ -175,6 +175,14 @@ void PlotCanvas::mouseReleaseEvent(QMouseEvent *event)
     if (m_dragging) {
         m_dragging = false;
         unsetCursor();
+
+        // Проверка «доехали до правого края» делается по завершении жеста, а не
+        // непрерывно: посреди перетаскивания она включала бы слежение прямо под рукой, и
+        // окно уезжало бы в конец, пока его тянут.
+        const SampleBuffer &samples = m_model->samples();
+        if (samples.sampleCount() >= 2)
+            m_view->snapToEnd(samples.timestamp(samples.sampleCount() - 1));
+
         event->accept();
         return;
     }
@@ -192,6 +200,10 @@ void PlotCanvas::mouseMoveEvent(QMouseEvent *event)
         const qint64 duration = m_view->windowDuration();
         const qint64 shift = qint64(-double(delta) / double(area.width()) * double(duration));
         m_view->setWindow(m_dragFrom + shift, m_dragFrom + shift + duration);
+        // Прямое управление обязано откликаться сразу: 16-мс очередь перерисовки хороша
+        // для приходящих данных, но под рукой пользователя её задержка читается как
+        // рывок. update() к тому же склеивает подряд идущие запросы сам.
+        update();
         event->accept();
         return;
     }
@@ -250,6 +262,9 @@ void PlotCanvas::wheelEvent(QWheelEvent *event)
         m_view->panY(steps * -0.05);
     } else {
         m_view->panBy(qint64(-steps * 0.1 * double(m_view->windowDuration())));
+        const SampleBuffer &samples = m_model->samples();
+        if (samples.sampleCount() >= 2)
+            m_view->snapToEnd(samples.timestamp(samples.sampleCount() - 1));
     }
 
     event->accept();
@@ -325,17 +340,24 @@ bool PlotCanvas::saveImage(const QString &filePath)
     return snapshot().save(filePath, "PNG");
 }
 
-XTransform PlotCanvas::transformFor(const QRect &area)
+XTransform PlotCanvas::transformFor(const QRect &area) const
 {
-    const SampleBuffer &samples = m_model->samples();
-
-    if (samples.sampleCount() >= 2) {
-        m_view->clampTo(samples.timestamp(0),
-                        samples.timestamp(samples.sampleCount() - 1));
-    }
-
+    // Ничего не меняет. Прежде отсюда вызывался clampTo(), то есть отрисовка правила
+    // состояние вида: каждый кадр просил следующий, перерисовка не унималась никогда, а
+    // при перетаскивании этот же вызов возвращал окно назад — рука тянула, а следующий
+    // кадр отменял. Со стороны выглядело так, будто график двигается только на отпускание.
     return XTransform{m_view->windowFrom(), m_view->windowTo(), double(area.left()),
                       double(area.width())};
+}
+
+void PlotCanvas::followNewData()
+{
+    const SampleBuffer &samples = m_model->samples();
+    if (samples.sampleCount() >= 2) {
+        m_view->followTo(samples.timestamp(0),
+                         samples.timestamp(samples.sampleCount() - 1));
+    }
+    scheduleRepaint();
 }
 
 YScale PlotCanvas::applyVertical(const PlotScales::Range &range, const QRect &area) const

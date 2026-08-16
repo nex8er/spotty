@@ -135,7 +135,7 @@ void PlotViewState::resetVertical()
     Q_EMIT changed();
 }
 
-void PlotViewState::clampTo(qint64 first, qint64 last)
+void PlotViewState::followTo(qint64 first, qint64 last)
 {
     if (last <= first)
         return;
@@ -147,16 +147,26 @@ void PlotViewState::clampTo(qint64 first, qint64 last)
         return;
     }
 
-    // Уехав за края буфера, смотреть нечего — там заведомо пусто.
-    if (m_to > last) {
+    // Окно остаётся там, куда его поставили. Подтягиваем, только если оно с данными не
+    // пересекается вовсе: жёсткое прижатие к краю на каждом кадре отменяло бы
+    // перетаскивание — рука тянет влево, а следующий кадр возвращает окно назад.
+    if (m_from > last)
         setWindow(last - duration, last);
-    } else if (m_from < first) {
+    else if (m_to < first)
         setWindow(first, first + duration);
-    }
+}
 
-    // Доводка до правого края возвращает слежение — тот же жест, что в терминале.
-    if (!m_following && last - m_to <= qint64(double(duration) * kFollowSnapFraction))
+void PlotViewState::snapToEnd(qint64 last)
+{
+    if (m_following)
+        return;
+
+    const qint64 duration = windowDuration();
+    if (last - m_to <= qint64(double(duration) * kFollowSnapFraction) && last >= m_to) {
+        // Доводка до правого края возвращает слежение — тот же жест, что в терминале.
+        setWindow(last - duration, last);
         setFollowing(true);
+    }
 }
 
 void PlotViewState::setActiveSeries(int index)

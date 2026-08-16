@@ -27,7 +27,7 @@ TEST(PlotViewState, FollowKeepsTheWindowAtTheEnd)
     PlotViewState view;
     view.setWindowDuration(10 * kSecond);
 
-    view.clampTo(0, 100 * kSecond);
+    view.followTo(0, 100 * kSecond);
 
     EXPECT_TRUE(view.following());
     EXPECT_EQ(view.windowTo(), 100 * kSecond);
@@ -39,7 +39,7 @@ TEST(PlotViewState, PanningAwayFromTheEndStopsFollowing)
     // Иначе окно тут же уехало бы обратно, и потащить график назад было бы невозможно.
     PlotViewState view;
     view.setWindowDuration(10 * kSecond);
-    view.clampTo(0, 100 * kSecond);
+    view.followTo(0, 100 * kSecond);
 
     view.panBy(-30 * kSecond);
 
@@ -52,27 +52,65 @@ TEST(PlotViewState, PanningBackToTheEndResumesFollowing)
     // Тот же жест, что «Follow output» в терминале: доводка до края возвращает слежение.
     PlotViewState view;
     view.setWindowDuration(10 * kSecond);
-    view.clampTo(0, 100 * kSecond);
+    view.followTo(0, 100 * kSecond);
     view.panBy(-30 * kSecond);
     ASSERT_FALSE(view.following());
 
     view.panBy(30 * kSecond);
-    view.clampTo(0, 100 * kSecond);
+    view.snapToEnd(100 * kSecond);
 
     EXPECT_TRUE(view.following());
 }
 
-TEST(PlotViewState, WindowIsClampedToTheBuffer)
+TEST(PlotViewState, NewDataDoesNotFightAManualWindow)
 {
-    // За краями буфера смотреть нечего — там заведомо пусто.
+    // Главная причина дёрганого перетаскивания: окно, поставленное рукой, прижималось к
+    // краю на каждом кадре — рука тянула влево, а следующий кадр возвращал назад.
     PlotViewState view;
-    view.setWindowDuration(10 * kSecond);
+    view.setFollowing(false);
+    view.setWindow(20 * kSecond, 30 * kSecond);
+
+    view.followTo(0, 100 * kSecond);
+
+    EXPECT_EQ(view.windowFrom(), 20 * kSecond);
+    EXPECT_EQ(view.windowTo(), 30 * kSecond);
+}
+
+TEST(PlotViewState, PartialOverhangIsAllowed)
+{
+    // Частичный выход за край допустим: без этого перетаскивание у границы дёргалось бы.
+    PlotViewState view;
+    view.setFollowing(false);
+    view.setWindow(95 * kSecond, 105 * kSecond);
+
+    view.followTo(0, 100 * kSecond);
+
+    EXPECT_EQ(view.windowFrom(), 95 * kSecond);
+}
+
+TEST(PlotViewState, WindowFullyPastTheDataIsPulledBack)
+{
+    // А вот окно, с данными не пересекающееся вовсе, показывать нечем.
+    PlotViewState view;
     view.setFollowing(false);
     view.setWindow(500 * kSecond, 510 * kSecond);
 
-    view.clampTo(0, 100 * kSecond);
+    view.followTo(0, 100 * kSecond);
 
-    EXPECT_LE(view.windowTo(), 100 * kSecond);
+    EXPECT_EQ(view.windowTo(), 100 * kSecond);
+}
+
+TEST(PlotViewState, SnapToEndIsIgnoredWhileFarFromIt)
+{
+    // Иначе доводка срабатывала бы посреди жеста и уводила окно в конец под рукой.
+    PlotViewState view;
+    view.setFollowing(false);
+    view.setWindow(10 * kSecond, 20 * kSecond);
+
+    view.snapToEnd(100 * kSecond);
+
+    EXPECT_FALSE(view.following());
+    EXPECT_EQ(view.windowTo(), 20 * kSecond);
 }
 
 TEST(PlotViewState, ZoomXAnchorsAtTheCursor)
