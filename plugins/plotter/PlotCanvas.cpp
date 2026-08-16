@@ -148,13 +148,27 @@ void PlotCanvas::mousePressEvent(QMouseEvent *event)
         // вкладки лежат вне поля графика, и тащить за них нечего.
         const int series = seriesTabAt(event->pos());
         if (series >= 0) {
-            m_view->setActiveSeries(series);
+            selectAxis(series, event->modifiers());
             event->accept();
             return;
         }
     }
 
-    if (event->button() != Qt::LeftButton || !plotArea().contains(event->pos())) {
+    if (event->button() != Qt::LeftButton) {
+        QWidget::mousePressEvent(event);
+        return;
+    }
+
+    if (plotArea().contains(event->pos())) {
+        m_dragAxis = DragAxis::Both;
+        setCursor(Qt::ClosedHandCursor);
+    } else if (horizontalScaleRect().contains(event->pos())) {
+        m_dragAxis = DragAxis::Horizontal;
+        setCursor(Qt::SizeHorCursor);
+    } else if (verticalScaleRect().contains(event->pos())) {
+        m_dragAxis = DragAxis::Vertical;
+        setCursor(Qt::SizeVerCursor);
+    } else {
         QWidget::mousePressEvent(event);
         return;
     }
@@ -162,11 +176,11 @@ void PlotCanvas::mousePressEvent(QMouseEvent *event)
     m_dragging = true;
     m_dragOrigin = event->pos();
     m_dragFrom = m_view->windowFrom();
-    // Слежение снимается один раз, на нажатие. Снимать его на каждое движение значило бы
-    // спорить с clampTo(), который у правого края включает его обратно: две стороны
-    // переключали бы флаг в одном кадре, и график дрожал бы у края.
-    m_view->setFollowing(false);
-    setCursor(Qt::ClosedHandCursor);
+    m_dragOffset = m_view->verticalOffset();
+    // Слежение снимается один раз, на нажатие, и только если тянут по времени: тащить
+    // вертикальную шкалу можно и не сходя с живого потока.
+    if (m_dragAxis != DragAxis::Vertical)
+        m_view->setFollowing(false);
     event->accept();
 }
 
@@ -180,7 +194,7 @@ void PlotCanvas::mouseReleaseEvent(QMouseEvent *event)
         // непрерывно: посреди перетаскивания она включала бы слежение прямо под рукой, и
         // окно уезжало бы в конец, пока его тянут.
         const SampleBuffer &samples = m_model->samples();
-        if (samples.sampleCount() >= 2)
+        if (m_dragAxis != DragAxis::Vertical && samples.sampleCount() >= 2)
             m_view->snapToEnd(samples.timestamp(samples.sampleCount() - 1));
 
         event->accept();
@@ -193,13 +207,26 @@ void PlotCanvas::mouseMoveEvent(QMouseEvent *event)
 {
     const QRect area = plotArea();
 
-    if (m_dragging && area.width() > 0) {
+    if (m_dragging && area.width() > 0 && area.height() > 0) {
         // Сдвиг считается от точки нажатия, а не от прошлого события: так перетаскивание
         // не накапливает ошибку округления и график не уползает при возврате мыши назад.
-        const int delta = event->pos().x() - m_dragOrigin.x();
-        const qint64 duration = m_view->windowDuration();
-        const qint64 shift = qint64(-double(delta) / double(area.width()) * double(duration));
-        m_view->setWindow(m_dragFrom + shift, m_dragFrom + shift + duration);
+        if (m_dragAxis != DragAxis::Vertical) {
+            const int deltaX = event->pos().x() - m_dragOrigin.x();
+            const qint64 duration = m_view->windowDuration();
+            const qint64 shift =
+                qint64(-double(deltaX) / double(area.width()) * double(duration));
+            m_view->setWindow(m_dragFrom + shift, m_dragFrom + shift + duration);
+        }
+
+        if (m_dragAxis != DragAxis::Horizontal) {
+            // Точка под курсором обязана оставаться под ним по обеим осям, иначе
+            // перетаскивание ведёт себя как половина ожидаемого. Делится на масштаб,
+            // потому что сдвиг задан долей полной шкалы, а видно из неё лишь 1/zoom часть.
+            const int deltaY = event->pos().y() - m_dragOrigin.y();
+            m_view->setVerticalOffset(m_dragOffset
+                                      + double(deltaY) / double(area.height())
+                                            / m_view->verticalZoom());
+        }
         // Прямое управление обязано откликаться сразу: 16-мс очередь перерисовки хороша
         // для приходящих данных, но под рукой пользователя её задержка читается как
         // рывок. update() к тому же склеивает подряд идущие запросы сам.
@@ -246,6 +273,23 @@ void PlotCanvas::wheelEvent(QWheelEvent *event)
     }
     if (qFuzzyIsNull(steps))
         return;
+
+    // Над самой шкалой модификатор не нужен: показывать пальцем на ось и есть способ
+    // сказать, какую именно масштабировать.
+    const QPoint where = event->position().toPoint();
+    if (verticalScaleRect().contains(where)) {
+        m_view->zoomY(steps > 0 ? 1.15 : 1.0 / 1.15);
+        event->accept();
+        return;
+    }
+    if (horizontalScaleRect().contains(where)) {
+        const XTransform transform{m_view->windowFrom(), m_view->windowTo(),
+                                   double(area.left()), double(area.width())};
+        m_view->zoomX(steps > 0 ? 0.85 : 1.0 / 0.85,
+                      transform.timeAt(event->position().x()));
+        event->accept();
+        return;
+    }
 
     const Qt::KeyboardModifiers modifiers = event->modifiers();
 
@@ -322,6 +366,18 @@ void PlotCanvas::contextMenuEvent(QContextMenuEvent *event)
 QRect PlotCanvas::plotArea() const
 {
     return rect().adjusted(kMarginLeft, kMarginTop, -kMarginRight, -kMarginBottom);
+}
+
+QRect PlotCanvas::verticalScaleRect() const
+{
+    const QRect area = plotArea();
+    return QRect(0, area.top(), kMarginLeft, area.height());
+}
+
+QRect PlotCanvas::horizontalScaleRect() const
+{
+    const QRect area = plotArea();
+    return QRect(area.left(), area.bottom(), area.width(), kMarginBottom);
 }
 
 QPixmap PlotCanvas::snapshot() const
@@ -450,6 +506,39 @@ int PlotCanvas::seriesTabAt(const QPoint &point) const
     return -1;
 }
 
+void PlotCanvas::selectAxis(int series, Qt::KeyboardModifiers modifiers)
+{
+    QList<int> group = m_view->selectionGroup();
+    bool makeActive = true;
+
+    if (modifiers.testFlag(Qt::ControlModifier) || modifiers.testFlag(Qt::MetaModifier)) {
+        if (group.contains(series)) {
+            group.removeAll(series);
+            // Снятую ось нельзя делать активной: слева была бы подписана шкала ряда,
+            // который в общую шкалу больше не входит.
+            makeActive = false;
+        } else {
+            group.append(series);
+        }
+    } else if (modifiers.testFlag(Qt::ShiftModifier) && m_view->activeSeries() >= 0) {
+        const int from = int(m_visibleOrder.indexOf(m_view->activeSeries()));
+        const int to = int(m_visibleOrder.indexOf(series));
+        if (from >= 0 && to >= 0) {
+            group.clear();
+            for (int i = qMin(from, to); i <= qMax(from, to); ++i)
+                group.append(m_visibleOrder.at(i));
+        } else {
+            group = {series};
+        }
+    } else {
+        group = {series};
+    }
+
+    m_view->setSelectionGroup(group);
+    if (makeActive)
+        m_view->setActiveSeries(series);
+}
+
 void PlotCanvas::drawFrame(QPainter &painter, const QRect &area, const XTransform &transform,
                            const QList<SeriesFrame> &frames) const
 {
@@ -505,14 +594,31 @@ void PlotCanvas::drawFrame(QPainter &painter, const QRect &area, const XTransfor
     // Вкладки осей: по одной на видимый ряд, у самого края поля. Щелчок по вкладке делает
     // ряд активным, то есть переносит на него подписи слева, — это и есть «нажать на ось».
     if (frames.size() > 1) {
-        painter.setPen(Qt::NoPen);
         for (int position = 0; position < frames.size(); ++position) {
             const SeriesFrame &frame = frames.at(position);
+
+            // Полным цветом — участники общей шкалы, а без группы просто подписанный ряд.
+            // Остальные приглушены: так по одному взгляду на поле видно, чьи оси сведены.
+            const bool participates = m_view->hasScaleGroup()
+                                          ? m_view->isInScaleGroup(frame.index)
+                                          : frame.index == labelled;
+
             QColor colour = QColor::fromRgba(m_model->series(frame.index).color);
-            if (frame.index != labelled)
+            if (!participates)
                 colour.setAlpha(kDimmedAlpha);
+
+            QRect tab = seriesTabRect(position, int(frames.size()), area);
+            painter.setPen(Qt::NoPen);
             painter.setBrush(colour);
-            painter.drawRect(seriesTabRect(position, int(frames.size()), area));
+            painter.drawRect(tab);
+
+            // У активной оси — обводка: её шкала подписана слева, и это отдельное от
+            // участия в группе состояние.
+            if (frame.index == labelled) {
+                painter.setBrush(Qt::NoBrush);
+                painter.setPen(QPen(m_host->color(IPanelHost::ColorRole::Text), 1));
+                painter.drawRect(tab.adjusted(-2, -1, 1, 0));
+            }
         }
         painter.setBrush(Qt::NoBrush);
     }

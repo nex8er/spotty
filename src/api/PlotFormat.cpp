@@ -8,6 +8,8 @@
 #include <QtGlobal>
 #include <QtMath>
 
+#include <cmath>
+
 namespace spotty {
 
 namespace {
@@ -31,6 +33,9 @@ constexpr int kMaximumDigits = 9;
 /// \brief Знакоместа под минус, десятичную точку и запас на округление.
 constexpr int kReservedCharacters = 3;
 
+/// \brief Чем отмечается не поместившееся значение.
+constexpr QChar kEllipsis = u'…';
+
 } // namespace
 
 QString PlotFormat::defaultSeriesName(int index)
@@ -52,6 +57,38 @@ QString PlotFormat::defaultSeriesName(int index)
 int PlotFormat::digitsForCharacters(int characters)
 {
     return qBound(kMinimumDigits, characters - kReservedCharacters, kMaximumDigits);
+}
+
+QString PlotFormat::fitted(double value, int characters)
+{
+    if (!qIsFinite(value))
+        return QStringLiteral("—");
+
+    const QString text = number(value, digitsForCharacters(characters));
+    return text.size() <= characters ? text : QString(kEllipsis);
+}
+
+QString PlotFormat::fittedMean(double value, int characters, int maximumDecimals)
+{
+    if (!qIsFinite(value))
+        return QStringLiteral("—");
+
+    // Ниже единицы дробная часть — это всё значение целиком, и обрезать её нечем.
+    if (std::abs(value) < 1.0)
+        return fitted(value, characters);
+
+    QString text = QString::number(value, 'f', qMax(0, maximumDecimals));
+
+    // Хвостовые нули убираем: «5.000» занимает место, которого стоила бы лишняя цифра у
+    // соседа, и ничего при этом не сообщает.
+    if (text.contains(u'.')) {
+        while (text.endsWith(u'0'))
+            text.chop(1);
+        if (text.endsWith(u'.'))
+            text.chop(1);
+    }
+
+    return text.size() <= characters ? text : fitted(value, characters);
 }
 
 QString PlotFormat::number(double value, int digits)

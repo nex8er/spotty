@@ -82,6 +82,93 @@ TEST(PlotFormat, NumberKeepsTheRequestedSignificantDigits)
     EXPECT_EQ(PlotFormat::number(-123.456789, 5), QStringLiteral("-123.46"));
 }
 
+TEST(PlotFormat, FittedKeepsWhatFits)
+{
+    // Восемь знакомест — пять значащих цифр: «123.46» укладывается.
+    EXPECT_EQ(PlotFormat::fitted(123.456789, 8), QStringLiteral("123.46"));
+}
+
+TEST(PlotFormat, FittedReplacesOverflowWithAnEllipsis)
+{
+    // Обрезок вместо многоточия был бы другим числом: «-1.23…» от -1.2346e-05 отличается
+    // на пять порядков, и прочитавший его не заподозрит подвоха.
+    const QString text = PlotFormat::fitted(-0.0000123456, 6);
+
+    EXPECT_EQ(text, QStringLiteral("…"));
+}
+
+TEST(PlotFormat, FittedNeverTruncatesTheNumber)
+{
+    // Что бы ни вышло, это либо полное число, либо многоточие — но не начало числа.
+    for (const double value : {1.0, -1.0, 1e-9, 1e9, -123456.789, 0.5}) {
+        for (int characters = 4; characters <= 14; ++characters) {
+            const QString text = PlotFormat::fitted(value, characters);
+            if (text == QStringLiteral("…"))
+                continue;
+            bool ok = false;
+            text.toDouble(&ok);
+            EXPECT_TRUE(ok) << "«" << qPrintable(text) << "» при ширине " << characters;
+            EXPECT_LE(text.size(), characters);
+        }
+    }
+}
+
+TEST(PlotFormat, FittedDoesNotShrinkPrecisionToSqueezeIn)
+{
+    // Ужимать точность ради того, чтобы влезло, значило бы показывать соседние строки с
+    // разной точностью. Ширина одна — значит, и знаков поровну.
+    const QString small = PlotFormat::fitted(1.23456789, 9);
+    const QString large = PlotFormat::fitted(9.87654321, 9);
+
+    EXPECT_EQ(small.size(), large.size());
+}
+
+TEST(PlotFormat, MinimumWidthStillHoldsFiveDigits)
+{
+    // Нижний предел ширины статистики — восемь знакомест, и они обязаны нести пять
+    // значащих цифр даже со знаком минуса: минус в счёт цифр не идёт.
+    EXPECT_EQ(PlotFormat::digitsForCharacters(8), 5);
+    EXPECT_EQ(PlotFormat::fitted(-12345.0, 8), QStringLiteral("-12345"));
+}
+
+TEST(PlotFormat, MeanLimitsTheFractionalPart)
+{
+    // Среднее целых 1, 2 и 2 равно 1.6666667 — шесть знаков после запятой тут не точность,
+    // а шум: исходные данные её не несли.
+    EXPECT_EQ(PlotFormat::fittedMean(5.0 / 3.0, 10, 3), QStringLiteral("1.667"));
+    EXPECT_EQ(PlotFormat::fittedMean(123.456789, 10, 3), QStringLiteral("123.457"));
+}
+
+TEST(PlotFormat, MeanDropsTrailingZeros)
+{
+    // «5.000» занимает место, которого стоила бы лишняя цифра у соседа, и ничего не
+    // сообщает.
+    EXPECT_EQ(PlotFormat::fittedMean(5.0, 10, 3), QStringLiteral("5"));
+    EXPECT_EQ(PlotFormat::fittedMean(2.5, 10, 3), QStringLiteral("2.5"));
+}
+
+TEST(PlotFormat, MeanKeepsSmallValuesIntact)
+{
+    // Ниже единицы дробная часть — это всё значение целиком, и обрезать её нечем: с тремя
+    // знаками после запятой от 0.000123 не осталось бы ничего.
+    const QString text = PlotFormat::fittedMean(0.000123456, 12, 3);
+
+    EXPECT_NE(text, QStringLiteral("0"));
+    bool ok = false;
+    EXPECT_NEAR(text.toDouble(&ok), 0.000123456, 1e-8);
+    EXPECT_TRUE(ok);
+}
+
+TEST(PlotFormat, MeanFallsBackToAnEllipsisWhenTooWide)
+{
+    EXPECT_EQ(PlotFormat::fittedMean(-123456789.5, 5, 3), QStringLiteral("…"));
+}
+
+TEST(PlotFormat, FittedShowsNonFiniteAsDash)
+{
+    EXPECT_EQ(PlotFormat::fitted(std::nan(""), 8), QStringLiteral("—"));
+}
+
 TEST(PlotFormat, NonFiniteRendersAsDash)
 {
     // Пустая ячейка читалась бы как «ещё не посчитано», а «nan» — как неисправность, тогда

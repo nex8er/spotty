@@ -81,6 +81,9 @@ public:
     void zoomY(double factor);
     double verticalOffset() const { return m_verticalOffset; }
     void panY(double fraction);
+
+    /// \brief Задать сдвиг целиком — для перетаскивания, где он считается от точки нажатия.
+    void setVerticalOffset(double offset);
     void resetVertical();
     /// @}
 
@@ -143,6 +146,15 @@ Q_SIGNALS:
 
     /// \brief Слежение включилось или выключилось — кнопка обязана это отразить.
     void followingChanged(bool following);
+
+    /**
+     * \brief Сменился режим показа.
+     *
+     * Отдельно от changed(): тот приходит и на сдвиг окна, то есть на каждый отсчёт. Кто
+     * сохраняет настройки, обязан слушать этот сигнал, иначе профиль писался бы на диск
+     * несколько раз в секунду всё время, пока идут данные.
+     */
+    void modeChanged(Mode mode);
 
     void pausedChanged(bool paused);
 

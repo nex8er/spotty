@@ -10,6 +10,7 @@
 
 class QComboBox;
 class QSpinBox;
+class QSplitter;
 class QTableWidget;
 class QTimer;
 
@@ -49,6 +50,9 @@ Q_SIGNALS:
 protected:
     void settingsReset() override;
 
+    /// \brief Пересчитать ширины колонок статистики под новую ширину панели.
+    void resizeEvent(QResizeEvent *event) override;
+
 private:
     /**
      * \brief Как часто обновляются числа в таблице рядов, мс.
@@ -84,11 +88,14 @@ private:
      */
     void updateStatisticsWidth();
 
+    /// \brief Сколько пикселей нужно колонке имени, чтобы показать самое длинное целиком.
+    int nameColumnNeeds() const;
+
     /// \brief Вернуть в ячейки первой колонки цвет и видимость из модели.
     void refreshSwatches();
 
-    /// \brief Отразить в таблице активный ряд, не трогая выделение.
-    void syncActiveRow();
+    /// \brief Привести выделение и текущую строку таблицы в согласие с видом.
+    void syncSelectionFromView();
 
     /// \brief Спросить цвет ряда и применить его.
     void pickColour(int row);
@@ -110,6 +117,14 @@ private:
 
     /// \brief Применить профиль к модели и виду.
     void applyProfile(const PlotProfile &profile);
+
+    /**
+     * \brief Наложить выбранный профиль на появившиеся ряды.
+     *
+     * При запуске рядов ещё нет — накладывать нечего. Они появляются с первой строкой
+     * устройства, и профиль надо применить тогда, а не раньше.
+     */
+    void applyStoredProfile();
 
     /// \brief Записать текущий профиль на диск; вызывается отложенно.
     void saveProfile();
@@ -134,13 +149,19 @@ private:
     PlotViewState *m_view = nullptr;
     PlotWidget *m_plot = nullptr;
 
+    /// \brief Делит панель между миниатюрой и таблицей; положение переживает перезапуск.
+    QSplitter *m_splitter = nullptr;
+
     QComboBox *m_profiles = nullptr;
     QSpinBox *m_points = nullptr;
     QTableWidget *m_table = nullptr;
     SeriesSwatchDelegate *m_swatch = nullptr;
 
-    /// \brief Сколько значащих цифр показывать в статистике; см. updateStatisticsWidth().
-    int m_statisticsDigits = 5;
+    /// \brief Ширина колонки статистики в знакоместах; см. updateStatisticsWidth().
+    int m_statisticsCharacters = 8;
+
+    /// \brief Идёт установка ширин; гасит вызов из sectionResized, который она же и поднимает.
+    bool m_adjustingColumns = false;
 
     /// \brief Ограничитель частоты пересчёта статистики; см. #kStatisticsIntervalMs.
     QTimer *m_statisticsTimer = nullptr;
@@ -162,6 +183,9 @@ private:
 
     /// \brief Профиль выбран человеком — автоподбор его больше не трогает.
     bool m_profileChosenByUser = false;
+
+    /// \brief Скольким рядам профиль уже роздан; см. applyStoredProfile().
+    int m_appliedSeriesCount = 0;
 
     bool m_populating = false;
 };

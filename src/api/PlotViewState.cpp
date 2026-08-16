@@ -126,6 +126,14 @@ void PlotViewState::panY(double fraction)
     Q_EMIT changed();
 }
 
+void PlotViewState::setVerticalOffset(double offset)
+{
+    if (qFuzzyCompare(m_verticalOffset, offset))
+        return;
+    m_verticalOffset = offset;
+    Q_EMIT changed();
+}
+
 void PlotViewState::resetVertical()
 {
     if (qFuzzyCompare(m_verticalZoom, 1.0) && qFuzzyIsNull(m_verticalOffset))
@@ -207,6 +215,7 @@ void PlotViewState::setMode(Mode mode)
     if (m_mode == mode)
         return;
     m_mode = mode;
+    Q_EMIT modeChanged(mode);
     Q_EMIT changed();
 }
 

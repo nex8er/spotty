@@ -10,6 +10,8 @@ spotty_add_plugin(spotty-plugin-plotter
         PlotCanvas.h
         PlotWidget.cpp
         PlotWidget.h
+        ScaleLimitsDialog.cpp
+        ScaleLimitsDialog.h
         SeriesSwatchDelegate.cpp
         SeriesSwatchDelegate.h
         )

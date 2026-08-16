@@ -1578,18 +1578,6 @@ Double-click to edit, right-click for options</source>
         <translation>Очистить только этот ряд</translation>
     </message>
     <message>
-        <source>Scale limits</source>
-        <translation>Пределы шкалы</translation>
-    </message>
-    <message>
-        <source>Minimum for %1:</source>
-        <translation>Минимум для %1:</translation>
-    </message>
-    <message>
-        <source>Maximum for %1:</source>
-        <translation>Максимум для %1:</translation>
-    </message>
-    <message>
         <source>New profile</source>
         <translation>Новый профиль</translation>
     </message>
@@ -1642,6 +1630,29 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Another plugin already provides id &quot;%1&quot;.</source>
         <translation>Идентификатор «%1» уже занят другим плагином.</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::ScaleLimitsDialog</name>
+    <message>
+        <source>Scale limits — %1</source>
+        <translation>Пределы шкалы — %1</translation>
+    </message>
+    <message>
+        <source>Minimum</source>
+        <translation>Минимум</translation>
+    </message>
+    <message>
+        <source>Maximum</source>
+        <translation>Максимум</translation>
+    </message>
+    <message>
+        <source>Measured: %1 … %2</source>
+        <translation>Измерено: %1 … %2</translation>
+    </message>
+    <message>
+        <source>Use measured</source>
+        <translation>Взять измеренные</translation>
     </message>
 </context>
 <context>

@@ -32,6 +32,7 @@ add_library(spotty-ui-test-main STATIC
     support/TestSupport.h
     support/FakeInterfacePlugin.h
     support/FakePanelPlugin.h
+    support/FakePanelHost.h
 )
 target_link_libraries(spotty-ui-test-main PUBLIC Spotty::Core Spotty::UiApi
                                                  GTest::gtest GTest::gmock)
@@ -73,6 +74,13 @@ spotty_add_test(spotty-ui-tests
     SOURCES
         test_panel_registry.cpp
         test_series_swatch.cpp
+        test_plotter_panel.cpp
+        # Панель плоттера целиком: её проводка — то место, где ошибки не видит ни один
+        # тест модели, а пользователь видит сразу.
+        "${CMAKE_SOURCE_DIR}/plugins/plotter/PlotterPanel.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/plotter/PlotWidget.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/plotter/PlotCanvas.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/plotter/ScaleLimitsDialog.cpp"
         # Реестр живёт в src/ui и входит в исполняемый файл приложения, а не в
         # библиотеку. Проще взять его исходник сюда напрямую, чем заводить библиотеку
         # ради одного класса.

@@ -113,6 +113,31 @@ TEST(PlotViewState, SnapToEndIsIgnoredWhileFarFromIt)
     EXPECT_EQ(view.windowTo(), 20 * kSecond);
 }
 
+TEST(PlotViewState, VerticalOffsetIsSetAbsolutely)
+{
+    // Перетаскивание считает сдвиг от точки нажатия, а не прибавляет к прошлому: иначе
+    // накапливалась бы ошибка округления и график уползал бы при возврате мыши назад.
+    PlotViewState view;
+
+    view.setVerticalOffset(0.25);
+    EXPECT_DOUBLE_EQ(view.verticalOffset(), 0.25);
+
+    view.setVerticalOffset(-0.5);
+    EXPECT_DOUBLE_EQ(view.verticalOffset(), -0.5);
+}
+
+TEST(PlotViewState, ResetVerticalClearsBothZoomAndOffset)
+{
+    PlotViewState view;
+    view.zoomY(2.0);
+    view.setVerticalOffset(0.3);
+
+    view.resetVertical();
+
+    EXPECT_DOUBLE_EQ(view.verticalZoom(), 1.0);
+    EXPECT_DOUBLE_EQ(view.verticalOffset(), 0.0);
+}
+
 TEST(PlotViewState, ZoomXAnchorsAtTheCursor)
 {
     // Точка под курсором остаётся на месте: иначе приближение уводит из-под указателя то

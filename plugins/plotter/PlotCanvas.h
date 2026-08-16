@@ -103,6 +103,14 @@ private:
     /// \brief Прямоугольник поля графика без подписей осей.
     QRect plotArea() const;
 
+    /// \name Полосы шкал вокруг поля
+    /// Колесо над ними масштабирует свою ось без модификаторов: это то место, где на
+    /// масштаб и показывают пальцем.
+    /// @{
+    QRect verticalScaleRect() const;
+    QRect horizontalScaleRect() const;
+    /// @}
+
     /// \brief Окно по времени в координатах поля. Состояния не меняет.
     XTransform transformFor(const QRect &area) const;
 
@@ -130,6 +138,15 @@ private:
 
     /// \brief Ряд под точкой на левом поле; -1, если там ничего нет.
     int seriesTabAt(const QPoint &point) const;
+
+    /**
+     * \brief Обработать щелчок по вкладке оси с учётом модификаторов.
+     *
+     * Без модификатора — выбрать одну ось. С Ctrl — добавить или убрать из группы, с
+     * Shift — взять всё между нынешней активной и нажатой. Ровно как выделение строк в
+     * таблице сбоку: жест один и тот же, и запоминать его отдельно не приходится.
+     */
+    void selectAxis(int series, Qt::KeyboardModifiers modifiers);
 
     void drawFrame(QPainter &painter, const QRect &area, const XTransform &transform,
                    const QList<SeriesFrame> &frames) const;
@@ -188,11 +205,24 @@ private:
      */
     QList<int> m_visibleOrder;
 
+    /**
+     * \enum DragAxis
+     * \brief Что двигает начатое перетаскивание.
+     *
+     * Зависит от того, где нажали: в поле тянутся обе оси разом, за шкалу — только её.
+     * Тащить за шкалу удобно, когда нужно поправить одну ось, не сбив вторую.
+     */
+    enum class DragAxis { Both, Horizontal, Vertical };
+
     /// \name Перетаскивание поля
     /// @{
     bool m_dragging = false;
+    DragAxis m_dragAxis = DragAxis::Both;
     QPoint m_dragOrigin;
     qint64 m_dragFrom = 0;
+
+    /// \brief Вертикальный сдвиг в момент нажатия; тащим от него, а не от прошлого события.
+    double m_dragOffset = 0.0;
     /// @}
 
     /**
