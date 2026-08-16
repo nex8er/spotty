@@ -66,6 +66,9 @@ spotty_add_test(spotty-tests
         test_data_filter.cpp
         test_single_instance.cpp
         test_paths.cpp
+        # Протокол туннеля CLI-CAN: вся его арифметика вынесена в заголовок плагина
+        # именно ради проверки без адаптера и без драйвера PEAK.
+        test_clican_protocol.cpp
     LINK
         spotty-test-main
 )
@@ -75,6 +78,7 @@ spotty_add_test(spotty-ui-tests
         test_panel_registry.cpp
         test_series_swatch.cpp
         test_plotter_panel.cpp
+        test_live_options.cpp
         # Панель плоттера целиком: её проводка — то место, где ошибки не видит ни один
         # тест модели, а пользователь видит сразу.
         "${CMAKE_SOURCE_DIR}/plugins/plotter/PlotterPanel.cpp"
@@ -87,6 +91,10 @@ spotty_add_test(spotty-ui-tests
         "${CMAKE_SOURCE_DIR}/src/ui/PanelPluginRegistry.cpp"
         # Делегат таблицы рядов — из плагина плоттера, по той же причине.
         "${CMAKE_SOURCE_DIR}/plugins/plotter/SeriesSwatchDelegate.cpp"
+        # Панель настроек интерфейса: живые списки (SettingsField::live) — её проводка, и
+        # проверить их можно только вместе с ней.
+        "${CMAKE_SOURCE_DIR}/src/ui/dialogs/InterfaceSettingsPanel.cpp"
+        "${CMAKE_SOURCE_DIR}/src/ui/InterfaceLabel.cpp"
     LINK
         spotty-ui-test-main
     # Панель-двойник умеет вернуть настоящий QLabel, и как только этим воспользуется хоть

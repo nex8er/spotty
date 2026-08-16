@@ -266,7 +266,8 @@ QT_LOGGING_RULES="spotty.*=true" ./build/spotty.app/Contents/MacOS/spotty
 ```
 
 Категории журналирования: `spotty.paths`, `spotty.files`, `spotty.settings`,
-`spotty.plugins`, `spotty.plugins.jlinkrtt`, `spotty.registry`, `spotty.session`,
+`spotty.plugins`, `spotty.plugins.jlinkrtt`, `spotty.plugins.clican`, `spotty.registry`,
+`spotty.session`,
 `spotty.icons`, `spotty.history`, `spotty.log`, `spotty.macros`, `spotty.instance`.
 
 С настоящим железом:
@@ -331,6 +332,7 @@ spotty/
 ├── plugins/
 │   ├── loopback/           Виртуальный транспорт для разработки без железа
 │   ├── uart/  jlinkrtt/    Настоящие транспорты
+│   ├── clican/             CLI платы через туннель поверх шины CAN (адаптер PCAN)
 │   ├── macros/  logging/   Панели: макросы и журналирование
 │   ├── search/ generator/  Панели: поиск и генератор посылок
 │   ├── plotter/            Плоттер: график из CSV, отдельным окном и вместо терминала

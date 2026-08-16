@@ -412,6 +412,45 @@ TRANSLATIONS = {
         "Управляющий блок RTT ещё не найден на таргете — проверьте, что RTT "
         "инициализирован в прошивке и таргет запущен.",
 
+    # --- CLI поверх CAN (clican) ---
+    "CLI over CAN (PCAN)": "CLI через CAN (PCAN)",
+    "CAN bus": "Шина CAN",
+    "Tunnel": "Туннель",
+    "Bit rate": "Скорость",
+    "%1 Mbit/s": "%1 Мбит/с",
+    "%1 kbit/s": "%1 кбит/с",
+    "Node": "Узел",
+    "Boards answer the broadcast query while this window is open. A node that is silent "
+    "right now can be entered by number.":
+        "Пока это окно открыто, платы отвечают на широковещательный запрос. Молчащий "
+        "сейчас узел можно указать номером.",
+    "Keep-alive": "Удержание туннеля",
+    "A board leaves tunnelling mode %1 ms after the last packet addressed to it and goes "
+    "back to its own UART.":
+        "Плата выходит из режима туннелирования через %1 мс после последнего пакета на "
+        "её адрес и возвращается к своему UART.",
+    "Response timeout": "Таймаут ответа",
+    "Warn when the node stays silent for this long. The channel stays open - a rebooting "
+    "board comes back on its own. Zero disables it.":
+        "Предупредить, если узел молчит дольше этого времени. Канал при этом остаётся "
+        "открытым — перезагружающаяся плата вернётся сама. Ноль отключает проверку.",
+    "in use by another application": "занят другим приложением",
+    "node %1, %2": "узел %1, %2",
+    "no node, %1": "узел не выбран, %1",
+    "Node %1": "Узел %1",
+    "Node %1 - no answer": "Узел %1 — нет ответа",
+    "Select a node between %1 and %2: the CAN tunnel addresses a specific board, not the "
+    "bus as a whole.":
+        "Выберите узел от %1 до %2: туннель CAN обращается к конкретной плате, а не к "
+        "шине целиком.",
+    "Could not reach node %1: %2": "Не удалось обратиться к узлу %1: %2",
+    "Could not send to node %1: %2": "Не удалось отправить узлу %1: %2",
+    "Node %1 has not answered for %2 ms": "Узел %1 не отвечает уже %2 мс",
+    "Unsupported CAN bit rate: %1 bit/s": "Неподдерживаемая скорость CAN: %1 бит/с",
+    "Could not open the CAN channel: %1": "Не удалось открыть канал CAN: %1",
+    "The CAN channel is closed": "Канал CAN закрыт",
+    "CAN bus error: %1": "Ошибка шины CAN: %1",
+
     # --- Сообщения сессии ---
     "--- %1 opened ---": "--- %1 открыт ---",
     "--- closed ---": "--- закрыт ---",

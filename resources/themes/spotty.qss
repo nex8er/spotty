@@ -785,6 +785,7 @@ QSplitter::handle:pressed {
    Qt меняет на всей ширине захвата, какой бы она ни была. */
 #plotterSplitter::handle {
     background: @border;
+    border-radius: @radius;
     margin: 5px;
 }
 #plotterSplitter::handle:hover {

@@ -15,6 +15,7 @@ class QComboBox;
 class QFormLayout;
 class QLabel;
 class QLineEdit;
+class QTimer;
 class QVBoxLayout;
 
 namespace spotty {
@@ -78,6 +79,13 @@ public:
      */
     void flagInvalidFields(const QStringList &fieldKeys);
 
+protected:
+    /// \brief Возобновить опрос живых полей: панель снова на экране.
+    void showEvent(QShowEvent *event) override;
+
+    /// \brief Прекратить опрос: закрытый диалог не должен держать занятой шину устройства.
+    void hideEvent(QHideEvent *event) override;
+
 Q_SIGNALS:
     /**
      * \brief Настройки устройства только что записаны в реестр.
@@ -114,6 +122,27 @@ private:
     /// \brief Собрать значения всех редакторов схемы и записать их в реестр.
     void commitSchemaValues();
 
+    /**
+     * \brief Спросить у плагина пункты для полей с SettingsField::live и обновить списки.
+     *
+     * Вызывается по таймеру, пока панель на экране. Сам факт вызова для плагина означает
+     * «опрос ещё нужен» — см. spotty::IInterfacePlugin::liveOptions().
+     */
+    void refreshLiveOptions();
+
+    /**
+     * \brief Переписать пункты одного списка, не потеряв выбранного пользователем.
+     * \param key Ключ поля схемы.
+     * \param options Пункты, известные плагину сейчас.
+     *
+     * Ничего не делает, если список не изменился: перезаполнение открытого QComboBox
+     * закрывает выпадение и сбрасывает набранный текст, а приходит сюда раз в секунду.
+     */
+    void applyLiveOptions(const QString &key, const QList<SettingsOption> &options);
+
+    /// \brief Запустить или остановить опрос живых полей по состоянию панели и схемы.
+    void updateLiveTimer();
+
     /// \brief Перенести #m_invalidFields на редакторы: свойство `fieldInvalid` + перекраска.
     void applyInvalidFieldStyling();
 
@@ -132,6 +161,18 @@ private:
     QHash<QString, QWidget *> m_editors; ///< Редакторы схемы текущего устройства по ключу.
 
     QString m_currentId;
+
+    /**
+     * \brief Таймер опроса полей с SettingsField::live.
+     *
+     * Идёт, только пока панель видима и у текущего устройства есть хоть одно такое поле:
+     * прекратившиеся вызовы liveOptions() — единственный способ сказать плагину, что опрос
+     * больше не нужен и шину можно отпустить.
+     */
+    QTimer *m_liveTimer = nullptr;
+
+    /// \brief Ключи полей текущей схемы с SettingsField::live.
+    QStringList m_liveFields;
 
     /// \brief Идёт перестроение полей — гасит обработчики, чтобы не писать в реестр то,
     ///        что сам же из него прочитал.

@@ -2,6 +2,25 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ru" sourcelanguage="en">
 <context>
+    <name>QObject</name>
+    <message>
+        <source>Unsupported CAN bit rate: %1 bit/s</source>
+        <translation>Неподдерживаемая скорость CAN: %1 бит/с</translation>
+    </message>
+    <message>
+        <source>Could not open the CAN channel: %1</source>
+        <translation>Не удалось открыть канал CAN: %1</translation>
+    </message>
+    <message>
+        <source>The CAN channel is closed</source>
+        <translation>Канал CAN закрыт</translation>
+    </message>
+    <message>
+        <source>CAN bus error: %1</source>
+        <translation>Ошибка шины CAN: %1</translation>
+    </message>
+</context>
+<context>
     <name>spotty::ChannelWorker</name>
     <message>
         <source>Could not open the interface.</source>
@@ -18,6 +37,100 @@
     <message>
         <source>Could not reopen the interface.</source>
         <translation>Не удалось открыть интерфейс заново.</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::CliCanChannel</name>
+    <message>
+        <source>Select a node between %1 and %2: the CAN tunnel addresses a specific board, not the bus as a whole.</source>
+        <translation>Выберите узел от %1 до %2: туннель CAN обращается к конкретной плате, а не к шине целиком.</translation>
+    </message>
+    <message>
+        <source>Could not reach node %1: %2</source>
+        <translation>Не удалось обратиться к узлу %1: %2</translation>
+    </message>
+    <message>
+        <source>Node %1</source>
+        <translation>Узел %1</translation>
+    </message>
+    <message>
+        <source>Could not send to node %1: %2</source>
+        <translation>Не удалось отправить узлу %1: %2</translation>
+    </message>
+    <message>
+        <source>Node %1 has not answered for %2 ms</source>
+        <translation>Узел %1 не отвечает уже %2 мс</translation>
+    </message>
+    <message>
+        <source>Node %1 - no answer</source>
+        <translation>Узел %1 — нет ответа</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::CliCanPlugin</name>
+    <message>
+        <source>%1 Mbit/s</source>
+        <translation>%1 Мбит/с</translation>
+    </message>
+    <message>
+        <source>%1 kbit/s</source>
+        <translation>%1 кбит/с</translation>
+    </message>
+    <message>
+        <source>in use by another application</source>
+        <translation>занят другим приложением</translation>
+    </message>
+    <message>
+        <source>CAN bus</source>
+        <translation>Шина CAN</translation>
+    </message>
+    <message>
+        <source>Tunnel</source>
+        <translation>Туннель</translation>
+    </message>
+    <message>
+        <source>Bit rate</source>
+        <translation>Скорость</translation>
+    </message>
+    <message>
+        <source>Node</source>
+        <translation>Узел</translation>
+    </message>
+    <message>
+        <source>Boards answer the broadcast query while this window is open. A node that is silent right now can be entered by number.</source>
+        <translation>Пока это окно открыто, платы отвечают на широковещательный запрос. Молчащий сейчас узел можно указать номером.</translation>
+    </message>
+    <message>
+        <source>Keep-alive</source>
+        <translation>Удержание туннеля</translation>
+    </message>
+    <message>
+        <source>ms</source>
+        <translation>мс</translation>
+    </message>
+    <message>
+        <source>A board leaves tunnelling mode %1 ms after the last packet addressed to it and goes back to its own UART.</source>
+        <translation>Плата выходит из режима туннелирования через %1 мс после последнего пакета на её адрес и возвращается к своему UART.</translation>
+    </message>
+    <message>
+        <source>Response timeout</source>
+        <translation>Таймаут ответа</translation>
+    </message>
+    <message>
+        <source>Warn when the node stays silent for this long. The channel stays open - a rebooting board comes back on its own. Zero disables it.</source>
+        <translation>Предупредить, если узел молчит дольше этого времени. Канал при этом остаётся открытым — перезагружающаяся плата вернётся сама. Ноль отключает проверку.</translation>
+    </message>
+    <message>
+        <source>no node, %1</source>
+        <translation>узел не выбран, %1</translation>
+    </message>
+    <message>
+        <source>node %1, %2</source>
+        <translation>узел %1, %2</translation>
+    </message>
+    <message>
+        <source>CLI over CAN (PCAN)</source>
+        <translation>CLI через CAN (PCAN)</translation>
     </message>
 </context>
 <context>
