@@ -8,6 +8,7 @@
 
 #include <QApplication>
 #include <QMouseEvent>
+#include <QStyle>
 #include <QTableWidget>
 
 #include <functional>
@@ -123,6 +124,46 @@ TEST_F(Swatch, PaintingLeavesTheStoredStateAlone)
     table.render(&canvas);
 
     EXPECT_EQ(table.item(0, 0)->data(Qt::CheckStateRole).toInt(), Qt::Checked);
+}
+
+TEST_F(Swatch, StandardCheckIndicatorIsStrippedFromTheStyleOption)
+{
+    // Проверяется сам механизм, а не картинка: раскладка штатного флажка зависит от стиля
+    // и таблицы стилей, и попытка поймать его по пикселям в голой тестовой таблице
+    // проходила одинаково и с исправлением, и без него — то есть не доказывала ничего.
+    //
+    // Признак обязан сниматься именно в initStyleOption(): QStyledItemDelegate::paint()
+    // зовёт его заново на переданных параметрах, поэтому всё, что снято до вызова базового
+    // метода, возвращается обратно. Так системный флажок и оказывался поверх квадратика.
+    class Probe : public SeriesSwatchDelegate
+    {
+    public:
+        using SeriesSwatchDelegate::initStyleOption;
+    };
+
+    Probe probe;
+    QStyleOptionViewItem option;
+    option.widget = &table;
+
+    probe.initStyleOption(&option, table.model()->index(0, 0));
+
+    EXPECT_FALSE(option.features.testFlag(QStyleOptionViewItem::HasCheckIndicator));
+    EXPECT_TRUE(option.text.isEmpty());
+}
+
+TEST_F(Swatch, SwatchMatchesTheStandardIndicatorSize)
+{
+    // Квадратик стоит на месте штатного флажка и обязан быть с него ростом, иначе строка
+    // выглядит съехавшей.
+    QStyleOptionViewItem option;
+    option.widget = &table;
+    const int indicator =
+        table.style()->pixelMetric(QStyle::PM_IndicatorWidth, &option, &table);
+
+    const QSize hint = delegate.sizeHint(option, table.model()->index(0, 0));
+
+    EXPECT_GE(hint.width(), indicator);
+    EXPECT_GE(hint.height(), indicator);
 }
 
 TEST_F(Swatch, HiddenAndVisibleLookDifferent)

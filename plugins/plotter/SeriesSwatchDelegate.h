@@ -51,8 +51,22 @@ Q_SIGNALS:
     void colourRequested(int row);
 
 protected:
+    /**
+     * \brief Снять с ячейки штатный флажок и текст.
+     *
+     * Правка живёт именно здесь, а не в paint(): QStyledItemDelegate::paint() заново
+     * вызывает initStyleOption() на переданных ему параметрах, поэтому всё, что снято до
+     * вызова базового метода, возвращается обратно. Так на экране и оказывался синий
+     * системный флажок поверх цветного квадратика.
+     */
+    void initStyleOption(QStyleOptionViewItem *option, const QModelIndex &index) const override;
+
     bool editorEvent(QEvent *event, QAbstractItemModel *model,
                      const QStyleOptionViewItem &option, const QModelIndex &index) override;
+
+private:
+    /// \brief Сторона квадратика: ровно как у системного флажка в этом стиле.
+    static int swatchSide(const QStyleOptionViewItem &option);
 };
 
 } // namespace spotty
