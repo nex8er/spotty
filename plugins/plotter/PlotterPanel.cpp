@@ -177,6 +177,10 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
     // Разделитель и выбор оси X правят меню под графиком. Сохраняем по сигналу настройки,
     // а не по changed(): тот приходит на каждый отсчёт, тысячами в секунду.
     connect(m_model, &PlotModel::configurationChanged, this, [this] {
+        // Ячейка первой колонки хранит своё состояние галочки и свой цвет, а рисует их
+        // делегат. Без обратной записи модель менялась, а квадратик оставался прежним —
+        // со стороны это выглядело так, будто галочка не нажимается вовсе.
+        refreshSwatches();
         if (m_populating)
             return;
         host()->setValue(QLatin1String(kKeySeparator), QString(m_model->separator()));
@@ -356,6 +360,22 @@ void PlotterPanel::refreshStatistics()
             ->setText(PlotFormat::number(any ? stats.mean : qQNaN(), m_statisticsDigits));
     }
     m_populating = false;
+}
+
+void PlotterPanel::refreshSwatches()
+{
+    if (m_table->rowCount() != m_model->seriesCount())
+        return;
+
+    const QSignalBlocker blocker(m_table);
+    for (int row = 0; row < m_model->seriesCount(); ++row) {
+        QTableWidgetItem *item = m_table->item(row, ColumnSwatch);
+        if (!item)
+            continue;
+        const PlotSeries &series = m_model->series(row);
+        item->setData(Qt::CheckStateRole, series.visible ? Qt::Checked : Qt::Unchecked);
+        item->setData(SeriesSwatchDelegate::kColorRole, series.color);
+    }
 }
 
 void PlotterPanel::updateStatisticsWidth()

@@ -19,9 +19,6 @@ constexpr int kSwatch = 15;
 /// \brief Скругление квадратика, px.
 constexpr double kRadius = 3.0;
 
-/// \brief Прозрачность выключенного ряда: цвет виден, но ряд явно погашен.
-constexpr int kHiddenAlpha = 60;
-
 /**
  * \brief Достаточно ли цвет тёмен, чтобы галочка на нём была белой.
  *
@@ -66,16 +63,13 @@ void SeriesSwatchDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing);
 
-    QColor fill = colour;
-    if (!visible) {
-        // Выключенный ряд гасится прозрачностью, а не серым: цвет — единственное, чем он
-        // связан со своей кривой, и терять эту связь при выключении нельзя.
-        fill.setAlpha(kHiddenAlpha);
-    }
-
-    painter->setPen(QPen(colour.darker(140), 1));
-    painter->setBrush(fill);
-    painter->drawRoundedRect(QRectF(box).adjusted(0.5, 0.5, -0.5, -0.5), kRadius, kRadius);
+    // Выключенный ряд — пустой квадратик с рамкой в полный цвет, включённый — залитый.
+    // Гасить прозрачностью всю заливку нельзя: на тёмной теме приглушённый цвет сливается
+    // с фоном, и выключенный ряд выглядит не выключенным, а ненарисованным. Рамка же
+    // держит цвет в полную силу, и связь строки со своей кривой не теряется.
+    painter->setPen(QPen(visible ? colour.darker(140) : colour, visible ? 1.0 : 2.0));
+    painter->setBrush(visible ? QBrush(colour) : QBrush(Qt::NoBrush));
+    painter->drawRoundedRect(QRectF(box).adjusted(1.0, 1.0, -1.0, -1.0), kRadius, kRadius);
 
     if (visible) {
         // Галочка рисуется путём, а не шрифтом: подходящий глиф зависит от системы, а

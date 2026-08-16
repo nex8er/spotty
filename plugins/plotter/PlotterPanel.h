@@ -84,6 +84,9 @@ private:
      */
     void updateStatisticsWidth();
 
+    /// \brief Вернуть в ячейки первой колонки цвет и видимость из модели.
+    void refreshSwatches();
+
     /// \brief Отразить в таблице активный ряд, не трогая выделение.
     void syncActiveRow();
 

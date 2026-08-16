@@ -28,7 +28,7 @@ target_include_directories(spotty-test-main PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
 # spotty-ui-tests намеренно не участвует в подсчёте покрытия: там мерялась бы доля
 # покрытого кода интерфейса, а он проверяется запуском, а не модульными тестами.
 add_library(spotty-ui-test-main STATIC
-    main.cpp
+    ui_main.cpp
     support/TestSupport.h
     support/FakeInterfacePlugin.h
     support/FakePanelPlugin.h
@@ -72,10 +72,13 @@ spotty_add_test(spotty-tests
 spotty_add_test(spotty-ui-tests
     SOURCES
         test_panel_registry.cpp
+        test_series_swatch.cpp
         # Реестр живёт в src/ui и входит в исполняемый файл приложения, а не в
         # библиотеку. Проще взять его исходник сюда напрямую, чем заводить библиотеку
         # ради одного класса.
         "${CMAKE_SOURCE_DIR}/src/ui/PanelPluginRegistry.cpp"
+        # Делегат таблицы рядов — из плагина плоттера, по той же причине.
+        "${CMAKE_SOURCE_DIR}/plugins/plotter/SeriesSwatchDelegate.cpp"
     LINK
         spotty-ui-test-main
     # Панель-двойник умеет вернуть настоящий QLabel, и как только этим воспользуется хоть
@@ -84,7 +87,9 @@ spotty_add_test(spotty-ui-tests
     ENVIRONMENT
         QT_QPA_PLATFORM=offscreen
 )
-target_include_directories(spotty-ui-tests PRIVATE "${CMAKE_SOURCE_DIR}/src/ui")
+target_include_directories(spotty-ui-tests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/ui"
+    "${CMAKE_SOURCE_DIR}/plugins/plotter")
 
 # Цель `coverage` объявляется после исполняемого файла тестов: инструментам нужен его
 # путь, чтобы прочитать карту покрытия. Меряется только spotty-tests.
