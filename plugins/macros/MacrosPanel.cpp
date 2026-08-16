@@ -108,7 +108,9 @@ MacrosPanel::MacrosPanel(IPanelHost *panelHost, QWidget *parent)
     // --- Наборы ----------------------------------------------------------------------
 
     auto *presetRow = new QHBoxLayout;
-    presetRow->setSpacing(4);
+    // Тот же шаг, что и у остальных рядов с кнопками-значками в приложении — общий
+    // IPanelHost::Metric::Gap, а не свой отдельный номер.
+    presetRow->setSpacing(host()->metric(IPanelHost::Metric::Gap));
 
     m_presetCombo = new QComboBox(this);
     m_presetCombo->setToolTip(tr("Macro preset; each preset is a separate file"));
@@ -156,7 +158,7 @@ MacrosPanel::MacrosPanel(IPanelHost *panelHost, QWidget *parent)
     // --- Кнопки под таблицей, выровненные вправо ---------------------------------------
 
     auto *buttonRow = new QHBoxLayout;
-    buttonRow->setSpacing(4);
+    buttonRow->setSpacing(host()->metric(IPanelHost::Metric::Gap));
     buttonRow->addStretch(1);
 
     const auto makeButton = [this, buttonRow](const QString &tip) {
@@ -205,7 +207,7 @@ MacrosPanel::MacrosPanel(IPanelHost *panelHost, QWidget *parent)
     m_periodicButton->setIconSize(QSize(kSendGlyphSize, kSendGlyphSize));
 
     auto *periodRow = new QHBoxLayout;
-    periodRow->setSpacing(4);
+    periodRow->setSpacing(host()->metric(IPanelHost::Metric::Gap));
     periodRow->addWidget(m_periodInterval, 1);
     periodRow->addWidget(m_periodicButton);
 

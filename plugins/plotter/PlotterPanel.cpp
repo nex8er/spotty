@@ -168,7 +168,9 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
     // Профили: набор настроек под конкретное устройство. Список плюс две кнопки — добавить
     // и удалить; всё остальное сохраняется само.
     auto *profileRow = new QHBoxLayout;
-    profileRow->setSpacing(4);
+    // Тот же шаг, что и у остальных рядов с кнопками-значками в приложении — общий
+    // IPanelHost::Metric::Gap, а не свой отдельный номер.
+    profileRow->setSpacing(host()->metric(IPanelHost::Metric::Gap));
 
     m_profiles = new QComboBox(this);
     m_profiles->setToolTip(tr("Settings saved for a particular device"));

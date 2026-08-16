@@ -21,6 +21,7 @@
 #include <QMap>
 #include <QSignalBlocker>
 #include <QStandardItemModel>
+#include <QTimer>
 #include <QToolButton>
 
 #include <algorithm>
@@ -31,6 +32,14 @@ namespace {
 
 constexpr int kStatusGlyphSize = 14; ///< Размер кружка состояния, px.
 constexpr int kButtonGlyphSize = 18; ///< Размер значка на кнопке, px.
+
+/**
+ * \brief Как часто пересчитывать «N назад» у уже построенных пунктов списка.
+ *
+ * Formatting::timeAgo() после первой минуты считает минутами — более частый тик менял бы
+ * подпись раньше, чем она вообще способна отличаться.
+ */
+constexpr int kSecondaryTextIntervalMs = 60'000;
 
 /// \brief Как выглядит одно состояние канала.
 struct StatusLook
@@ -96,7 +105,9 @@ InterfaceBar::InterfaceBar(const AppContext &context, QWidget *parent)
 
     auto *layout = new QHBoxLayout(this);
     layout->setContentsMargins(8, 6, 8, 6);
-    layout->setSpacing(8);
+    // Тот же шаг, что и у остальных рядов с кнопками-значками в приложении (терминал,
+    // рейка панелей, палитра ANSI) — единый ThemeMetrics::gap, а не свой отдельный номер.
+    layout->setSpacing(ThemeManager::metrics().gap);
     layout->addWidget(m_statusDot);
     layout->addWidget(m_combo, 1);
     layout->addWidget(m_openButton);
@@ -122,6 +133,14 @@ InterfaceBar::InterfaceBar(const AppContext &context, QWidget *parent)
     if (m_context.registry) {
         connect(m_context.registry, &InterfaceRegistry::changed, this, &InterfaceBar::rebuild);
     }
+
+    // rebuild() пересобирает список по InterfaceRegistry::changed(), то есть только когда
+    // устройства действительно появились, пропали или поменяли настройки. «N назад»
+    // должно тикать и без этого — отдельный лёгкий таймер трогает только текст, не список.
+    m_secondaryTextTimer = new QTimer(this);
+    m_secondaryTextTimer->setInterval(kSecondaryTextIntervalMs);
+    connect(m_secondaryTextTimer, &QTimer::timeout, this, &InterfaceBar::refreshSecondaryTexts);
+    m_secondaryTextTimer->start();
     if (m_context.theme) {
         connect(m_context.theme, &ThemeManager::themeChanged, this, [this] {
             updateIcons();
@@ -268,6 +287,23 @@ void InterfaceBar::rebuild()
     m_settingsButton->setEnabled(!currentInterfaceId().isEmpty());
 
     m_rebuilding = false;
+}
+
+void InterfaceBar::refreshSecondaryTexts()
+{
+    if (!m_context.registry || m_rebuilding)
+        return;
+
+    for (int index = 0; index < m_combo->count(); ++index) {
+        // Пустая строка — «Not selected» или заголовок группы (у него данных вовсе нет,
+        // itemData() на пустом QVariant тоже даёт пустую строку) — оба пропускаются.
+        const QString id = m_combo->itemData(index).toString();
+        if (id.isEmpty())
+            continue;
+
+        if (const InterfaceEntry *entry = m_context.registry->entry(id))
+            m_combo->setItemData(index, secondaryText(*entry), InterfaceSecondaryTextRole);
+    }
 }
 
 QString InterfaceBar::currentInterfaceId() const

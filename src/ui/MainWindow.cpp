@@ -407,6 +407,17 @@ void MainWindow::buildUi()
 
     connect(m_sendBar, &SendBar::sendRequested,
             this, [this](const QByteArray &data, SendBar::SendTarget target) {
+                // «Первый доступный» разрешается здесь, а не в SendBar: только у окна
+                // есть состояние сессий, чтобы решить, кто сейчас открыт (см.
+                // updateSendAvailability()). A предпочитается B при прочих равных — тот
+                // же порядок, в котором интерфейсы перечислены везде в интерфейсе.
+                if (target == SendBar::SendTarget::FirstAvailable) {
+                    const bool interfaceAOpen =
+                        m_context.session && m_context.session->state() == ChannelState::Open;
+                    target = interfaceAOpen ? SendBar::SendTarget::InterfaceA
+                                            : SendBar::SendTarget::InterfaceB;
+                }
+
                 if (target == SendBar::SendTarget::InterfaceA
                     || target == SendBar::SendTarget::Both) {
                     if (m_context.session)
@@ -694,7 +705,11 @@ QWidget *MainWindow::buildTerminalToolbar()
     m_toolbarLayout = new QHBoxLayout(bar);
     QHBoxLayout *layout = m_toolbarLayout;
     layout->setContentsMargins(8, 3, 8, 3);
-    layout->setSpacing(2);
+    // Тот же шаг, что и у остальных рядов с кнопками-значками в приложении — единый
+    // ThemeMetrics::gap, а не свой отдельный номер (см. InterfaceBar.cpp). Один и тот же
+    // промежуток везде в ряду, без «разделителя» между группами: addSpacing() добавлял бы
+    // его поверх уже действующего setSpacing(), а не взамен.
+    layout->setSpacing(ThemeManager::metrics().gap);
     layout->addWidget(m_hexButton);
     layout->addWidget(m_timestampButton);
     layout->addWidget(m_directionButton);
@@ -704,7 +719,6 @@ QWidget *MainWindow::buildTerminalToolbar()
     layout->addWidget(m_hideUnreadableButton);
     layout->addStretch(1);
     layout->addWidget(m_modeCombo);
-    layout->addSpacing(8);
     layout->addWidget(m_followButton);
     layout->addWidget(m_clearButton);
 
@@ -728,7 +742,7 @@ QWidget *MainWindow::buildSidePanel()
     rail->setObjectName(QStringLiteral("panelRail"));
     m_railLayout = new QVBoxLayout(rail);
     m_railLayout->setContentsMargins(4, 6, 4, 6);
-    m_railLayout->setSpacing(4);
+    m_railLayout->setSpacing(ThemeManager::metrics().gap);
 
     m_panelStack = new QStackedWidget(panel);
     m_panelStack->setMinimumWidth(kPanelStackMinWidth);

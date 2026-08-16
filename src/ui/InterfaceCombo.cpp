@@ -26,8 +26,16 @@ void InterfaceCombo::paintEvent(QPaintEvent *event)
     opt.currentText.clear();
     painter.drawComplexControl(QStyle::CC_ComboBox, opt);
 
-    const QRect textRect =
+    // Правый край — не по SC_ComboBoxEditField: QSS резервирует под стрелку 24px
+    // (spotty.qss, правило QComboBox), а сама стрелка уже влезает в 22px из них — остаток
+    // до края поля читался бы как пустая полоса перед служебными сведениями. Правый край
+    // берётся напрямую от SC_ComboBoxArrow, вплотную к стрелке.
+    const QRect arrowRect =
+        style()->subControlRect(QStyle::CC_ComboBox, &opt, QStyle::SC_ComboBoxArrow, this);
+    QRect rect =
         style()->subControlRect(QStyle::CC_ComboBox, &opt, QStyle::SC_ComboBoxEditField, this);
+    rect.setRight(arrowRect.left() - 2);
+    rect.adjust(2, 0, 0, 0);
 
     const ThemeColors colors =
         ThemeManager::instance() ? ThemeManager::instance()->colors() : ThemeColors{};
@@ -37,7 +45,9 @@ void InterfaceCombo::paintEvent(QPaintEvent *event)
     const QColor primaryColor = foreground.canConvert<QColor>() ? foreground.value<QColor>()
                                                                  : palette().color(QPalette::Text);
 
-    paintInterfaceRow(&painter, textRect.adjusted(2, 0, -2, 0), currentText(),
+    painter.setFont(font());
+
+    paintInterfaceRow(&painter, rect, currentText(),
                       currentData(InterfaceSecondaryTextRole).toString(), primaryColor,
                       colors.textMuted, font());
 }

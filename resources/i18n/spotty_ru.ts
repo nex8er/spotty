@@ -1900,6 +1900,10 @@ Double-click to edit, right-click for options</source>
         <translation>Оба</translation>
     </message>
     <message>
+        <source>First available</source>
+        <translation>Первый доступный</translation>
+    </message>
+    <message>
         <source>Save as macro</source>
         <translation>Сохранить как макрос</translation>
     </message>

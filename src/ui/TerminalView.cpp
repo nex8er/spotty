@@ -87,6 +87,9 @@ constexpr int kMarkerRefreshMs = 250;
 /// \brief Насколько приглушается цвет правила подсветки под текстом.
 constexpr int kHighlightAlpha = 64;
 
+/// \brief Непрозрачность подложки под служебные колонки — 2%, то есть 98% прозрачности.
+constexpr int kGutterBackgroundAlpha = 224;
+
 /**
  * \brief Отметка направления обмена.
  *
@@ -368,6 +371,10 @@ void TerminalView::setShowTimestamps(bool show)
     if (m_showTimestamps == show)
         return;
     m_showTimestamps = show;
+    // Меняет ширину колонки меток времени, а значит и gutterWidth(): без пересчёта
+    // диапазона горизонтальная полоса осталась бы со старым значением, и на прокрученной
+    // вбок строке текст съезжал бы под служебные колонки (см. AGENTS.md).
+    updateScrollBars();
     viewport()->update();
 }
 
@@ -376,12 +383,14 @@ void TerminalView::setRelativeTimestamps(bool relative)
     if (m_relativeTimestamps == relative)
         return;
     m_relativeTimestamps = relative;
+    updateScrollBars();
     viewport()->update();
 }
 
 void TerminalView::setTimestampFormat(const QString &format)
 {
     m_timestampFormat = format;
+    updateScrollBars();
     viewport()->update();
 }
 
@@ -390,6 +399,7 @@ void TerminalView::setShowDirection(bool show)
     if (m_showDirection == show)
         return;
     m_showDirection = show;
+    updateScrollBars();
     viewport()->update();
 }
 
@@ -877,13 +887,28 @@ int TerminalView::lineNumberColumns() const
 int TerminalView::gutterWidth() const
 {
     int columns = lineNumberColumns();
-    if (m_showSource)
+
+    // Последнее поле само решает, нужен ли kGutterGap: у номера строк, метки времени и
+    // отметки направления уже встроен завершающий пробел (rightJustified() внутри
+    // lineNumberColumns(), «+1» в timestampColumns(), сам вид «> »/«< »/«* »), и добавлять
+    // ещё один поверх — растягивать gutter шире минимально необходимого. У отметки
+    // транспорта («A:») пробела нет, и если она последняя из показанных, разделитель нужен
+    // по-настоящему: без него следующий за ней текст слипся бы с двоеточием.
+    bool lastFieldHasTrailingSpace = m_showLineNumbers;
+
+    if (m_showSource) {
         columns += kSourceWidth;
-    if (m_showTimestamps)
+        lastFieldHasTrailingSpace = false;
+    }
+    if (m_showTimestamps) {
         columns += timestampColumns();
-    if (m_showDirection)
+        lastFieldHasTrailingSpace = true;
+    }
+    if (m_showDirection) {
         columns += kDirectionWidth;
-    if (columns > 0)
+        lastFieldHasTrailingSpace = true;
+    }
+    if (columns > 0 && !lastFieldHasTrailingSpace)
         columns += kGutterGap;
     return columns * m_charWidth;
 }
@@ -1136,52 +1161,6 @@ void TerminalView::paintEvent(QPaintEvent *event)
             painter.fillRect(0, y, viewport()->width(), m_lineHeight, tint);
         }
 
-        // Колонки слева не прокручиваются вбок: метка времени и направление должны
-        // оставаться на виду при горизонтальной прокрутке длинной строки.
-        if (row == 0) {
-            int gutterX = kLeftMargin;
-            painter.setPen(colors.textMuted);
-
-            if (m_showLineNumbers) {
-                const int columns = lineNumberColumns();
-                // Номер прижат вправо внутри своей колонки: у выключенного по левому краю
-                // столбца разной длины единицы не выстраиваются друг под другом, и
-                // сравнить два номера глазами становится нельзя.
-                const QString number = QString::number(lineNumber - m_lineNumberOrigin)
-                                           .rightJustified(columns - 1, u' ');
-                painter.drawText(gutterX, textY, number);
-                gutterX += columns * m_charWidth;
-            }
-
-            if (m_showSource) {
-                // Буква, а не цвет: цветом уже размечено направление, и второй цветовой
-                // признак в той же колонке спорил бы с первым. Буква читается и на
-                // чёрно-белом снимке экрана.
-                painter.drawText(gutterX, textY,
-                                 QString(QChar(u'A' + line->source)) + u':');
-                gutterX += kSourceWidth * m_charWidth;
-            }
-
-            if (m_showTimestamps) {
-                painter.drawText(gutterX, textY, timestampText(*line, lineNumber));
-                gutterX += timestampColumns() * m_charWidth;
-            }
-            if (m_showDirection) {
-                switch (line->direction) {
-                case DataDirection::Tx:
-                    painter.setPen(colors.txText);
-                    break;
-                case DataDirection::System:
-                    painter.setPen(colors.accent);
-                    break;
-                case DataDirection::Rx:
-                    painter.setPen(colors.textMuted);
-                    break;
-                }
-                painter.drawText(gutterX, textY, directionMark(line->direction));
-            }
-        }
-
         const int contentX = kLeftMargin + gutter + xOffset;
 
         // Совпадения поиска — под текстом, но над подсветкой правил.
@@ -1293,6 +1272,65 @@ void TerminalView::paintEvent(QPaintEvent *event)
             painter.setPen(colors.accentText);
             painter.drawText(matchX, textY,
                              content.mid(currentRange.first, currentRange.second));
+        }
+
+        // Колонки слева не прокручиваются вбок: метка времени и направление должны
+        // оставаться на виду при горизонтальной прокрутке длинной строки. Рисуются
+        // последними в ряду, а не первыми: при узком окне contentX может оказаться внутри
+        // их собственной area (полоса прокрутки не гасится до нуля, пока сама ширина
+        // gutterWidth() не помещается в viewport, а не только когда не помещается текст) —
+        // и без подложки под ними полезная нагрузка наползала бы на буквы служебных меток.
+        // Заливка рисуется здесь же, поверх уже нарисованного payload этого ряда, поэтому
+        // маскирует его в области gutter'а вне зависимости от того, куда он уехал. Цвет —
+        // фон терминала (colors.base), а не отдельный оттенок: при 98% прозрачности заметна
+        // только сама альфа, и чужой цвет здесь ничего бы не добавил, кроме риска не
+        // совпасть с темой.
+        if (row == 0) {
+            QColor gutterBackground = colors.base;
+            gutterBackground.setAlpha(kGutterBackgroundAlpha);
+            painter.fillRect(0, y, kLeftMargin + gutter, m_lineHeight, gutterBackground);
+
+            int gutterX = kLeftMargin;
+            painter.setPen(colors.textMuted);
+
+            if (m_showLineNumbers) {
+                const int columns = lineNumberColumns();
+                // Номер прижат вправо внутри своей колонки: у выключенного по левому краю
+                // столбца разной длины единицы не выстраиваются друг под другом, и
+                // сравнить два номера глазами становится нельзя.
+                const QString number = QString::number(lineNumber - m_lineNumberOrigin)
+                                           .rightJustified(columns - 1, u' ');
+                painter.drawText(gutterX, textY, number);
+                gutterX += columns * m_charWidth;
+            }
+
+            if (m_showSource) {
+                // Буква, а не цвет: цветом уже размечено направление, и второй цветовой
+                // признак в той же колонке спорил бы с первым. Буква читается и на
+                // чёрно-белом снимке экрана.
+                painter.drawText(gutterX, textY,
+                                 QString(QChar(u'A' + line->source)) + u':');
+                gutterX += kSourceWidth * m_charWidth;
+            }
+
+            if (m_showTimestamps) {
+                painter.drawText(gutterX, textY, timestampText(*line, lineNumber));
+                gutterX += timestampColumns() * m_charWidth;
+            }
+            if (m_showDirection) {
+                switch (line->direction) {
+                case DataDirection::Tx:
+                    painter.setPen(colors.txText);
+                    break;
+                case DataDirection::System:
+                    painter.setPen(colors.accent);
+                    break;
+                case DataDirection::Rx:
+                    painter.setPen(colors.textMuted);
+                    break;
+                }
+                painter.drawText(gutterX, textY, directionMark(line->direction));
+            }
         }
 
         y += m_lineHeight;

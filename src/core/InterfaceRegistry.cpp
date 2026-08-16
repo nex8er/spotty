@@ -87,6 +87,12 @@ void InterfaceRegistry::restorePersisted(InterfaceEntry &entry, const QString &i
 
 void InterfaceRegistry::refresh()
 {
+    // Захватывается до первого изменения состояния этим самым вызовом: появления,
+    // найденные НИЖЕ в этом refresh(), должны узнать, что они — самое первое обнаружение
+    // программы, а не отличить его от собственной же правки m_firstRefreshDone.
+    const bool isFirstRefresh = !m_firstRefreshDone;
+    m_firstRefreshDone = true;
+
     QHash<QString, InterfaceDescriptor> seen;
     for (IInterfacePlugin *plugin : m_plugins->plugins()) {
         const QList<InterfaceDescriptor> descriptors = plugin->enumerate();
@@ -128,7 +134,12 @@ void InterfaceRegistry::refresh()
         entry.present = true;
 
         if (!wasPresent) {
-            entry.discoveredAt = QDateTime::currentDateTime();
+            // На самом первом опросе «появившееся» на деле уже стояло в системе — просто
+            // Spotty только что запустился и увидел это впервые. Когда оно было подключено
+            // на самом деле, неизвестно, и оставлять discoveredAt недействительным честнее,
+            // чем подставлять текущее время (см. \note у InterfaceEntry::discoveredAt).
+            if (!isFirstRefresh)
+                entry.discoveredAt = QDateTime::currentDateTime();
             appeared.append(it.key());
             persist(it.key());
             dirty = true;

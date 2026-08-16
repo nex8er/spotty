@@ -141,7 +141,9 @@ LoggingPanel::LoggingPanel(IPanelHost *panelHost, QWidget *parent)
     // --- Управление записью ----------------------------------------------------------
 
     auto *controlRow = new QHBoxLayout;
-    controlRow->setSpacing(6);
+    // Тот же шаг, что и у остальных рядов с кнопками-значками в приложении — общий
+    // IPanelHost::Metric::Gap, а не свой отдельный номер.
+    controlRow->setSpacing(host()->metric(IPanelHost::Metric::Gap));
 
     m_recordButton = new QToolButton(this);
     m_recordButton->setAutoRaise(true);

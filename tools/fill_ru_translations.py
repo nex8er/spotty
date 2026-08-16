@@ -168,6 +168,7 @@ TRANSLATIONS = {
     "Interface A": "Интерфейс A",
     "Interface B": "Интерфейс B",
     "Both": "Оба",
+    "First available": "Первый доступный",
     "The interface is not open.": "Интерфейс не открыт.",
     "No interface selected.": "Интерфейс не выбран.",
     "Fill in the required settings to open this interface.":

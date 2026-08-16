@@ -88,7 +88,9 @@ SearchPanel::SearchPanel(IPanelHost *panelHost, QWidget *parent)
     // не косметическое — левая группа меняет, что считать совпадением, правая ходит по
     // уже найденному. Растяжка между ними и есть граница смысла.
     auto *toolRow = new QHBoxLayout;
-    toolRow->setSpacing(2);
+    // Тот же шаг, что и у остальных рядов с кнопками-значками в приложении — общий
+    // IPanelHost::Metric::Gap, а не свой отдельный номер.
+    toolRow->setSpacing(host()->metric(IPanelHost::Metric::Gap));
 
     const auto makeToggle = [this](const QString &tip) {
         auto *button = new QToolButton(this);
@@ -152,7 +154,7 @@ SearchPanel::SearchPanel(IPanelHost *panelHost, QWidget *parent)
     layout->addWidget(m_rules, 1);
 
     auto *ruleButtons = new QHBoxLayout;
-    ruleButtons->setSpacing(4);
+    ruleButtons->setSpacing(host()->metric(IPanelHost::Metric::Gap));
 
     m_addRule = new QToolButton(this);
     m_addRule->setAutoRaise(true);

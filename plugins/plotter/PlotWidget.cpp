@@ -48,7 +48,10 @@ PlotWidget::PlotWidget(IPanelHost *panelHost, PlotModel *model, PlotViewState *v
 
     auto *row = new QHBoxLayout;
     row->setContentsMargins(4, 0, 4, 0);
-    row->setSpacing(2);
+    // Тот же шаг, что и у остальных рядов с кнопками-значками в приложении — общий
+    // IPanelHost::Metric::Gap, а не свой отдельный номер.
+    const int gap = m_host->metric(IPanelHost::Metric::Gap);
+    row->setSpacing(gap);
 
     // Одна кнопка на пуск и паузу, а не две: состояний два, и они взаимоисключающие —
     // вторая кнопка всегда была бы неактивной половиной пары.
@@ -69,8 +72,6 @@ PlotWidget::PlotWidget(IPanelHost *panelHost, PlotModel *model, PlotViewState *v
         m_follow->setChecked(on);
     });
     row->addWidget(m_follow);
-
-    row->addSpacing(8);
 
     m_mode = makeButton(mdi::ChartLine, tr("What the plot shows"));
     connect(m_mode, &QToolButton::clicked, this, &PlotWidget::showModeMenu);

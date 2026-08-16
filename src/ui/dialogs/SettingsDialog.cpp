@@ -10,6 +10,7 @@
 #include "../SchemaForm.h"
 
 #include "InterfaceSettingsPanel.h"
+#include "theme/ThemeManager.h"
 
 #include <spotty/data/DataCodec.h>
 #include <terminal/Packetizer.h>
@@ -343,7 +344,10 @@ QWidget *SettingsDialog::buildTerminalPage()
     auto *paletteLayout = new QVBoxLayout(paletteBox);
 
     auto *swatchRow = new QHBoxLayout;
-    swatchRow->setSpacing(3);
+    // Тот же шаг, что и у остальных рядов с кнопками-значками в приложении — единый
+    // ThemeMetrics::gap, а не свой отдельный номер (см. InterfaceBar.cpp), и без
+    // разделителя между восьмёрками: тот же зазор, что и везде в ряду.
+    swatchRow->setSpacing(ThemeManager::metrics().gap);
     for (int i = 0; i < 16; ++i) {
         auto *button = new QToolButton(paletteBox);
         button->setFixedSize(kSwatchSize, kSwatchSize);
@@ -358,8 +362,6 @@ QWidget *SettingsDialog::buildTerminalPage()
         });
         m_paletteButtons.append(button);
         swatchRow->addWidget(button);
-        if (i == 7)
-            swatchRow->addSpacing(8);
     }
     swatchRow->addStretch(1);
     paletteLayout->addLayout(swatchRow);
