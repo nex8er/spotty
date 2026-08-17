@@ -8,7 +8,7 @@
 #   apt install doxygen graphviz
 
 PROJECT_NAME           = "Spotty"
-PROJECT_NUMBER         = "0.3.1a"
+PROJECT_NUMBER         = "0.4.0a"
 PROJECT_BRIEF          = "Модульный терминал-монитор портов"
 
 OUTPUT_DIRECTORY       = docs

@@ -259,6 +259,12 @@ int PanelHostImpl::currentMatch() const
     return terminal ? terminal->currentMatch() : 0;
 }
 
+QString PanelHostImpl::selectedText() const
+{
+    TerminalView *terminal = m_window ? m_window->terminalView() : nullptr;
+    return terminal ? terminal->selectedText() : QString();
+}
+
 // --- Терминал: чтение строк ------------------------------------------------------------------
 
 qint64 PanelHostImpl::firstLineNumber() const

@@ -248,6 +248,9 @@ public:
      */
     virtual int currentMatch() const = 0;
 
+    /// \brief Текущее выделение в терминале; пустая строка, если ничего не выделено.
+    virtual QString selectedText() const = 0;
+
     /// @}
     /// \name Чтение разобранных строк
     /// @{

@@ -79,6 +79,7 @@ public:
     void findPrevious() override;
     int matchCount() const override;
     int currentMatch() const override;
+    QString selectedText() const override;
 
     qint64 firstLineNumber() const override;
     qint64 nextLineNumber() const override;

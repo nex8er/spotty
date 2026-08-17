@@ -13,7 +13,9 @@
 #include <terminal/TerminalBuffer.h>
 
 #include <QAbstractScrollArea>
+#include <QElapsedTimer>
 #include <QFont>
+#include <QPoint>
 #include <QRegularExpression>
 #include <QString>
 
@@ -422,8 +424,29 @@ private:
     /// \brief Положение содержимого по точке в области просмотра.
     Position positionAt(const QPoint &viewportPoint) const;
 
+    /// \brief Выделить целиком ряд под точкой — тройной щелчок.
+    void selectRowAt(const QPoint &viewportPoint);
+
     /// \brief Нормализованные границы выделения.
     bool selectionRange(Position *from, Position *to) const;
+
+    /// \brief Сквозной номер ряда (как в positionAtRow()), на который указывает position.
+    qint64 absoluteRowOf(const Position &position) const;
+
+    /// \brief Текст ряда, на который указывает position; пустая строка вне буфера.
+    QString rowTextAt(const Position &position) const;
+
+    /**
+     * \brief Курсор на одну позицию в сторону стрелки.
+     *
+     * Влево/вправо переходят через границу ряда — конец одного и начало следующего
+     * склеены, как в любом текстовом поле. Вверх/вниз по возможности сохраняют столбец, а
+     * не сбрасывают его: перебор строк колонкой вниз — обычное дело при чтении лога.
+     */
+    Position moveCursor(const Position &from, Qt::Key key) const;
+
+    /// \brief Прокрутить так, чтобы ряд с курсором был виден.
+    void ensureRowVisible(qint64 absoluteRow);
 
     /// \brief Запросить перерисовку не чаще, чем позволяет частота обновления.
     void scheduleRepaint();
@@ -500,6 +523,18 @@ private:
     Position m_selectionAnchor;
     Position m_selectionCursor;
     bool m_selecting = false;
+
+    /**
+     * \name Тройной щелчок
+     *
+     * Qt сам порождает событие двойного щелчка, но не тройного: третье нажатие снова
+     * приходит обычным mousePressEvent(). Отличить его от нового, не связанного клика
+     * помогают время и расстояние от только что случившегося двойного щелчка.
+     */
+    /// @{
+    QElapsedTimer m_lastDoubleClickTimer;
+    QPoint m_lastDoubleClickPos;
+    /// @}
 
     QTimer *m_repaintTimer = nullptr;
 };

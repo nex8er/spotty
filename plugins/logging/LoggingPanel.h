@@ -15,6 +15,7 @@ class QComboBox;
 class QTimer;
 class QLabel;
 class QMimeData;
+class QMouseEvent;
 class QToolButton;
 
 namespace spotty {
@@ -40,10 +41,24 @@ public:
 protected:
     void startDrag(Qt::DropActions supportedActions) override;
     void keyPressEvent(QKeyEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
 
 private:
     /// \return Данные для переноса или `nullptr`, если выделять нечего.
     QMimeData *mimeDataForSelection() const;
+
+    /**
+     * \brief Вернуть групповое выделение, если базовый класс его схлопнул.
+     * \param event Событие мыши, уже обработанное базовым классом.
+     * \param before Выделение непосредственно перед вызовом базового обработчика.
+     *
+     * Общий код для mousePressEvent() и mouseReleaseEvent() — щелчок правой кнопкой по
+     * уже выделенной группе не должен сужать её до одного пункта, а Qt делает это на одном
+     * из двух событий в зависимости от платформы и версии.
+     */
+    void restoreGroupSelectionAfterRightClick(QMouseEvent *event,
+                                              const QList<QListWidgetItem *> &before);
 };
 
 /**

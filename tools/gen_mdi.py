@@ -39,6 +39,7 @@ content-duplicate file-import file-export chart-line file-upload format-list-num
 format-letter-case regex format-letter-matches image-broken-variant
 chart-areaspline axis-y-arrow format-columns arrow-collapse-right monitor-screenshot
 chart-scatter-plot chart-bell-curve chart-bell-curve-cumulative poll chart-multiple
+target-variant
 """.split()
 
 HEADER = Path(__file__).resolve().parent.parent / "include" / "spotty" / "ui" / "MdiCodepoints.h"

@@ -1826,6 +1826,10 @@ Double-click to edit, right-click for options</source>
         <translation>Удалить правило</translation>
     </message>
     <message>
+        <source>Add a highlight rule from the search pattern</source>
+        <translation>Добавить правило подсветки из образца поиска</translation>
+    </message>
+    <message>
         <source>Find...</source>
         <translation>Найти…</translation>
     </message>

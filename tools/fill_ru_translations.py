@@ -280,6 +280,7 @@ TRANSLATIONS = {
     "Highlight colour": "Цвет подсветки",
     "Add rule": "Добавить правило",
     "Delete rule": "Удалить правило",
+    "Add a highlight rule from the search pattern": "Добавить правило подсветки из образца поиска",
     "Double-click to change": "Двойной щелчок меняет цвет",
 
     # --- Генератор ---

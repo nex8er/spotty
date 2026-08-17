@@ -1469,6 +1469,22 @@ TerminalView::Position TerminalView::positionAt(const QPoint &point) const
     return position;
 }
 
+void TerminalView::selectRowAt(const QPoint &viewportPoint)
+{
+    if (!m_buffer)
+        return;
+
+    const Position at = positionAt(viewportPoint);
+    const TerminalBuffer::Line *line = at.isValid() ? m_buffer->line(at.lineNumber) : nullptr;
+    if (!line)
+        return;
+
+    // Тот же ряд, что выделяет двойной щелчок словом, — не вся логическая строка буфера: в
+    // HEX один ряд экрана и есть её осмысленная единица, а не весь дамп в несколько рядов.
+    m_selectionAnchor = Position{at.lineNumber, at.row, 0};
+    m_selectionCursor = Position{at.lineNumber, at.row, int(rowText(*line, at.row).size())};
+}
+
 bool TerminalView::selectionRange(Position *from, Position *to) const
 {
     if (!m_selectionAnchor.isValid() || !m_selectionCursor.isValid())
@@ -1486,6 +1502,78 @@ bool TerminalView::selectionRange(Position *from, Position *to) const
     return true;
 }
 
+qint64 TerminalView::absoluteRowOf(const Position &position) const
+{
+    if (!position.isValid())
+        return 0;
+    const int index = visibleIndexOf(position.lineNumber);
+    if (index < 0)
+        return 0;
+    return rowOfVisibleIndex(index) + position.row;
+}
+
+QString TerminalView::rowTextAt(const Position &position) const
+{
+    if (!m_buffer || !position.isValid())
+        return {};
+    const TerminalBuffer::Line *line = m_buffer->line(position.lineNumber);
+    return line ? rowText(*line, position.row) : QString();
+}
+
+TerminalView::Position TerminalView::moveCursor(const Position &from, Qt::Key key) const
+{
+    if (!m_buffer || m_visible.empty() || !from.isValid())
+        return from;
+
+    if (key == Qt::Key_Left || key == Qt::Key_Right) {
+        if (key == Qt::Key_Right) {
+            const int length = int(rowTextAt(from).size());
+            if (from.column < length)
+                return Position{from.lineNumber, from.row, from.column + 1};
+
+            const qint64 nextRow = absoluteRowOf(from) + 1;
+            if (nextRow >= m_totalRows)
+                return from; // Уже конец последнего ряда — дальше идти некуда.
+            Position next = positionAtRow(nextRow);
+            next.column = 0;
+            return next;
+        }
+
+        if (from.column > 0)
+            return Position{from.lineNumber, from.row, from.column - 1};
+
+        const qint64 previousRow = absoluteRowOf(from) - 1;
+        if (previousRow < 0)
+            return from;
+        Position previous = positionAtRow(previousRow);
+        previous.column = int(rowTextAt(previous).size());
+        return previous;
+    }
+
+    // Вверх/вниз: тот же столбец, если ряд достаточно длинный, иначе — его конец. Сброс
+    // столбца в 0 при каждом переходе заставлял бы набирать его заново на каждой строке.
+    const qint64 delta = (key == Qt::Key_Up) ? -1 : 1;
+    const qint64 targetRow = absoluteRowOf(from) + delta;
+    if (targetRow < 0 || targetRow >= m_totalRows)
+        return from;
+
+    Position next = positionAtRow(targetRow);
+    next.column = qBound(0, from.column, int(rowTextAt(next).size()));
+    return next;
+}
+
+void TerminalView::ensureRowVisible(qint64 absoluteRow)
+{
+    if (absoluteRow < verticalScrollBar()->value()) {
+        verticalScrollBar()->setValue(int(absoluteRow));
+        return;
+    }
+
+    const int visibleRows = qMax(1, viewport()->height() / m_lineHeight);
+    if (absoluteRow >= verticalScrollBar()->value() + visibleRows)
+        verticalScrollBar()->setValue(int(absoluteRow - visibleRows + 1));
+}
+
 bool TerminalView::hasSelection() const
 {
     Position from;
@@ -1499,6 +1587,21 @@ void TerminalView::mousePressEvent(QMouseEvent *event)
         QAbstractScrollArea::mousePressEvent(event);
         return;
     }
+
+    // Третий щелчок подряд — выделение всего ряда. Qt сам порождает событие двойного
+    // щелчка, но не тройного: это нажатие снова приходит обычным mousePressEvent(), и от
+    // нового, не связанного клика его отличают время и расстояние от того самого двойного
+    // (см. mouseDoubleClickEvent()).
+    if (m_lastDoubleClickTimer.isValid()
+        && m_lastDoubleClickTimer.elapsed() <= QApplication::doubleClickInterval()
+        && (event->pos() - m_lastDoubleClickPos).manhattanLength()
+               <= QApplication::startDragDistance()) {
+        m_lastDoubleClickTimer.invalidate();
+        selectRowAt(event->pos());
+        viewport()->update();
+        return;
+    }
+    m_lastDoubleClickTimer.invalidate();
 
     m_selectionAnchor = positionAt(event->pos());
     m_selectionCursor = m_selectionAnchor;
@@ -1538,6 +1641,12 @@ void TerminalView::mouseDoubleClickEvent(QMouseEvent *event)
         QAbstractScrollArea::mouseDoubleClickEvent(event);
         return;
     }
+
+    // Запоминается сразу, а не после успешного выделения слова: тройной щелчок должен
+    // распознаваться и на пустом ряду, где выделять словом нечего (ветки ниже выходят
+    // раньше, но третье нажатие всё равно обязано сработать).
+    m_lastDoubleClickTimer.restart();
+    m_lastDoubleClickPos = event->pos();
 
     // Двойной щелчок выделяет слово: разделителями считаем всё, что не буква, не цифра и
     // не подчёркивание.
@@ -1591,6 +1700,31 @@ void TerminalView::keyPressEvent(QKeyEvent *event)
         event->accept();
         return;
     }
+
+    // Курсор — тот же m_selectionCursor, которым уже пользуется протаскивание мышью:
+    // стрелка без Shift переносит его и схлопывает выделение в точку, Shift двигает только
+    // его, оставляя якорь на месте, — обычное поведение любого текстового поля. Другие
+    // сочетания со стрелками (Ctrl, Alt) не трогаем — их не просили.
+    if ((event->key() == Qt::Key_Left || event->key() == Qt::Key_Right
+         || event->key() == Qt::Key_Up || event->key() == Qt::Key_Down)
+        && m_buffer && !m_visible.empty()) {
+        const Qt::KeyboardModifiers mods = event->modifiers() & ~Qt::KeypadModifier;
+        if (mods == Qt::NoModifier || mods == Qt::ShiftModifier) {
+            if (!m_selectionCursor.isValid())
+                m_selectionAnchor = m_selectionCursor = positionAtRow(verticalScrollBar()->value());
+
+            const Position moved = moveCursor(m_selectionCursor, Qt::Key(event->key()));
+            if (mods != Qt::ShiftModifier)
+                m_selectionAnchor = moved;
+            m_selectionCursor = moved;
+
+            ensureRowVisible(absoluteRowOf(moved));
+            viewport()->update();
+            event->accept();
+            return;
+        }
+    }
+
     QAbstractScrollArea::keyPressEvent(event);
 }
 

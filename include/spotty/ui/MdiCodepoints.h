@@ -84,5 +84,6 @@ inline constexpr char32_t ChartBellCurve = 0xF0C50;
 inline constexpr char32_t ChartBellCurveCumulative = 0xF0FA7;
 inline constexpr char32_t Poll = 0xF041F;
 inline constexpr char32_t ChartMultiple = 0xF1213;
+inline constexpr char32_t TargetVariant = 0xF0A77;
 
 } // namespace spotty::mdi

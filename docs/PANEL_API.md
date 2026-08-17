@@ -2,7 +2,7 @@
 
 Плагины, которые обрабатывают данные и показывают собственный интерфейс.
 
-**Версия API:** 2 (`SPOTTY_UI_API_VERSION`)
+**Версия API:** 4 (`SPOTTY_UI_API_VERSION`)
 
 Про плагины **транспортов** — отдельный документ: [PLUGIN_API.md](PLUGIN_API.md).
 
@@ -208,7 +208,7 @@ QString documentsDir() const;  // для файлов, которые откро
 
 Запись: `appendToTerminal()`, `injectReceived()`, `clearTerminal()`, `showDocument()`.
 Показ: `setHighlightRules()`, `setSearchPattern()`, `setFilterEnabled()`, `findNext()`,
-`findPrevious()`, `matchCount()`, `currentMatch()`.
+`findPrevious()`, `matchCount()`, `currentMatch()`, `selectedText()`.
 Чтение: `firstLineNumber()`, `nextLineNumber()`, `line(number, TerminalLine *)`.
 
 > Нумерация строк сквозная и никогда не сбрасывается, но буфер подрезается спереди —
@@ -410,6 +410,14 @@ add_subdirectory(mypanel)
 основную версию, не заметив панельную, не получится.
 
 > Добавление виртуального метода **в конец** класса ломает ABI и здесь тоже.
+
+### История версий
+
+| Версия | Что изменилось |
+|---|---|
+| 4 | `IPanelHost::selectedText()` — чтение текущего выделения терминала. Вставлен не в конец, а между `currentMatch()` и разделом чтения строк: сдвигает vtable-смещения ещё сильнее, чем добавление в конец, поэтому версию поднимать обязательно даже при, казалось бы, «маленькой» правке |
+| 3 | Дотянулась правка `SettingsField::live` в основном API — панельные плагины тоже возвращают `SettingsSchema` |
+| 2 | Первый выпуск с текущей раскладкой `IPanelHost` |
 
 ---
 

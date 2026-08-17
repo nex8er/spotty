@@ -103,6 +103,9 @@ private:
     QToolButton *m_addRule = nullptr;
     QToolButton *m_removeRule = nullptr;
 
+    /// \brief Завести правило подсветки из текущего образца поиска. Случайный цвет.
+    QToolButton *m_addRuleFromSearch = nullptr;
+
     /// \brief Признак программного заполнения таблицы — гасит обработчик изменений.
     bool m_populating = false;
 

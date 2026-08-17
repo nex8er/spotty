@@ -26,6 +26,7 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QMimeData>
+#include <QMouseEvent>
 #include <QSignalBlocker>
 #include <QToolButton>
 #include <QUrl>
@@ -118,6 +119,47 @@ void LogFileList::copySelectedFiles()
 {
     if (QMimeData *mime = mimeDataForSelection())
         QApplication::clipboard()->setMimeData(mime);
+}
+
+void LogFileList::mousePressEvent(QMouseEvent *event)
+{
+    const QList<QListWidgetItem *> before = selectedItems();
+    QListWidget::mousePressEvent(event);
+    restoreGroupSelectionAfterRightClick(event, before);
+}
+
+void LogFileList::mouseReleaseEvent(QMouseEvent *event)
+{
+    // Qt схлопывает групповое выделение до одного пункта под курсором при щелчке правой
+    // кнопкой — Shift/Ctrl тут не помогают, у самого щелчка их нет, — но неизвестно
+    // заранее, на каком именно из двух событий: QAbstractItemView откладывает решение до
+    // отпускания кнопки специально ради перетаскивания уже выделенной группы, и левая
+    // кнопка схлопывает выделение только здесь, а не по нажатию. Оба обработчика поэтому
+    // одинаковы: снять с базового класса винить некого, какой бы из двух он ни выбрал —
+    // после него выделение просто возвращается на место.
+    const QList<QListWidgetItem *> before = selectedItems();
+    QListWidget::mouseReleaseEvent(event);
+    restoreGroupSelectionAfterRightClick(event, before);
+}
+
+void LogFileList::restoreGroupSelectionAfterRightClick(QMouseEvent *event,
+                                                        const QList<QListWidgetItem *> &before)
+{
+    // Восстанавливать есть смысл только настоящую группу: единственный выделенный пункт —
+    // это уже то самое поведение, которое ожидают от щелчка мимо группы.
+    if (event->button() != Qt::RightButton || before.size() <= 1)
+        return;
+
+    QListWidgetItem *clicked = itemAt(event->pos());
+    // Клик мимо группы (по невыделенному пункту или в пустое место) — начало нового
+    // выделения, а не продолжение старого; его трогать нельзя.
+    if (!clicked || !before.contains(clicked))
+        return;
+
+    const QSignalBlocker blocker(this);
+    for (QListWidgetItem *item : before)
+        item->setSelected(true);
+    setCurrentItem(clicked);
 }
 
 void LogFileList::keyPressEvent(QKeyEvent *event)

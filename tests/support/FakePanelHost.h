@@ -43,6 +43,7 @@ public:
     QHash<QString, QVariant> settings;
     QStringList statusMessages;
     QString alias = QStringLiteral("fake");
+    QString selection;
     /// @}
 
     QString pluginId() const override { return QStringLiteral("plotter"); }
@@ -86,6 +87,7 @@ public:
     void findPrevious() override {}
     int matchCount() const override { return 0; }
     int currentMatch() const override { return 0; }
+    QString selectedText() const override { return selection; }
 
     qint64 firstLineNumber() const override { return 0; }
     qint64 nextLineNumber() const override { return 0; }

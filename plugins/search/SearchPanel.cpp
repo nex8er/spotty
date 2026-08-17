@@ -16,6 +16,8 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
+#include <QRandomGenerator>
+#include <QRegularExpression>
 #include <QTableWidget>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -49,6 +51,19 @@ QColor toColor(quint32 rgb)
 quint32 fromColor(const QColor &color)
 {
     return (quint32(color.red()) << 16) | (quint32(color.green()) << 8) | quint32(color.blue());
+}
+
+/**
+ * \brief Случайный, но пригодный для подсветки цвет.
+ *
+ * Оттенок случайный, а насыщенность и яркость — в узком диапазоне: равномерно случайный
+ * RGB время от времени давал бы то почти чёрный, то почти белый цвет, который на одной из
+ * тем неотличим от фона.
+ */
+QColor randomHighlightColor()
+{
+    const int hue = QRandomGenerator::global()->bounded(360);
+    return QColor::fromHsv(hue, 170, 220);
 }
 
 /// \brief Квадратик выбранного цвета с тонкой обводкой.
@@ -164,8 +179,13 @@ SearchPanel::SearchPanel(IPanelHost *panelHost, QWidget *parent)
     m_removeRule->setAutoRaise(true);
     m_removeRule->setToolTip(tr("Delete rule"));
 
+    m_addRuleFromSearch = new QToolButton(this);
+    m_addRuleFromSearch->setAutoRaise(true);
+    m_addRuleFromSearch->setToolTip(tr("Add a highlight rule from the search pattern"));
+
     ruleButtons->addWidget(m_addRule);
     ruleButtons->addWidget(m_removeRule);
+    ruleButtons->addWidget(m_addRuleFromSearch);
     ruleButtons->addStretch(1);
     layout->addLayout(ruleButtons);
 
@@ -205,6 +225,12 @@ SearchPanel::SearchPanel(IPanelHost *panelHost, QWidget *parent)
         if (!id.endsWith(QLatin1String(".focus")))
             return;
         host()->activatePanel(QStringLiteral("search"));
+        // Выделенный в терминале текст — то, что почти наверняка и хотят найти: незачем
+        // заставлять набирать его заново. Пустое выделение ничего не подставляет — образец
+        // остаётся прежним, а не стирается новым пустым.
+        const QString selected = host()->selectedText();
+        if (!selected.isEmpty())
+            m_pattern->setText(selected);
         focusSearch();
     });
 
@@ -246,6 +272,24 @@ SearchPanel::SearchPanel(IPanelHost *panelHost, QWidget *parent)
         commitRules();
     });
 
+    connect(m_addRuleFromSearch, &QToolButton::clicked, this, [this] {
+        const QString text = m_pattern->text();
+        if (text.isEmpty())
+            return;
+
+        HighlightRule rule;
+        // Правило подсветки всегда регулярное выражение, а образец поиска — не всегда:
+        // без экранирования литеральный «3.14» подсветил бы заодно и «3X14».
+        rule.pattern = m_regex->isChecked() ? text : QRegularExpression::escape(text);
+        rule.caseSensitive = m_caseSensitive->isChecked();
+        rule.color = fromColor(randomHighlightColor());
+        appendRuleRow(rule);
+        commitRules();
+    });
+    connect(m_pattern, &QLineEdit::textChanged, this,
+            [this] { m_addRuleFromSearch->setEnabled(!m_pattern->text().isEmpty()); });
+    m_addRuleFromSearch->setEnabled(false);
+
     updateIcons();
     reloadFromSettings();
 }
@@ -259,6 +303,7 @@ void SearchPanel::updateIcons()
     m_next->setIcon(host()->icon(mdi::ChevronDown, kToolGlyphSize));
     m_addRule->setIcon(host()->icon(mdi::Plus, kToolGlyphSize));
     m_removeRule->setIcon(host()->icon(mdi::Delete, kToolGlyphSize));
+    m_addRuleFromSearch->setIcon(host()->icon(mdi::TargetVariant, kToolGlyphSize));
 }
 
 void SearchPanel::themeChanged()
