@@ -13,6 +13,7 @@ class QSpinBox;
 class QSplitter;
 class QTableWidget;
 class QTimer;
+class QToolButton;
 
 namespace spotty {
 
@@ -132,6 +133,15 @@ private:
     /// \brief Завести таймер автосохранения, если он ещё не идёт.
     void scheduleProfileSave();
 
+    /// \brief Сверить выбор в списке режимов с состоянием вида.
+    void syncModeSelection();
+
+    /// \brief Вернуть выбранный профиль к умолчаниям и сразу записать его.
+    void resetProfile();
+
+    /// \brief Включить действия, требующие выбранного профиля.
+    void updateProfileActions();
+
     void addProfile();
     void deleteProfile();
 
@@ -153,7 +163,9 @@ private:
     QSplitter *m_splitter = nullptr;
 
     QComboBox *m_profiles = nullptr;
+    QComboBox *m_mode = nullptr;
     QSpinBox *m_points = nullptr;
+    QToolButton *m_resetProfile = nullptr;
     QTableWidget *m_table = nullptr;
     SeriesSwatchDelegate *m_swatch = nullptr;
 

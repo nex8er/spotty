@@ -84,6 +84,9 @@ public:
 
     /// \brief Задать сдвиг целиком — для перетаскивания, где он считается от точки нажатия.
     void setVerticalOffset(double offset);
+
+    /// \brief Задать вертикальный масштаб и сдвиг вместе — для восстановления профиля.
+    void setVerticalTransform(double zoom, double offset);
     void resetVertical();
     /// @}
 
@@ -155,6 +158,12 @@ Q_SIGNALS:
      * несколько раз в секунду всё время, пока идут данные.
      */
     void modeChanged(Mode mode);
+
+    /// \brief Изменился масштаб горизонтальной развёртки, но не её положение.
+    void horizontalScaleChanged(qint64 duration);
+
+    /// \brief Изменились вертикальные увеличение или сдвиг.
+    void verticalScaleChanged(double zoom, double offset);
 
     void pausedChanged(bool paused);
 

@@ -106,6 +106,44 @@ TEST(PlotModel, EmptyNameRestoresTheDefault)
     EXPECT_FALSE(model.series(0).nameIsCustom);
 }
 
+TEST(PlotModel, ResetSeriesConfigurationKeepsReportedNames)
+{
+    // Профиль может временно подменить подписи полей своими. Сброс обязан вернуть именно
+    // заголовок устройства, а не alpha/bravo, если заголовок уже был получен.
+    PlotModel model;
+    model.feed(QStringLiteral("1,2"), 0);
+    model.feed(QStringLiteral("voltage,current"), 1);
+    model.setSeriesName(0, QStringLiteral("Vbat"));
+    model.setSeriesColor(0, 0xFF00FF00);
+    model.setSeriesVisible(1, false);
+    model.setSeriesRange(0, true, -5.0, 5.0);
+
+    model.resetSeriesConfiguration();
+
+    EXPECT_EQ(model.series(0).name, QStringLiteral("voltage"));
+    EXPECT_EQ(model.series(1).name, QStringLiteral("current"));
+    EXPECT_FALSE(model.series(0).nameIsCustom);
+    EXPECT_TRUE(model.series(1).visible);
+    EXPECT_FALSE(model.series(0).hasCustomRange);
+
+    PlotModel defaults;
+    defaults.feed(QStringLiteral("1,2"), 0);
+    EXPECT_EQ(model.series(0).color, defaults.series(0).color);
+    EXPECT_EQ(model.series(1).color, defaults.series(1).color);
+}
+
+TEST(PlotModel, HeaderBeforeDataNamesNewSeries)
+{
+    // Устройство часто печатает заголовок ещё до первого отсчёта. Его нельзя забыть,
+    // иначе у сброшенного профиля не будет пути обратно к собственным именам потока.
+    PlotModel model;
+    EXPECT_FALSE(model.feed(QStringLiteral("voltage,current"), 0));
+    EXPECT_TRUE(model.feed(QStringLiteral("1,2"), 1));
+
+    EXPECT_EQ(model.series(0).name, QStringLiteral("voltage"));
+    EXPECT_EQ(model.series(1).name, QStringLiteral("current"));
+}
+
 TEST(PlotModel, CustomRangeIsNormalized)
 {
     // Перевёрнутый или вырожденный отрезок дал бы деление на ноль в преобразовании координат.

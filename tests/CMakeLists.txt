@@ -81,6 +81,7 @@ spotty_add_test(spotty-ui-tests
         test_live_options.cpp
         # Панель плоттера целиком: её проводка — то место, где ошибки не видит ни один
         # тест модели, а пользователь видит сразу.
+        "${CMAKE_SOURCE_DIR}/plugins/plotter/PlotterPlugin.cpp"
         "${CMAKE_SOURCE_DIR}/plugins/plotter/PlotterPanel.cpp"
         "${CMAKE_SOURCE_DIR}/plugins/plotter/PlotWidget.cpp"
         "${CMAKE_SOURCE_DIR}/plugins/plotter/PlotCanvas.cpp"

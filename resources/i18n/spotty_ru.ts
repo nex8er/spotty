@@ -1377,8 +1377,8 @@ Double-click to edit, right-click for options</source>
         <translation>Пауза</translation>
     </message>
     <message>
-        <source>Freezes the picture, not the data: collecting continues.</source>
-        <translation>Замораживает картинку, но не сбор: накопление продолжается.</translation>
+        <source>Pause collecting points for the plot</source>
+        <translation>Приостановить сбор точек графика</translation>
     </message>
     <message>
         <source>Jump to the newest data</source>
@@ -1441,12 +1441,12 @@ Double-click to edit, right-click for options</source>
         <translation>приведено к равномерной сетке</translation>
     </message>
     <message>
-        <source>Waiting for numeric lines in the output</source>
-        <translation>Ждём числовые строки в выводе</translation>
+        <source>No data</source>
+        <translation>Нет данных</translation>
     </message>
     <message>
-        <source>PAUSED</source>
-        <translation>ПАУЗА</translation>
+        <source>Waiting for numeric lines in the output</source>
+        <translation>Ждём числовые строки в выводе</translation>
     </message>
 </context>
 <context>
@@ -1454,10 +1454,6 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Jump to the newest data and keep following it</source>
         <translation>Перейти к свежим данным и следовать за ними</translation>
-    </message>
-    <message>
-        <source>What the plot shows</source>
-        <translation>Что показывает график</translation>
     </message>
     <message>
         <source>Field separator</source>
@@ -1488,64 +1484,12 @@ Double-click to edit, right-click for options</source>
         <translation>Очистить накопленное</translation>
     </message>
     <message>
-        <source>Resume drawing; data kept coming while paused</source>
-        <translation>Продолжить отрисовку; данные копились и на паузе</translation>
+        <source>Resume collecting points for the plot</source>
+        <translation>Продолжить сбор точек графика</translation>
     </message>
     <message>
-        <source>Freeze the picture, not the data</source>
-        <translation>Заморозить картинку, но не данные</translation>
-    </message>
-    <message>
-        <source>Time series</source>
-        <translation>Развёртка по времени</translation>
-    </message>
-    <message>
-        <source>Multi-plot</source>
-        <translation>Мультиплот</translation>
-    </message>
-    <message>
-        <source>XY (phase)</source>
-        <translation>XY (фазовый)</translation>
-    </message>
-    <message>
-        <source>Cumulative</source>
-        <translation>Накопление</translation>
-    </message>
-    <message>
-        <source>Histogram</source>
-        <translation>Гистограмма</translation>
-    </message>
-    <message>
-        <source>Spectrum</source>
-        <translation>Спектр</translation>
-    </message>
-    <message>
-        <source>Values against time</source>
-        <translation>Значения от времени</translation>
-    </message>
-    <message>
-        <source>One small plot per series, sharing the time axis</source>
-        <translation>По мини-графику на ряд, ось времени общая</translation>
-    </message>
-    <message>
-        <source>One series against another; time is not used</source>
-        <translation>Один ряд против другого; время не участвует</translation>
-    </message>
-    <message>
-        <source>Running sum from the start of the buffer</source>
-        <translation>Бегущая сумма от начала буфера</translation>
-    </message>
-    <message>
-        <source>How often each value occurs</source>
-        <translation>Как часто встречается каждое значение</translation>
-    </message>
-    <message>
-        <source>Amplitude against frequency</source>
-        <translation>Амплитуда от частоты</translation>
-    </message>
-    <message>
-        <source>Showing: %1</source>
-        <translation>Показано: %1</translation>
+        <source>Pause collecting points for the plot</source>
+        <translation>Приостановить сбор точек графика</translation>
     </message>
     <message>
         <source>Comma (,)</source>
@@ -1627,16 +1571,72 @@ Double-click to edit, right-click for options</source>
         <translation>Удалить этот профиль</translation>
     </message>
     <message>
-        <source> samples</source>
-        <translation> отсчётов</translation>
-    </message>
-    <message>
-        <source>How many samples to keep. What part of them is on screen is set by scrolling and zooming the plot itself.</source>
-        <translation>Сколько отсчётов хранить. Какая их часть на экране — решают прокрутка и масштаб самого графика.</translation>
-    </message>
-    <message>
         <source>Buffer</source>
         <translation>Буфер</translation>
+    </message>
+    <message>
+        <source>Values against time</source>
+        <translation>Значения от времени</translation>
+    </message>
+    <message>
+        <source>General</source>
+        <translation>Общий</translation>
+    </message>
+    <message>
+        <source>Multi-plot</source>
+        <translation>Мультиплот</translation>
+    </message>
+    <message>
+        <source>One small plot per series, sharing the time axis</source>
+        <translation>По мини-графику на ряд, ось времени общая</translation>
+    </message>
+    <message>
+        <source>XY (phase)</source>
+        <translation>XY (фазовый)</translation>
+    </message>
+    <message>
+        <source>One series against another; time is not used</source>
+        <translation>Один ряд против другого; время не участвует</translation>
+    </message>
+    <message>
+        <source>Cumulative</source>
+        <translation>Накопление</translation>
+    </message>
+    <message>
+        <source>Running sum from the start of the buffer</source>
+        <translation>Бегущая сумма от начала буфера</translation>
+    </message>
+    <message>
+        <source>Histogram</source>
+        <translation>Гистограмма</translation>
+    </message>
+    <message>
+        <source>How often each value occurs</source>
+        <translation>Как часто встречается каждое значение</translation>
+    </message>
+    <message>
+        <source>Spectrum</source>
+        <translation>Спектр</translation>
+    </message>
+    <message>
+        <source>Amplitude against frequency</source>
+        <translation>Амплитуда от частоты</translation>
+    </message>
+    <message>
+        <source>Reset this profile to defaults</source>
+        <translation>Сбросить этот профиль к настройкам по умолчанию</translation>
+    </message>
+    <message>
+        <source>Mode</source>
+        <translation>Режим</translation>
+    </message>
+    <message>
+        <source>What the plot shows</source>
+        <translation>Что показывает график</translation>
+    </message>
+    <message>
+        <source>How many thousands of samples to keep. What part of them is on screen is set by scrolling and zooming the plot itself.</source>
+        <translation>Сколько тысяч отсчётов хранить. Какая их часть на экране — решают прокрутка и масштаб самого графика.</translation>
     </message>
     <message>
         <source>Series</source>
@@ -1689,6 +1689,10 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Clear this series only</source>
         <translation>Очистить только этот ряд</translation>
+    </message>
+    <message>
+        <source>Profile reset to defaults</source>
+        <translation>Профиль сброшен к настройкам по умолчанию</translation>
     </message>
     <message>
         <source>New profile</source>

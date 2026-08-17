@@ -21,7 +21,6 @@
 #include <algorithm>
 
 #include <QColorDialog>
-#include <QFormLayout>
 #include <QHBoxLayout>
 #include <QColorDialog>
 #include <QComboBox>
@@ -31,6 +30,7 @@
 #include <QHeaderView>
 #include <QInputDialog>
 #include <QLineEdit>
+#include <QLabel>
 #include <QMenu>
 #include <QPainter>
 #include <QSpinBox>
@@ -49,6 +49,7 @@ constexpr auto kKeySeparator = "separator";
 constexpr auto kKeyCapacity = "capacity";
 constexpr auto kKeyProfile = "profile";
 constexpr auto kKeySplitter = "panelSplitter";
+constexpr auto kKeyMiniatureHeight = "miniatureHeight";
 
 /**
  * \brief Ёмкость буфера по умолчанию, отсчётов.
@@ -59,6 +60,17 @@ constexpr auto kKeySplitter = "panelSplitter";
  * прокрутка. Пятьдесят тысяч отсчётов на шестнадцать колонок — около семи мегабайт.
  */
 constexpr int kDefaultCapacity = SampleBuffer::kDefaultCapacity;
+
+/**
+ * \brief Размер шага и безопасный верхний предел буфера, отсчётов.
+ *
+ * Сто тысяч строк при пределе в 64 поля занимают около 50 МиБ для `double` и меток времени;
+ * на перекладку кольца временно нужно до 100 МиБ. Это ещё посильно слабому компьютеру,
+ * тогда как прежний максимум в миллион строк требовал бы полгигабайта только под значения.
+ */
+constexpr int kCapacityUnit = 1'000;
+constexpr int kMinimumCapacityK = 1;
+constexpr int kMaximumCapacityK = 100;
 
 /**
  * \brief Колонки таблицы рядов.
@@ -145,6 +157,53 @@ constexpr int kSplitterHandleWidth = 2;
 /// \brief Сколько знаков после запятой оставлять среднему.
 constexpr int kMeanDecimals = 3;
 
+/// \brief Превратить показанное в поле число тысяч в ёмкость модели.
+int capacityFromThousands(int thousands)
+{
+    return qBound(kMinimumCapacityK, thousands, kMaximumCapacityK) * kCapacityUnit;
+}
+
+/// \brief Привести старую произвольную ёмкость к ближайшему целому числу тысяч.
+int thousandsFromCapacity(int capacity)
+{
+    return qBound(kMinimumCapacityK, (capacity + kCapacityUnit / 2) / kCapacityUnit,
+                  kMaximumCapacityK);
+}
+
+/// \brief Режим показа, его значок и текст в списке.
+struct ModeEntry
+{
+    PlotViewState::Mode mode;
+    char32_t glyph;
+    const char *title;
+    const char *hint;
+};
+
+/// \brief Порядок от ежедневного режима к более специальным.
+constexpr ModeEntry kModes[] = {
+    {PlotViewState::Mode::TimeSeries, mdi::ChartLine,
+     QT_TRANSLATE_NOOP("spotty::PlotterPanel", "General"),
+     QT_TRANSLATE_NOOP("spotty::PlotterPanel", "Values against time")},
+    {PlotViewState::Mode::MultiPlot, mdi::ChartMultiple,
+     QT_TRANSLATE_NOOP("spotty::PlotterPanel", "Multi-plot"),
+     QT_TRANSLATE_NOOP("spotty::PlotterPanel",
+                       "One small plot per series, sharing the time axis")},
+    {PlotViewState::Mode::Xy, mdi::ChartScatterPlot,
+     QT_TRANSLATE_NOOP("spotty::PlotterPanel", "XY (phase)"),
+     QT_TRANSLATE_NOOP("spotty::PlotterPanel",
+                       "One series against another; time is not used")},
+    {PlotViewState::Mode::Cumulative, mdi::ChartBellCurveCumulative,
+     QT_TRANSLATE_NOOP("spotty::PlotterPanel", "Cumulative"),
+     QT_TRANSLATE_NOOP("spotty::PlotterPanel",
+                       "Running sum from the start of the buffer")},
+    {PlotViewState::Mode::Histogram, mdi::ChartBellCurve,
+     QT_TRANSLATE_NOOP("spotty::PlotterPanel", "Histogram"),
+     QT_TRANSLATE_NOOP("spotty::PlotterPanel", "How often each value occurs")},
+    {PlotViewState::Mode::Spectrum, mdi::Poll,
+     QT_TRANSLATE_NOOP("spotty::PlotterPanel", "Spectrum"),
+     QT_TRANSLATE_NOOP("spotty::PlotterPanel", "Amplitude against frequency")},
+};
+
 } // namespace
 
 PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewState *view,
@@ -185,13 +244,18 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
     };
     auto *addProfileButton = makeSmall(mdi::Plus, tr("Save the current settings as a profile"));
     auto *removeProfileButton = makeSmall(mdi::Delete, tr("Delete this profile"));
+    m_resetProfile = makeSmall(mdi::BackupRestore, tr("Reset this profile to defaults"));
+    m_resetProfile->setObjectName(QStringLiteral("resetPlotProfile"));
     profileRow->addWidget(addProfileButton);
     profileRow->addWidget(removeProfileButton);
+    profileRow->addWidget(m_resetProfile);
     layout->addLayout(profileRow);
 
     connect(addProfileButton, &QToolButton::clicked, this, &PlotterPanel::addProfile);
     connect(removeProfileButton, &QToolButton::clicked, this, &PlotterPanel::deleteProfile);
+    connect(m_resetProfile, &QToolButton::clicked, this, &PlotterPanel::resetProfile);
     connect(m_profiles, &QComboBox::currentTextChanged, this, [this](const QString &name) {
+        updateProfileActions();
         if (m_populating || name.isEmpty() || name == m_currentProfile)
             return;
         m_profileChosenByUser = true;
@@ -228,17 +292,34 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
     m_splitter->setStretchFactor(1, 1);
     layout->addWidget(m_splitter, 1);
 
-    auto *form = new QFormLayout;
+    // Режим и размер буфера относятся к одному вопросу — как строить и сколько хранить.
+    // В одну строку они помещаются даже в узкой панели, освобождая место под таблицу.
+    auto *optionsRow = new QHBoxLayout;
+    optionsRow->setSpacing(host()->metric(IPanelHost::Metric::Gap));
 
-    m_points = new QSpinBox(this);
-    m_points->setRange(100, 1'000'000);
-    m_points->setValue(kDefaultCapacity);
-    m_points->setSuffix(tr(" samples"));
-    m_points->setToolTip(tr("How many samples to keep. What part of them is on screen is "
-                            "set by scrolling and zooming the plot itself."));
-    form->addRow(tr("Buffer"), m_points);
+    auto *modeLabel = new QLabel(tr("Mode"), below);
+    optionsRow->addWidget(modeLabel);
+    m_mode = new QComboBox(below);
+    m_mode->setObjectName(QStringLiteral("plotMode"));
+    m_mode->setIconSize(QSize(16, 16));
+    m_mode->setToolTip(tr("What the plot shows"));
+    for (const ModeEntry &entry : kModes) {
+        m_mode->addItem(host()->icon(entry.glyph, 16), tr(entry.title), int(entry.mode));
+        m_mode->setItemData(m_mode->count() - 1, tr(entry.hint), Qt::ToolTipRole);
+    }
+    optionsRow->addWidget(m_mode, 1);
 
-    belowLayout->addLayout(form);
+    auto *bufferLabel = new QLabel(tr("Buffer"), below);
+    optionsRow->addWidget(bufferLabel);
+    m_points = new QSpinBox(below);
+    m_points->setObjectName(QStringLiteral("plotBuffer"));
+    m_points->setRange(kMinimumCapacityK, kMaximumCapacityK);
+    m_points->setValue(thousandsFromCapacity(kDefaultCapacity));
+    m_points->setSuffix(QStringLiteral("K"));
+    m_points->setToolTip(tr("How many thousands of samples to keep. What part of them is on "
+                            "screen is set by scrolling and zooming the plot itself."));
+    optionsRow->addWidget(m_points);
+    belowLayout->addLayout(optionsRow);
 
     // Таблица рядов. Она же легенда: прежде кривые различались только цветом, что и WCAG
     // нарушает, и просто не позволяет понять, какая из них чья.
@@ -275,6 +356,10 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
     belowLayout->addWidget(m_table, 1);
 
     connect(m_points, &QSpinBox::valueChanged, this, &PlotterPanel::commit);
+    connect(m_mode, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int index) {
+        if (index >= 0)
+            m_view->setMode(static_cast<PlotViewState::Mode>(m_mode->itemData(index).toInt()));
+    });
 
     // Окно единственное на всю программу, и владеет им плагин: и миниатюра, и полоса
     // просят открыть его одним и тем же сигналом.
@@ -297,6 +382,17 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
     // modeChanged(), а не changed(): второй приходит и на сдвиг окна, то есть на каждый
     // отсчёт, и профиль писался бы на диск несколько раз в секунду при живом потоке.
     connect(m_view, &PlotViewState::modeChanged, this, [this] {
+        syncModeSelection();
+        if (!m_populating)
+            scheduleProfileSave();
+    });
+    // Сохраняем лишь масштаб, а не сдвиг временного окна: временная шкала следующего
+    // запуска другая, а её ширина остаётся осмысленным свойством профиля.
+    connect(m_view, &PlotViewState::horizontalScaleChanged, this, [this] {
+        if (!m_populating)
+            scheduleProfileSave();
+    });
+    connect(m_view, &PlotViewState::verticalScaleChanged, this, [this] {
         if (!m_populating)
             scheduleProfileSave();
     });
@@ -371,19 +467,31 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
 
     // Положение разделителя переживает перезапуск: его подбирают под задачу один раз, и
     // возвращать график к исходной высоте каждый сеанс значило бы отменять этот выбор.
-    const QByteArray splitterState =
-        host()->value(QLatin1String(kKeySplitter)).toByteArray();
+    const QByteArray splitterState = host()->value(QLatin1String(kKeySplitter)).toByteArray();
     if (!splitterState.isEmpty())
         m_splitter->restoreState(splitterState);
     else
         m_splitter->setSizes({160, 340});
 
+    // Старое состояние разделителя сохраняем как запасной путь миграции, но далее высота
+    // миниатюры живёт отдельным числом: пропорции QSplitter меняются вместе с панелью.
+    const int miniatureHeight = host()->value(QLatin1String(kKeyMiniatureHeight)).toInt();
+    if (miniatureHeight > 0) {
+        QTimer::singleShot(0, this, [this, miniatureHeight] {
+            const int tableHeight = qMax(1, m_splitter->height() - miniatureHeight);
+            m_splitter->setSizes({miniatureHeight, tableHeight});
+        });
+    }
+
     connect(m_splitter, &QSplitter::splitterMoved, this, [this] {
         host()->setValue(QLatin1String(kKeySplitter), m_splitter->saveState());
+        host()->setValue(QLatin1String(kKeyMiniatureHeight), m_splitter->sizes().value(0));
     });
 
     reloadFromSettings();
     reloadProfiles();
+    syncModeSelection();
+    updateProfileActions();
     rebuildTable();
 }
 
@@ -394,18 +502,20 @@ void PlotterPanel::reloadFromSettings()
     const QString separator =
         host()->value(QLatin1String(kKeySeparator), QStringLiteral(",")).toString();
     m_model->setSeparator(separator.isEmpty() ? u',' : separator.at(0));
-    m_points->setValue(host()->value(QLatin1String(kKeyCapacity), kDefaultCapacity).toInt());
+    m_points->setValue(
+        thousandsFromCapacity(host()->value(QLatin1String(kKeyCapacity), kDefaultCapacity).toInt()));
 
 }
 
 void PlotterPanel::commit()
 {
-    m_model->setCapacity(m_points->value());
+    const int capacity = capacityFromThousands(m_points->value());
+    m_model->setCapacity(capacity);
 
     // Разделитель и ось X теперь меняют меню под графиком, а не поля панели, поэтому
     // сохраняются они по сигналу модели, а не отсюда: см. подписку в конструкторе.
     if (!m_populating)
-        host()->setValue(QLatin1String(kKeyCapacity), m_points->value());
+        host()->setValue(QLatin1String(kKeyCapacity), capacity);
 }
 
 void PlotterPanel::resizeEvent(QResizeEvent *event)
@@ -418,6 +528,15 @@ void PlotterPanel::resizeEvent(QResizeEvent *event)
 void PlotterPanel::settingsReset()
 {
     reloadFromSettings();
+}
+
+void PlotterPanel::syncModeSelection()
+{
+    const int index = m_mode->findData(int(m_view->mode()));
+    if (index < 0 || index == m_mode->currentIndex())
+        return;
+    const QSignalBlocker blocker(m_mode);
+    m_mode->setCurrentIndex(index);
 }
 
 void PlotterPanel::rebuildTable()
@@ -740,6 +859,9 @@ PlotProfile PlotterPanel::currentProfile(const QString &name) const
     profile.xAxis = m_model->xAxisSeries();
     profile.capacity = m_model->capacity();
     profile.mode = modeKey(m_view->mode());
+    profile.horizontalDurationNs = m_view->windowDuration();
+    profile.verticalZoom = m_view->verticalZoom();
+    profile.verticalOffset = m_view->verticalOffset();
     profile.lastUsed = QDateTime::currentDateTimeUtc();
 
     profile.series.reserve(m_model->seriesCount());
@@ -771,9 +893,12 @@ void PlotterPanel::applyProfile(const PlotProfile &profile)
         const Populating populating(m_populating);
 
     m_model->setSeparator(profile.separator.isEmpty() ? u',' : profile.separator.at(0));
-    m_model->setCapacity(profile.capacity);
-    m_points->setValue(profile.capacity);
+    const int capacity = capacityFromThousands(thousandsFromCapacity(profile.capacity));
+    m_model->setCapacity(capacity);
+    m_points->setValue(thousandsFromCapacity(profile.capacity));
     m_view->setMode(modeFromKey(profile.mode));
+    m_view->setWindowDuration(profile.horizontalDurationNs);
+    m_view->setVerticalTransform(profile.verticalZoom, profile.verticalOffset);
 
     for (int i = 0; i < profile.series.size() && i < m_model->seriesCount(); ++i) {
         const PlotProfileSeries &stored = profile.series.at(i);
@@ -829,6 +954,39 @@ void PlotterPanel::saveProfile()
     m_store.save(currentProfile(m_currentProfile));
 }
 
+void PlotterPanel::resetProfile()
+{
+    if (m_currentProfile.isEmpty())
+        return;
+
+    // Сбрасываем только оформление и настройки профиля: накопленные отсчёты остаются на
+    // экране, чтобы результат сразу было с чем сверить. Имена модель восстановит из
+    // заголовка устройства, а без него — из стандартного alpha, bravo, … .
+    {
+        const Populating populating(m_populating);
+        m_model->setSeparator(u',');
+        m_model->setCapacity(kDefaultCapacity);
+        m_points->setValue(thousandsFromCapacity(kDefaultCapacity));
+        m_model->setXAxisSeries(-1);
+        m_model->resetSeriesConfiguration();
+        m_view->setMode(PlotViewState::Mode::TimeSeries);
+        m_view->setWindowDuration(PlotViewState::kDefaultDuration);
+        m_view->resetVertical();
+    }
+
+    if (m_store.save(currentProfile(m_currentProfile)))
+        host()->showStatusMessage(tr("Profile reset to defaults"));
+    else
+        host()->showStatusMessage(tr("Could not save the profile"));
+    m_appliedSeriesCount = m_model->seriesCount();
+    rebuildTable();
+}
+
+void PlotterPanel::updateProfileActions()
+{
+    m_resetProfile->setEnabled(!m_profiles->currentText().isEmpty());
+}
+
 void PlotterPanel::addProfile()
 {
     bool ok = false;
@@ -852,6 +1010,7 @@ void PlotterPanel::addProfile()
     m_profileChosenByUser = true;
     host()->setValue(QLatin1String(kKeyProfile), name);
     reloadProfiles();
+    updateProfileActions();
 }
 
 void PlotterPanel::deleteProfile()
@@ -865,6 +1024,7 @@ void PlotterPanel::deleteProfile()
     m_profileChosenByUser = false;
     host()->setValue(QLatin1String(kKeyProfile), QString());
     reloadProfiles();
+    updateProfileActions();
 }
 
 void PlotterPanel::autoSelectProfile()

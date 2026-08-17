@@ -45,6 +45,11 @@ struct SPOTTY_API_EXPORT PlotProfile
     int capacity = 50000;
     QString mode = QStringLiteral("timeseries");
 
+    /// \brief Ширина окна развёртки и общий вертикальный масштаб, независимые от данных.
+    qint64 horizontalDurationNs = 10'000'000'000LL;
+    double verticalZoom = 1.0;
+    double verticalOffset = 0.0;
+
     /**
      * \brief Когда профилем пользовались в последний раз.
      *

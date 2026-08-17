@@ -10,7 +10,9 @@
 #include <QDir>
 #include <QHash>
 #include <QIcon>
+#include <QPixmap>
 #include <QVariant>
+#include <QVector>
 
 namespace spotty::test {
 
@@ -42,8 +44,10 @@ public:
     /// @{
     QHash<QString, QVariant> settings;
     QStringList statusMessages;
+    mutable QList<char32_t> iconGlyphs;
     QString alias = QStringLiteral("fake");
     QString selection;
+    QVector<TerminalLine> terminalLines;
     /// @}
 
     QString pluginId() const override { return QStringLiteral("plotter"); }
@@ -90,8 +94,22 @@ public:
     QString selectedText() const override { return selection; }
 
     qint64 firstLineNumber() const override { return 0; }
-    qint64 nextLineNumber() const override { return 0; }
-    bool line(qint64, TerminalLine *) const override { return false; }
+    qint64 nextLineNumber() const override { return terminalLines.size(); }
+    bool line(qint64 number, TerminalLine *out) const override
+    {
+        if (!out || number < 0 || number >= terminalLines.size())
+            return false;
+        *out = terminalLines.at(number);
+        return true;
+    }
+
+    /// \brief Добавить готовую строку терминала и сообщить о ней панели.
+    void appendTerminalLine(const TerminalLine &line)
+    {
+        const qint64 number = terminalLines.size();
+        terminalLines.append(line);
+        Q_EMIT terminalLinesAppended(number, 1);
+    }
 
     // Цвета отдаются осмысленные, а не чёрные: отрисовка панели по ним считает контраст, и
     // сплошной чёрный дал бы неотличимые друг от друга пиксели там, где тест их сравнивает.
@@ -101,7 +119,15 @@ public:
     }
     int metric(Metric) const override { return 8; }
     bool isDarkTheme() const override { return true; }
-    QIcon icon(char32_t, int) const override { return {}; }
+    QIcon icon(char32_t glyph, int) const override
+    {
+        // Непустой значок даёт тестам возможность проверить, что панель действительно
+        // передала иконку в элемент, не подтягивая шрифт Material Design в тестовый раннер.
+        iconGlyphs.append(glyph);
+        QPixmap pixmap(1, 1);
+        pixmap.fill(Qt::transparent);
+        return QIcon(pixmap);
+    }
     QIcon mutedIcon(char32_t, int) const override { return {}; }
 
 private:

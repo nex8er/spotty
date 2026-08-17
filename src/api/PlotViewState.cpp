@@ -51,9 +51,12 @@ void PlotViewState::setWindow(qint64 from, qint64 to)
     if (from == m_from && to == m_to)
         return;
 
+    const bool scaleChanged = duration != windowDuration();
     m_from = from;
     m_to = to;
     Q_EMIT changed();
+    if (scaleChanged)
+        Q_EMIT horizontalScaleChanged(duration);
 }
 
 void PlotViewState::setWindowDuration(qint64 nanoseconds)
@@ -116,6 +119,7 @@ void PlotViewState::zoomY(double factor)
 
     m_verticalZoom = wanted;
     Q_EMIT changed();
+    Q_EMIT verticalScaleChanged(m_verticalZoom, m_verticalOffset);
 }
 
 void PlotViewState::panY(double fraction)
@@ -124,6 +128,7 @@ void PlotViewState::panY(double fraction)
         return;
     m_verticalOffset += fraction;
     Q_EMIT changed();
+    Q_EMIT verticalScaleChanged(m_verticalZoom, m_verticalOffset);
 }
 
 void PlotViewState::setVerticalOffset(double offset)
@@ -132,6 +137,24 @@ void PlotViewState::setVerticalOffset(double offset)
         return;
     m_verticalOffset = offset;
     Q_EMIT changed();
+    Q_EMIT verticalScaleChanged(m_verticalZoom, m_verticalOffset);
+}
+
+void PlotViewState::setVerticalTransform(double zoom, double offset)
+{
+    const double boundedZoom = qIsFinite(zoom)
+                                   ? qBound(kMinimumVerticalZoom, zoom, kMaximumVerticalZoom)
+                                   : 1.0;
+    const double boundedOffset = qIsFinite(offset) ? offset : 0.0;
+    if (qFuzzyCompare(m_verticalZoom, boundedZoom)
+        && qFuzzyCompare(m_verticalOffset, boundedOffset)) {
+        return;
+    }
+
+    m_verticalZoom = boundedZoom;
+    m_verticalOffset = boundedOffset;
+    Q_EMIT changed();
+    Q_EMIT verticalScaleChanged(m_verticalZoom, m_verticalOffset);
 }
 
 void PlotViewState::resetVertical()
@@ -141,6 +164,7 @@ void PlotViewState::resetVertical()
     m_verticalZoom = 1.0;
     m_verticalOffset = 0.0;
     Q_EMIT changed();
+    Q_EMIT verticalScaleChanged(m_verticalZoom, m_verticalOffset);
 }
 
 void PlotViewState::followTo(qint64 first, qint64 last)

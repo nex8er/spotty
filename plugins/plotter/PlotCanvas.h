@@ -10,6 +10,9 @@
 #include <QHash>
 #include <QWidget>
 
+#include <array>
+#include <optional>
+
 class QTimer;
 
 namespace spotty {
@@ -111,14 +114,26 @@ private:
     QRect horizontalScaleRect() const;
     /// @}
 
-    /// \brief Окно по времени в координатах поля. Состояния не меняет.
+    /// \brief Окно горизонтальной развёртки в координатах поля. Состояния не меняет.
     XTransform transformFor(const QRect &area) const;
+
+    /// \brief Колонка монотонного счётчика для времеподобных режимов; -1 — время приёма.
+    int horizontalCoordinateColumn() const;
+
+    /// \brief Координата строки в текущей горизонтальной системе отсчёта.
+    std::optional<qint64> horizontalCoordinateAt(int row) const;
 
     /// \brief Подвинуть окно за пришедшими данными и запросить перерисовку.
     void followNewData();
 
     /// \brief Свести все видимые ряды и раздать им шкалы.
     QList<SeriesFrame> buildFrames(const QRect &area, const XTransform &transform) const;
+
+    /// \brief Ширина левого поля, достаточная для подписей нынешней вертикальной шкалы.
+    int verticalAxisMargin(const QList<SeriesFrame> &frames) const;
+
+    /// \brief Ширина поля, достаточная для подписей одной числовой шкалы.
+    int valueAxisMargin(const YScale &scale) const;
 
     /// \brief Приложить общий вертикальный масштаб и сдвиг к пределам ряда.
     YScale applyVertical(const PlotScales::Range &range, const QRect &area) const;
@@ -150,6 +165,12 @@ private:
 
     void drawFrame(QPainter &painter, const QRect &area, const XTransform &transform,
                    const QList<SeriesFrame> &frames) const;
+    void drawValueAxis(QPainter &painter, const QRect &area, const YScale &scale,
+                       const QColor &labelColor) const;
+    void drawHorizontalAxis(QPainter &painter, const QRect &area,
+                            const XTransform &transform) const;
+    void drawNumericHorizontalAxis(QPainter &painter, const QRect &area, double minimum,
+                                   double maximum) const;
     void drawSeries(QPainter &painter, const QRect &area, const XTransform &transform,
                     const QList<SeriesFrame> &frames) const;
 
@@ -162,7 +183,7 @@ private:
     void drawTimeSeries(QPainter &painter, const QRect &area, const XTransform &transform,
                         const QList<SeriesFrame> &frames) const;
 
-    /// \brief Фазовый портрет: один ряд против другого, время не участвует.
+    /// \brief График рядов по выбранной колонке X без участия временных меток.
     void drawXy(QPainter &painter, const QRect &area) const;
 
     /// \brief По мини-графику на ряд, общая ось X, своя шкала у каждого.
@@ -193,6 +214,17 @@ private:
     IPanelHost *m_host = nullptr;
     PlotModel *m_model = nullptr;
     PlotViewState *m_view = nullptr;
+
+    /// \brief Ширина поля подписей Y для текущего режима.
+    int m_leftMargin = 56;
+
+    /**
+     * \brief Наибольшая уже показанная ширина шкалы для каждого режима.
+     *
+     * Менять геометрию холста при переходе `9.9 → 10` заметнее самого обновления данных.
+     * Запас растёт лишь при необходимости и живёт до смены режима, где своя шкала.
+     */
+    std::array<int, 6> m_axisMargins{};
 
     /// \brief Положение курсора в поле графика; -1, когда курсора нет.
     int m_cursorX = -1;
@@ -235,6 +267,9 @@ private:
 
     QTimer *m_repaintTimer = nullptr;
     bool m_dirty = false;
+
+    /// \brief Источник X, для которого уже подготовлено начальное окно.
+    int m_initializedCoordinateColumn = -1;
 };
 
 } // namespace spotty

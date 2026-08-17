@@ -138,6 +138,16 @@ TEST(PlotViewState, ResetVerticalClearsBothZoomAndOffset)
     EXPECT_DOUBLE_EQ(view.verticalOffset(), 0.0);
 }
 
+TEST(PlotViewState, VerticalTransformRestoresZoomAndOffsetTogether)
+{
+    PlotViewState view;
+
+    view.setVerticalTransform(2.5, -0.75);
+
+    EXPECT_DOUBLE_EQ(view.verticalZoom(), 2.5);
+    EXPECT_DOUBLE_EQ(view.verticalOffset(), -0.75);
+}
+
 TEST(PlotViewState, ZoomXAnchorsAtTheCursor)
 {
     // Точка под курсором остаётся на месте: иначе приближение уводит из-под указателя то

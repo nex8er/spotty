@@ -21,15 +21,17 @@
 #include <QTimer>
 #include <QWheelEvent>
 
+#include <algorithm>
+
 namespace spotty {
 
 namespace {
 
 /// \brief Поля вокруг поля графика: слева под подписи значений, снизу под ось времени.
-constexpr int kMarginLeft = 56;
+constexpr int kMinimumMarginLeft = 56;
 constexpr int kMarginRight = 10;
 constexpr int kMarginTop = 10;
-constexpr int kMarginBottom = 22;
+constexpr int kMarginBottom = 26;
 
 /// \brief Прозрачность заливки под линией.
 constexpr int kFillAlpha = 36;
@@ -52,8 +54,98 @@ constexpr int kDimmedAlpha = 90;
 /// \brief Число значащих цифр в подписях шкалы и перекрестия.
 constexpr int kLabelDigits = 5;
 
+/// \brief Число значащих цифр у меток шкалы: компактнее значения под курсором.
+constexpr int kAxisLabelDigits = 4;
+
 /// \brief Ширина цветной вкладки оси у левого края поля, px.
 constexpr int kAxisTabWidth = 5;
+
+/// \brief Отбивка между подписями и шкалой, px.
+constexpr int kAxisLabelGap = 5;
+
+/// \brief Минимальный зазор между двумя подписями на горизонтальной оси, px.
+constexpr int kHorizontalLabelGap = 8;
+
+/// \brief Длительность в короткой записи для горизонтальной оси и перекрестия.
+QString formatTime(qint64 nanoseconds, qint64 reference = 0)
+{
+    struct Unit {
+        qint64 nanoseconds;
+        const char *suffix;
+    };
+    constexpr Unit kUnits[] = {
+        {60'000'000'000LL, " min"},
+        {1'000'000'000LL, " s"},
+        {1'000'000LL, " ms"},
+        {1'000LL, " us"},
+        {1LL, " ns"},
+    };
+
+    const qint64 absolute = qMax(qAbs(nanoseconds), qAbs(reference));
+    for (const Unit &unit : kUnits) {
+        if (absolute < unit.nanoseconds && unit.nanoseconds != 1)
+            continue;
+        return PlotFormat::number(double(nanoseconds) / double(unit.nanoseconds),
+                                  kAxisLabelDigits)
+               + QLatin1String(unit.suffix);
+    }
+    return {};
+}
+
+/**
+ * \brief Оставить самый длинный непрерывный участок для БПФ.
+ *
+ * БПФ нельзя строить через паузу приёма: интерполяция добавит несуществующую низкую
+ * частоту. Отказ целиком, однако, лишает пользователя всех данных до или после единичной
+ * остановки потока, поэтому выбирается самый длинный честный фрагмент.
+ */
+bool keepLongestContinuousSegment(QList<double> *values, QList<qint64> *timestamps)
+{
+    if (!values || !timestamps || values->size() != timestamps->size() || values->size() < 4)
+        return false;
+
+    QList<qint64> intervals;
+    intervals.reserve(timestamps->size() - 1);
+    for (int i = 1; i < timestamps->size(); ++i) {
+        const qint64 interval = timestamps->at(i) - timestamps->at(i - 1);
+        if (interval > 0)
+            intervals.append(interval);
+    }
+    if (intervals.isEmpty())
+        return false;
+
+    std::sort(intervals.begin(), intervals.end());
+    const qint64 median = intervals.at(intervals.size() / 2);
+    if (median <= 0)
+        return false;
+
+    int bestFirst = 0;
+    int bestLast = 0;
+    int first = 0;
+    for (int row = 1; row <= timestamps->size(); ++row) {
+        const bool boundary = row == timestamps->size()
+                              || double(timestamps->at(row) - timestamps->at(row - 1))
+                                     > 3.0 * double(median);
+        if (!boundary)
+            continue;
+        // При одинаковой длине берём свежий участок: он лучше соответствует текущему
+        // состоянию устройства, которое пользователь и анализирует.
+        if (row - first >= bestLast - bestFirst) {
+            bestFirst = first;
+            bestLast = row;
+        }
+        first = row;
+    }
+
+    if (bestFirst == 0 && bestLast == timestamps->size())
+        return false;
+    if (bestLast - bestFirst < 4)
+        return false;
+
+    *values = values->sliced(bestFirst, bestLast - bestFirst);
+    *timestamps = timestamps->sliced(bestFirst, bestLast - bestFirst);
+    return true;
+}
 
 } // namespace
 
@@ -86,15 +178,16 @@ PlotCanvas::PlotCanvas(IPanelHost *host, PlotModel *model, PlotViewState *view,
     // Состояние вида общее на все три холста, поэтому сдвиг окна в одном перерисовывает
     // остальные — это и означает «единый объект».
     connect(m_view, &PlotViewState::changed, this, &PlotCanvas::scheduleRepaint);
+    connect(m_view, &PlotViewState::modeChanged, this, [this] { followNewData(); });
 
     createActions();
 }
 
 void PlotCanvas::scheduleRepaint()
 {
-    if (m_view->paused())
-        return;
-
+    // Пауза останавливает захват новых точек в PlotterPlugin, а не взаимодействие с уже
+    // записанным: масштаб, прокрутка и перекрестие должны сразу перерисовываться, пока
+    // пользователь рассматривает зафиксированный фрагмент.
     m_dirty = true;
     if (!m_repaintTimer->isActive())
         m_repaintTimer->start();
@@ -106,7 +199,7 @@ void PlotCanvas::createActions()
     pauseAction->setCheckable(true);
     pauseAction->setChecked(m_view->paused());
     pauseAction->setIcon(m_host->icon(mdi::Pause, 18));
-    pauseAction->setToolTip(tr("Freezes the picture, not the data: collecting continues."));
+    pauseAction->setToolTip(tr("Pause collecting points for the plot"));
     connect(pauseAction, &QAction::toggled, m_view, &PlotViewState::setPaused);
     connect(m_view, &PlotViewState::pausedChanged, pauseAction, [pauseAction](bool paused) {
         const QSignalBlocker blocker(pauseAction);
@@ -194,8 +287,12 @@ void PlotCanvas::mouseReleaseEvent(QMouseEvent *event)
         // непрерывно: посреди перетаскивания она включала бы слежение прямо под рукой, и
         // окно уезжало бы в конец, пока его тянут.
         const SampleBuffer &samples = m_model->samples();
-        if (m_dragAxis != DragAxis::Vertical && samples.sampleCount() >= 2)
-            m_view->snapToEnd(samples.timestamp(samples.sampleCount() - 1));
+        if (m_dragAxis != DragAxis::Vertical && samples.sampleCount() >= 2) {
+            if (const std::optional<qint64> last =
+                    horizontalCoordinateAt(samples.sampleCount() - 1)) {
+                m_view->snapToEnd(*last);
+            }
+        }
 
         event->accept();
         return;
@@ -307,8 +404,12 @@ void PlotCanvas::wheelEvent(QWheelEvent *event)
     } else {
         m_view->panBy(qint64(-steps * 0.1 * double(m_view->windowDuration())));
         const SampleBuffer &samples = m_model->samples();
-        if (samples.sampleCount() >= 2)
-            m_view->snapToEnd(samples.timestamp(samples.sampleCount() - 1));
+        if (samples.sampleCount() >= 2) {
+            if (const std::optional<qint64> last =
+                    horizontalCoordinateAt(samples.sampleCount() - 1)) {
+                m_view->snapToEnd(*last);
+            }
+        }
     }
 
     event->accept();
@@ -318,14 +419,25 @@ void PlotCanvas::contextMenuEvent(QContextMenuEvent *event)
 {
     QMenu menu(this);
 
-    // Готовые длительности вместо числового поля: масштаб подбирают глазами, а «последние
-    // десять секунд» — это то, что спрашивают у графика чаще всего.
-    const QList<QPair<QString, qint64>> spans = {
-        {tr("Last 1 s"), 1'000'000'000LL},
-        {tr("Last 10 s"), 10'000'000'000LL},
-        {tr("Last 1 min"), 60'000'000'000LL},
-        {tr("Last 10 min"), 600'000'000'000LL},
-    };
+    // Единица полученного счётчика неизвестна, поэтому в этом случае пресеты задаются
+    // числом делений, а не выдают себя за секунды.
+    const QList<QPair<QString, qint64>> spans = horizontalCoordinateColumn() >= 0
+                                                    ? QList<QPair<QString, qint64>>{
+                                                          {tr("Last 100 counts"),
+                                                           100 * Decimator::kCounterCoordinateScale},
+                                                          {tr("Last 1K counts"),
+                                                           1'000 * Decimator::kCounterCoordinateScale},
+                                                          {tr("Last 10K counts"),
+                                                           10'000 * Decimator::kCounterCoordinateScale},
+                                                          {tr("Last 100K counts"),
+                                                           100'000 * Decimator::kCounterCoordinateScale},
+                                                      }
+                                                    : QList<QPair<QString, qint64>>{
+                                                          {tr("Last 1 s"), 1'000'000'000LL},
+                                                          {tr("Last 10 s"), 10'000'000'000LL},
+                                                          {tr("Last 1 min"), 60'000'000'000LL},
+                                                          {tr("Last 10 min"), 600'000'000'000LL},
+                                                      };
     for (const auto &[label, duration] : spans) {
         connect(menu.addAction(label), &QAction::triggered, this, [this, duration] {
             m_view->setWindowDuration(duration);
@@ -337,9 +449,13 @@ void PlotCanvas::contextMenuEvent(QContextMenuEvent *event)
         const SampleBuffer &samples = m_model->samples();
         if (samples.sampleCount() < 2)
             return;
-        m_view->setFollowing(false);
-        m_view->setWindow(samples.timestamp(0),
-                          samples.timestamp(samples.sampleCount() - 1));
+        const std::optional<qint64> first = horizontalCoordinateAt(0);
+        const std::optional<qint64> last =
+            horizontalCoordinateAt(samples.sampleCount() - 1);
+        if (first && last && *last > *first) {
+            m_view->setFollowing(false);
+            m_view->setWindow(*first, *last);
+        }
     });
 
     menu.addSeparator();
@@ -365,13 +481,13 @@ void PlotCanvas::contextMenuEvent(QContextMenuEvent *event)
 
 QRect PlotCanvas::plotArea() const
 {
-    return rect().adjusted(kMarginLeft, kMarginTop, -kMarginRight, -kMarginBottom);
+    return rect().adjusted(m_leftMargin, kMarginTop, -kMarginRight, -kMarginBottom);
 }
 
 QRect PlotCanvas::verticalScaleRect() const
 {
     const QRect area = plotArea();
-    return QRect(0, area.top(), kMarginLeft, area.height());
+    return QRect(0, area.top(), m_leftMargin, area.height());
 }
 
 QRect PlotCanvas::horizontalScaleRect() const
@@ -406,12 +522,47 @@ XTransform PlotCanvas::transformFor(const QRect &area) const
                       double(area.width())};
 }
 
+int PlotCanvas::horizontalCoordinateColumn() const
+{
+    switch (m_view->mode()) {
+    case PlotViewState::Mode::TimeSeries:
+    case PlotViewState::Mode::Cumulative:
+    case PlotViewState::Mode::MultiPlot:
+        return m_model->xAxisSeries();
+
+    case PlotViewState::Mode::Xy:
+    case PlotViewState::Mode::Histogram:
+    case PlotViewState::Mode::Spectrum:
+        return -1;
+    }
+    return -1;
+}
+
+std::optional<qint64> PlotCanvas::horizontalCoordinateAt(int row) const
+{
+    return Decimator::coordinateAt(m_model->samples(), row, horizontalCoordinateColumn());
+}
+
 void PlotCanvas::followNewData()
 {
     const SampleBuffer &samples = m_model->samples();
     if (samples.sampleCount() >= 2) {
-        m_view->followTo(samples.timestamp(0),
-                         samples.timestamp(samples.sampleCount() - 1));
+        const std::optional<qint64> first = horizontalCoordinateAt(0);
+        const std::optional<qint64> last =
+            horizontalCoordinateAt(samples.sampleCount() - 1);
+        if (first && last && *last > *first) {
+            const int coordinateColumn = horizontalCoordinateColumn();
+            if (coordinateColumn != m_initializedCoordinateColumn) {
+                // Единицы счётчика не обязаны быть наносекундами. При смене источника
+                // сначала показываем весь его накопленный диапазон, а не старое окно из
+                // другой системы координат.
+                m_initializedCoordinateColumn = coordinateColumn;
+                m_view->setWindow(*first, *last);
+                m_view->setFollowing(true);
+            } else {
+                m_view->followTo(*first, *last);
+            }
+        }
     }
     scheduleRepaint();
 }
@@ -436,6 +587,9 @@ QList<PlotCanvas::SeriesFrame> PlotCanvas::buildFrames(const QRect &area,
     const Decimator::Accumulator accumulator =
         m_view->mode() == PlotViewState::Mode::Cumulative ? Decimator::Accumulator::RunningSum
                                                           : Decimator::Accumulator::None;
+    const qint64 maximumConnectedGap =
+        Decimator::maximumConnectedGap(m_model->samples(), transform, area.width(),
+                                       horizontalCoordinateColumn());
 
     for (int index = 0; index < m_model->seriesCount(); ++index) {
         if (!m_model->series(index).visible || index == m_model->xAxisSeries())
@@ -443,8 +597,9 @@ QList<PlotCanvas::SeriesFrame> PlotCanvas::buildFrames(const QRect &area,
 
         SeriesFrame frame;
         frame.index = index;
-        frame.reduced =
-            Decimator::reduce(m_model->samples(), index, transform, area.width(), accumulator);
+        frame.reduced = Decimator::reduce(m_model->samples(), index, transform, area.width(),
+                                          accumulator, maximumConnectedGap,
+                                          horizontalCoordinateColumn());
         frames.append(frame);
     }
 
@@ -465,6 +620,39 @@ QList<PlotCanvas::SeriesFrame> PlotCanvas::buildFrames(const QRect &area,
     }
 
     return frames;
+}
+
+int PlotCanvas::verticalAxisMargin(const QList<SeriesFrame> &frames) const
+{
+    const int labelled = labelledSeries(frames);
+    if (labelled < 0)
+        return kMinimumMarginLeft;
+
+    YScale scale;
+    for (const SeriesFrame &frame : frames) {
+        if (frame.index == labelled) {
+            scale = frame.scale;
+            break;
+        }
+    }
+
+    return valueAxisMargin(scale);
+}
+
+int PlotCanvas::valueAxisMargin(const YScale &scale) const
+{
+    const QFontMetrics metrics(font());
+    int widest = 0;
+    for (int i = 0; i <= kGridLines + 1; ++i) {
+        const double fraction = double(i) / double(kGridLines + 1);
+        const double value = scale.minimum + fraction * (scale.maximum - scale.minimum);
+        widest = qMax(widest, metrics.horizontalAdvance(PlotFormat::number(value,
+                                                                             kAxisLabelDigits)));
+    }
+
+    // Подпись, зазор, вкладка ряда и два пикселя воздуха. Без динамики большое число
+    // заходило на поле графика и накладывалось на кривую ровно там, где его читали.
+    return qMax(kMinimumMarginLeft, widest + kAxisLabelGap + kAxisTabWidth + 4);
 }
 
 int PlotCanvas::labelledSeries(const QList<SeriesFrame> &frames) const
@@ -542,19 +730,14 @@ void PlotCanvas::selectAxis(int series, Qt::KeyboardModifiers modifiers)
 void PlotCanvas::drawFrame(QPainter &painter, const QRect &area, const XTransform &transform,
                            const QList<SeriesFrame> &frames) const
 {
-    const QColor grid = m_host->color(IPanelHost::ColorRole::Border);
-    const QColor muted = m_host->color(IPanelHost::ColorRole::TextMuted);
-
-    painter.setPen(grid);
+    painter.setPen(m_host->color(IPanelHost::ColorRole::Border));
     painter.drawRect(area);
-
-    const QFontMetrics metrics(font());
 
     // Слева подписана шкала активного ряда — того, что нарисован ярче остальных. Подписать
     // «какую-нибудь» значило бы дать числа, не относящиеся ни к одной видимой кривой.
     const int labelled = labelledSeries(frames);
     YScale scale;
-    QColor labelColor = muted;
+    QColor labelColor = m_host->color(IPanelHost::ColorRole::TextMuted);
     for (const SeriesFrame &frame : frames) {
         if (frame.index != labelled)
             continue;
@@ -563,33 +746,9 @@ void PlotCanvas::drawFrame(QPainter &painter, const QRect &area, const XTransfor
             labelColor = QColor::fromRgba(m_model->series(frame.index).color);
     }
 
-    for (int i = 0; i <= kGridLines + 1; ++i) {
-        const double fraction = double(i) / double(kGridLines + 1);
-        const int y = area.bottom() - int(fraction * area.height());
-
-        if (i > 0 && i <= kGridLines) {
-            painter.setPen(grid);
-            painter.drawLine(area.left() + 1, y, area.right() - 1, y);
-        }
-
-        if (labelled < 0)
-            continue;
-
-        const double value = scale.minimum + fraction * (scale.maximum - scale.minimum);
-        painter.setPen(labelColor);
-        const QString label = PlotFormat::number(value, 4);
-        painter.drawText(area.left() - metrics.horizontalAdvance(label) - 6,
-                         y + metrics.ascent() / 2, label);
-    }
-
-    // Ось X — время окна, а не число отсчётов: точки приходят неравномерно, и «сколько
-    // прошло секунд» отвечает на вопрос, который к графику и задают.
-    painter.setPen(muted);
-    const double seconds = double(transform.to - transform.from) / 1e9;
-    painter.drawText(area.left(), area.bottom() + metrics.height(), QStringLiteral("0 s"));
-    const QString right = QStringLiteral("%1 s").arg(seconds, 0, 'f', seconds < 10 ? 2 : 1);
-    painter.drawText(area.right() - metrics.horizontalAdvance(right),
-                     area.bottom() + metrics.height(), right);
+    if (labelled >= 0)
+        drawValueAxis(painter, area, scale, labelColor);
+    drawHorizontalAxis(painter, area, transform);
 
     // Вкладки осей: по одной на видимый ряд, у самого края поля. Щелчок по вкладке делает
     // ряд активным, то есть переносит на него подписи слева, — это и есть «нажать на ось».
@@ -611,16 +770,103 @@ void PlotCanvas::drawFrame(QPainter &painter, const QRect &area, const XTransfor
             painter.setPen(Qt::NoPen);
             painter.setBrush(colour);
             painter.drawRect(tab);
-
-            // У активной оси — обводка: её шкала подписана слева, и это отдельное от
-            // участия в группе состояние.
-            if (frame.index == labelled) {
-                painter.setBrush(Qt::NoBrush);
-                painter.setPen(QPen(m_host->color(IPanelHost::ColorRole::Text), 1));
-                painter.drawRect(tab.adjusted(-2, -1, 1, 0));
-            }
         }
         painter.setBrush(Qt::NoBrush);
+    }
+}
+
+void PlotCanvas::drawValueAxis(QPainter &painter, const QRect &area, const YScale &scale,
+                               const QColor &labelColor) const
+{
+    const QColor grid = m_host->color(IPanelHost::ColorRole::Border);
+    const QFontMetrics metrics(font());
+    for (int i = 0; i <= kGridLines + 1; ++i) {
+        const double fraction = double(i) / double(kGridLines + 1);
+        const int y = area.bottom() - int(fraction * area.height());
+        if (i > 0 && i <= kGridLines) {
+            painter.setPen(grid);
+            painter.drawLine(area.left() + 1, y, area.right() - 1, y);
+        }
+
+        const double value = scale.minimum + fraction * (scale.maximum - scale.minimum);
+        const QString label = PlotFormat::number(value, kAxisLabelDigits);
+        const int labelRight = area.left() - kAxisTabWidth - kAxisLabelGap;
+        painter.setPen(labelColor);
+        painter.drawText(labelRight - metrics.horizontalAdvance(label),
+                         y + metrics.ascent() / 2, label);
+        painter.setPen(grid);
+        painter.drawLine(area.left() - 3, y, area.left(), y);
+    }
+}
+
+void PlotCanvas::drawHorizontalAxis(QPainter &painter, const QRect &area,
+                                    const XTransform &transform) const
+{
+    const QFontMetrics metrics(font());
+    const qint64 duration = transform.to - transform.from;
+    const int axisTextY = area.bottom() + metrics.ascent() + 3;
+    const bool counterAxis = horizontalCoordinateColumn() >= 0;
+    const auto formatX = [counterAxis, &transform, duration](qint64 value) {
+        return counterAxis ? PlotFormat::number(
+                                 double(value) / double(Decimator::kCounterCoordinateScale),
+                                 kAxisLabelDigits)
+                           : formatTime(value - transform.from, duration);
+    };
+    const QString left = formatX(transform.from);
+    const QString right = formatX(transform.to);
+    const int leftWidth = metrics.horizontalAdvance(left);
+    const int rightWidth = metrics.horizontalAdvance(right);
+    const bool endpointsFit = leftWidth + rightWidth + kHorizontalLabelGap < area.width();
+
+    painter.setPen(m_host->color(IPanelHost::ColorRole::TextMuted));
+    painter.drawLine(area.left(), area.bottom(), area.left(), area.bottom() + 3);
+    painter.drawLine(area.right(), area.bottom(), area.right(), area.bottom() + 3);
+    if (endpointsFit)
+        painter.drawText(area.left(), axisTextY, left);
+    painter.drawText(area.right() - rightWidth, axisTextY, right);
+
+    const QString middle = formatX(transform.from + duration / 2);
+    if (endpointsFit && leftWidth + rightWidth + metrics.horizontalAdvance(middle)
+                           + 2 * kHorizontalLabelGap < area.width()) {
+        const int x = area.center().x();
+        painter.drawLine(x, area.bottom(), x, area.bottom() + 3);
+        painter.drawText(x - metrics.horizontalAdvance(middle) / 2, axisTextY, middle);
+    }
+}
+
+void PlotCanvas::drawNumericHorizontalAxis(QPainter &painter, const QRect &area, double minimum,
+                                           double maximum) const
+{
+    const QFontMetrics metrics(font());
+    const int axisTextY = area.bottom() + metrics.ascent() + 3;
+    const auto drawTick = [&](double value, Qt::Alignment alignment) {
+        const QString label = PlotFormat::number(value, kAxisLabelDigits);
+        const int width = metrics.horizontalAdvance(label);
+        int x = area.left() + qRound((value - minimum) / (maximum - minimum) * area.width());
+        int labelX = x - width / 2;
+        if (alignment.testFlag(Qt::AlignLeft))
+            labelX = x;
+        else if (alignment.testFlag(Qt::AlignRight))
+            labelX = x - width;
+        painter.drawLine(x, area.bottom(), x, area.bottom() + 3);
+        painter.drawText(labelX, axisTextY, label);
+    };
+
+    const QString left = PlotFormat::number(minimum, kAxisLabelDigits);
+    const QString right = PlotFormat::number(maximum, kAxisLabelDigits);
+    const bool endpointsFit = metrics.horizontalAdvance(left) + metrics.horizontalAdvance(right)
+                              + kHorizontalLabelGap < area.width();
+    painter.setPen(m_host->color(IPanelHost::ColorRole::TextMuted));
+    if (endpointsFit)
+        drawTick(minimum, Qt::AlignLeft);
+    drawTick(maximum, Qt::AlignRight);
+
+    const double middle = (minimum + maximum) / 2.0;
+    const QString middleLabel = PlotFormat::number(middle, kAxisLabelDigits);
+    if (endpointsFit && metrics.horizontalAdvance(left) + metrics.horizontalAdvance(right)
+                           + metrics.horizontalAdvance(middleLabel) + 2 * kHorizontalLabelGap
+                               < area.width()) {
+        drawTick(middle, Qt::AlignHCenter);
     }
 }
 
@@ -629,6 +875,12 @@ void PlotCanvas::drawCurve(QPainter &painter, const QRect &area, const SeriesFra
 {
     if (frame.reduced.columns.isEmpty())
         return;
+
+    // Прореживатель добавляет соседние точки за окном, чтобы линия естественно пересекала
+    // его край. Они нужны геометрии, но не должны заходить на подписи шкал или соседние
+    // мини-графики.
+    painter.save();
+    painter.setClipRect(area);
 
     const bool dense = frame.reduced.columns.size() >= area.width();
 
@@ -653,8 +905,16 @@ void PlotCanvas::drawCurve(QPainter &painter, const QRect &area, const SeriesFra
             if (!qFuzzyCompare(column.minimum, column.maximum))
                 polyline.append(QPointF(x, frame.scale.yOf(column.minimum)));
         }
-        if (polyline.size() < 2)
+        if (polyline.isEmpty())
             continue;
+
+        if (polyline.size() == 1) {
+            // У редкого, но равномерного потока одна точка не обязана означать ошибку.
+            // Рисуем сам факт измерения, но не выдумываем отрезок до следующего.
+            painter.setPen(QPen(colour, dense ? 1.0 : 2.0));
+            painter.drawPoint(polyline.first());
+            continue;
+        }
 
         if (withFill) {
             // Заливается верхняя огибающая, а не сама полилиния: прореженная полилиния
@@ -682,6 +942,8 @@ void PlotCanvas::drawCurve(QPainter &painter, const QRect &area, const SeriesFra
         painter.setPen(QPen(colour, dense ? 1.0 : 1.5));
         painter.drawPolyline(polyline);
     }
+
+    painter.restore();
 }
 
 void PlotCanvas::drawTimeSeries(QPainter &painter, const QRect &area,
@@ -724,8 +986,8 @@ void PlotCanvas::drawSeries(QPainter &painter, const QRect &area, const XTransfo
 
 void PlotCanvas::drawXy(QPainter &painter, const QRect &area) const
 {
-    // Фазовый портрет: время не участвует вовсе, по обеим осям идут значения. Колонка для
-    // X берётся из того же выбора, что и в развёртке; без неё показывать нечего.
+    // По выбранной X время не участвует вовсе, по обеим осям идут значения. Колонка для X
+    // берётся из настройки вида; без неё показывать нечего.
     const int xColumn = m_model->xAxisSeries();
     if (xColumn < 0) {
         painter.setPen(m_host->color(IPanelHost::ColorRole::TextMuted));
@@ -741,14 +1003,24 @@ void PlotCanvas::drawXy(QPainter &painter, const QRect &area) const
 
     const PlotScales::Range xRange =
         PlotScales::padded({xStats.minimum, xStats.maximum, true});
-    const XTransform horizontal{0, 1, double(area.left()), double(area.width())};
-    Q_UNUSED(horizontal);
 
     const auto xOf = [&](double value) {
         return area.left()
                + (value - xRange.minimum) / (xRange.maximum - xRange.minimum) * area.width();
     };
 
+    const int labelled = subjectSeries();
+    if (labelled >= 0) {
+        const SampleBuffer::ColumnStats stats = samples.stats(labelled);
+        const PlotScales::Range range = PlotScales::resolve(
+            m_model->series(labelled), {stats.minimum, stats.maximum, stats.finiteCount > 0}, {});
+        drawValueAxis(painter, area, applyVertical(range, area),
+                      QColor::fromRgba(m_model->series(labelled).color));
+    }
+    drawNumericHorizontalAxis(painter, area, xRange.minimum, xRange.maximum);
+
+    painter.save();
+    painter.setClipRect(area);
     for (int index = 0; index < m_model->seriesCount(); ++index) {
         if (!m_model->series(index).visible || index == xColumn)
             continue;
@@ -782,6 +1054,7 @@ void PlotCanvas::drawXy(QPainter &painter, const QRect &area) const
         if (polyline.size() >= 2)
             painter.drawPolyline(polyline);
     }
+    painter.restore();
 }
 
 void PlotCanvas::drawMultiPlot(QPainter &painter, const QRect &area,
@@ -796,7 +1069,15 @@ void PlotCanvas::drawMultiPlot(QPainter &painter, const QRect &area,
         return;
 
     const QColor grid = m_host->color(IPanelHost::ColorRole::Border);
+    painter.setPen(grid);
+    painter.drawRect(area);
+    drawHorizontalAxis(painter, area, transform);
+
     const int bandHeight = area.height() / int(visible.size());
+    const QFontMetrics metrics(font());
+    const qint64 maximumConnectedGap =
+        Decimator::maximumConnectedGap(m_model->samples(), transform, area.width(),
+                                       horizontalCoordinateColumn());
 
     for (int position = 0; position < visible.size(); ++position) {
         const int index = visible.at(position);
@@ -809,24 +1090,50 @@ void PlotCanvas::drawMultiPlot(QPainter &painter, const QRect &area,
         // ряды разных величин перестают давить друг друга.
         SeriesFrame frame;
         frame.index = index;
-        frame.reduced = Decimator::reduce(m_model->samples(), index, transform, band.width());
+        frame.reduced = Decimator::reduce(m_model->samples(), index, transform, band.width(),
+                                          Decimator::Accumulator::None, maximumConnectedGap,
+                                          horizontalCoordinateColumn());
         frame.scale = applyVertical(PlotScales::resolve(m_model->series(index),
                                                         frame.reduced.visible, {}),
                                     band);
 
-        const QColor colour = QColor::fromRgba(m_model->series(index).color);
-        drawCurve(painter, band, frame, colour, true);
-
-        // Подпись полосы прямо в ней: отдельной шкалы слева на каждую полосу не хватит
-        // места, а без имени полосы не различить.
-        painter.setPen(colour);
-        painter.drawText(band.adjusted(4, 2, -4, 0), Qt::AlignLeft | Qt::AlignTop,
-                         m_model->series(index).name);
-
+        if (band.height() >= 2 * metrics.height() + 4) {
+            painter.setPen(grid);
+            painter.drawLine(band.left() + 1, band.center().y(), band.right() - 1,
+                             band.center().y());
+        }
         if (position + 1 < visible.size()) {
             painter.setPen(grid);
             painter.drawLine(band.left(), band.bottom() + 1, band.right(), band.bottom() + 1);
         }
+
+        const QColor colour = QColor::fromRgba(m_model->series(index).color);
+        drawCurve(painter, band, frame, colour, true);
+
+        // У полосы две крайние метки Y: полная сетка в каждой из пяти-десяти полос была
+        // бы шумом, а минимум и максимум всё ещё дают масштаб, в котором читается кривая.
+        if (band.height() >= 2 * metrics.height() + 4) {
+            const QString maximum = PlotFormat::number(frame.scale.maximum, kAxisLabelDigits);
+            const QString minimum = PlotFormat::number(frame.scale.minimum, kAxisLabelDigits);
+            const int labelRight = band.left() - kAxisTabWidth - kAxisLabelGap;
+            painter.setPen(colour);
+            painter.drawText(labelRight - metrics.horizontalAdvance(maximum),
+                             band.top() + metrics.ascent(), maximum);
+            painter.drawText(labelRight - metrics.horizontalAdvance(minimum), band.bottom(),
+                             minimum);
+        }
+
+        // Имя лежит на непрозрачной плашке: текст нельзя класть прямо на кривую, потому
+        // что на контрастном участке он исчезает ровно в самом информативном месте.
+        const QString name = m_model->series(index).name;
+        const int labelWidth = metrics.horizontalAdvance(name) + 8;
+        const QRect labelRect(band.left() + 2, band.top() + 2,
+                              qMin(labelWidth, qMax(1, band.width() - 4)), metrics.height() + 2);
+        painter.fillRect(labelRect, m_host->color(IPanelHost::ColorRole::Base));
+        painter.setPen(colour);
+        painter.drawText(labelRect.adjusted(3, 0, -3, 0), Qt::AlignLeft | Qt::AlignVCenter,
+                         metrics.elidedText(name, Qt::ElideRight, qMax(0, labelRect.width() - 6)));
+
     }
 }
 
@@ -891,6 +1198,11 @@ void PlotCanvas::drawHistogram(QPainter &painter, const QRect &area) const
     int tallest = 1;
     for (const int count : bins.counts)
         tallest = qMax(tallest, count);
+    // Частота — самостоятельная величина: наследовать сдвиг/масштаб временной развёртки
+    // значило бы оставить снизу пустое место и исказить форму распределения.
+    const YScale countScale{0.0, double(tallest), double(area.top()), double(area.height())};
+    drawValueAxis(painter, area, countScale, muted);
+    drawNumericHorizontalAxis(painter, area, bins.minimum, bins.maximum);
 
     const double binWidth = bins.width();
     const auto xOf = [&](double value) {
@@ -901,57 +1213,67 @@ void PlotCanvas::drawHistogram(QPainter &painter, const QRect &area) const
     // Столбцы: доля попавших в корзину от самой населённой.
     QColor fill = colour;
     fill.setAlpha(150);
+    painter.save();
+    painter.setClipRect(area);
     painter.setPen(Qt::NoPen);
     painter.setBrush(fill);
     for (int i = 0; i < bins.counts.size(); ++i) {
         const double left = xOf(bins.minimum + double(i) * binWidth);
         const double right = xOf(bins.minimum + double(i + 1) * binWidth);
-        const int height = int(double(bins.counts.at(i)) / double(tallest) * area.height());
-        painter.drawRect(QRectF(left, area.bottom() - height, qMax(1.0, right - left - 1.0),
-                                height));
+        const double top = countScale.yOf(double(bins.counts.at(i)));
+        const double bottom = countScale.yOf(0.0);
+        painter.drawRect(QRectF(left, qMin(top, bottom), qMax(1.0, right - left - 1.0),
+                                qAbs(bottom - top)));
     }
     painter.setBrush(Qt::NoBrush);
 
     const Histogram::Normal normal = Histogram::fitNormal(values);
-    if (!normal.valid || normal.sigma <= 0.0)
+    if (!normal.valid || normal.sigma <= 0.0) {
+        painter.restore();
         return;
+    }
 
     // Кривая нормального распределения масштабируется к площади столбцов: иначе плотность
     // (единицы на величину) и счётчики (штуки) оказались бы на одной оси без общей меры.
-    const double scale = double(bins.total) * binWidth / double(tallest) * area.height();
+    const double scale = double(bins.total) * binWidth;
     QPolygonF curve;
     curve.reserve(area.width());
     for (int x = 0; x < area.width(); ++x) {
         const double value =
             bins.minimum + double(x) / double(area.width()) * (bins.maximum - bins.minimum);
-        const double height = Histogram::normalDensity(normal, value) * scale;
-        curve.append(QPointF(area.left() + x, area.bottom() - height));
+        const double count = Histogram::normalDensity(normal, value) * scale;
+        curve.append(QPointF(area.left() + x, countScale.yOf(count)));
     }
     painter.setPen(QPen(colour.lighter(140), 1.5));
     painter.drawPolyline(curve);
 
     // Вертикали в среднем и на ±σ: по ним читается и центр, и разброс.
-    const QList<QPair<double, QString>> marks = {
-        {normal.mean, QStringLiteral("μ")},
-        {normal.mean - normal.sigma, QStringLiteral("−σ")},
-        {normal.mean + normal.sigma, QStringLiteral("+σ")},
+    const QList<double> marks = {
+        normal.mean,
+        normal.mean - normal.sigma,
+        normal.mean + normal.sigma,
     };
-    for (const auto &[value, label] : marks) {
+    for (const double value : marks) {
         if (value < bins.minimum || value > bins.maximum)
             continue;
         const double x = xOf(value);
         painter.setPen(QPen(muted, 1, Qt::DashLine));
         painter.drawLine(QPointF(x, area.top()), QPointF(x, area.bottom()));
-        painter.setPen(muted);
-        painter.drawText(QPointF(x + 3, area.top() + metrics.height()), label);
     }
+    painter.restore();
 
-    painter.setPen(muted);
-    painter.drawText(area.adjusted(4, 2, -4, 0), Qt::AlignRight | Qt::AlignTop,
-                     tr("%1: μ %2, σ %3")
-                         .arg(m_model->series(index).name,
-                              PlotFormat::number(normal.mean, 4),
-                              PlotFormat::number(normal.sigma, 4)));
+    const QString summary = tr("%1: μ %2, σ %3")
+                                .arg(m_model->series(index).name,
+                                     PlotFormat::number(normal.mean, 4),
+                                     PlotFormat::number(normal.sigma, 4));
+    if (metrics.horizontalAdvance(summary) <= area.width() - 8) {
+        const QRect summaryRect(area.right() - metrics.horizontalAdvance(summary) - 6,
+                                area.top() + 2, metrics.horizontalAdvance(summary) + 4,
+                                metrics.height() + 2);
+        painter.fillRect(summaryRect, m_host->color(IPanelHost::ColorRole::Base));
+        painter.setPen(muted);
+        painter.drawText(summaryRect, Qt::AlignCenter, summary);
+    }
 }
 
 void PlotCanvas::drawSpectrum(QPainter &painter, const QRect &area) const
@@ -964,6 +1286,7 @@ void PlotCanvas::drawSpectrum(QPainter &painter, const QRect &area) const
     QList<qint64> stamps;
     visibleValues(&values, &stamps);
 
+    const bool usesContinuousSegment = keepLongestContinuousSegment(&values, &stamps);
     const Spectrum::Result result = Spectrum::computeFromSamples(values, stamps);
     const QColor muted = m_host->color(IPanelHost::ColorRole::TextMuted);
 
@@ -980,9 +1303,16 @@ void PlotCanvas::drawSpectrum(QPainter &painter, const QRect &area) const
     if (tallest <= 0.0)
         return;
 
+    // Амплитуда спектра так же не связана с вертикальным масштабом исходного ряда.
+    const YScale amplitudeScale{0.0, tallest, double(area.top()), double(area.height())};
+    drawValueAxis(painter, area, amplitudeScale, muted);
+    drawNumericHorizontalAxis(painter, area, 0.0, result.binHz * double(result.magnitude.size()));
+
     const QColor colour = QColor::fromRgba(m_model->series(index).color);
     QColor fill = colour;
     fill.setAlpha(150);
+    painter.save();
+    painter.setClipRect(area);
     painter.setPen(Qt::NoPen);
     painter.setBrush(fill);
 
@@ -990,19 +1320,13 @@ void PlotCanvas::drawSpectrum(QPainter &painter, const QRect &area) const
     for (int i = 0; i < bins; ++i) {
         const double left = area.left() + double(i) / double(bins) * area.width();
         const double right = area.left() + double(i + 1) / double(bins) * area.width();
-        const int height = int(result.magnitude.at(i) / tallest * area.height());
+        const double top = amplitudeScale.yOf(result.magnitude.at(i));
+        const double bottom = amplitudeScale.yOf(0.0);
         painter.drawRect(
-            QRectF(left, area.bottom() - height, qMax(1.0, right - left), height));
+            QRectF(left, qMin(top, bottom), qMax(1.0, right - left), qAbs(bottom - top)));
     }
     painter.setBrush(Qt::NoBrush);
-
-    const QFontMetrics metrics(font());
-    painter.setPen(muted);
-    painter.drawText(area.left(), area.bottom() + metrics.height(), QStringLiteral("0 Hz"));
-    const QString right =
-        tr("%1 Hz").arg(PlotFormat::number(result.binHz * double(bins), 4));
-    painter.drawText(area.right() - metrics.horizontalAdvance(right),
-                     area.bottom() + metrics.height(), right);
+    painter.restore();
 
     QString note = m_model->series(index).name;
     if (result.resampled) {
@@ -1010,7 +1334,16 @@ void PlotCanvas::drawSpectrum(QPainter &painter, const QRect &area) const
         // строки приходят когда устройству вздумается.
         note += QStringLiteral(" · ") + tr("resampled to an even grid");
     }
-    painter.drawText(area.adjusted(4, 2, -4, 0), Qt::AlignRight | Qt::AlignTop, note);
+    if (usesContinuousSegment)
+        note += QStringLiteral(" · ") + tr("longest continuous segment");
+    const QFontMetrics metrics(font());
+    if (metrics.horizontalAdvance(note) <= area.width() - 8) {
+        const QRect noteRect(area.left() + 2, area.top() + 2,
+                             metrics.horizontalAdvance(note) + 6, metrics.height() + 2);
+        painter.fillRect(noteRect, m_host->color(IPanelHost::ColorRole::Base));
+        painter.setPen(muted);
+        painter.drawText(noteRect, Qt::AlignCenter, note);
+    }
 }
 
 void PlotCanvas::drawCursor(QPainter &painter, const QRect &area, const XTransform &transform,
@@ -1023,28 +1356,69 @@ void PlotCanvas::drawCursor(QPainter &painter, const QRect &area, const XTransfo
     if (samples.sampleCount() < 1)
         return;
 
-    // Отсчёт под курсором ищется по времени, а не по доле длины ряда: счётчик отсчётов
-    // один на все колонки, и перекрестие показывает именно то, что нарисовано.
-    const qint64 time = transform.timeAt(m_cursorX);
-    int row = Decimator::lowerBound(samples, time);
+    // Отсчёт под курсором ищется в той же горизонтальной системе координат, что и линия:
+    // иначе график по счётчику показывал бы под курсором значение соседнего времени.
+    const qint64 coordinate = transform.timeAt(m_cursorX);
+    const int coordinateColumn = horizontalCoordinateColumn();
+    int row = Decimator::lowerBound(samples, coordinate, coordinateColumn);
     row = qBound(0, row, samples.sampleCount() - 1);
-    if (row > 0 && qAbs(samples.timestamp(row - 1) - time) < qAbs(samples.timestamp(row) - time))
+    const std::optional<qint64> current = Decimator::coordinateAt(samples, row,
+                                                                    coordinateColumn);
+    const std::optional<qint64> previous = row > 0
+                                                ? Decimator::coordinateAt(samples, row - 1,
+                                                                          coordinateColumn)
+                                                : std::nullopt;
+    if (previous && current && qAbs(*previous - coordinate) < qAbs(*current - coordinate))
         --row;
 
-    const int x = int(transform.xOf(samples.timestamp(row)));
-    if (x < area.left() || x > area.right())
-        return;
+    const int x = m_cursorX;
 
     painter.setPen(QPen(m_host->color(IPanelHost::ColorRole::TextMuted), 1, Qt::DashLine));
     painter.drawLine(x, area.top(), x, area.bottom());
 
     const QFontMetrics metrics(font());
-    int textY = area.top() + metrics.height();
+    // Значение X привязано к самому указателю, а не к ближайшей точке: в разрыве потока
+    // именно положение курсора отвечает на вопрос «в какой координате данных нет».
+    const QString xLabel = coordinateColumn >= 0
+                               ? PlotFormat::number(
+                                     double(coordinate)
+                                         / double(Decimator::kCounterCoordinateScale),
+                                     kAxisLabelDigits)
+                               : formatTime(coordinate - transform.from,
+                                            transform.to - transform.from);
+    const int xLabelWidth = metrics.horizontalAdvance(xLabel) + 6;
+    const int xLabelMaximum = qMax(area.left(), area.right() - xLabelWidth);
+    const int xLabelLeft = qBound(area.left(), x - xLabelWidth / 2, xLabelMaximum);
+    const QRect xLabelRect(xLabelLeft, area.bottom() + 2, xLabelWidth, metrics.height() + 3);
+    painter.fillRect(xLabelRect, m_host->color(IPanelHost::ColorRole::Base));
+    painter.setPen(m_host->color(IPanelHost::ColorRole::ControlBorder));
+    painter.drawRect(xLabelRect);
+    painter.setPen(m_host->color(IPanelHost::ColorRole::TextMuted));
+    painter.drawText(xLabelRect, Qt::AlignCenter, xLabel);
 
+    int textY = area.top() + metrics.height();
+    const qint64 pixelDuration = qMax<qint64>(
+        1, (transform.to - transform.from) / qMax(1, area.width()) * 3);
+    const std::optional<qint64> rowCoordinate =
+        Decimator::coordinateAt(samples, row, coordinateColumn);
+    const bool hasData = rowCoordinate && qAbs(*rowCoordinate - coordinate) <= pixelDuration;
+
+    if (!hasData) {
+        const QString label = tr("No data");
+        const int width = metrics.horizontalAdvance(label);
+        const int labelX = (x + 8 + width < area.right()) ? x + 8 : x - 8 - width;
+        painter.setPen(m_host->color(IPanelHost::ColorRole::TextMuted));
+        painter.drawText(labelX, textY, label);
+        return;
+    }
+
+    bool anyValue = false;
     for (const SeriesFrame &frame : frames) {
         const double value = samples.at(row, frame.index);
         if (!qIsFinite(value))
             continue;
+
+        anyValue = true;
 
         const QString label = QStringLiteral("%1  %2")
                                   .arg(m_model->series(frame.index).name,
@@ -1059,6 +1433,14 @@ void PlotCanvas::drawCursor(QPainter &painter, const QRect &area, const XTransfo
         painter.drawText(labelX, textY, label);
         textY += metrics.height();
     }
+
+    if (!anyValue) {
+        const QString label = tr("No data");
+        const int width = metrics.horizontalAdvance(label);
+        const int labelX = (x + 8 + width < area.right()) ? x + 8 : x - 8 - width;
+        painter.setPen(m_host->color(IPanelHost::ColorRole::TextMuted));
+        painter.drawText(labelX, textY, label);
+    }
 }
 
 void PlotCanvas::paintEvent(QPaintEvent *event)
@@ -1071,7 +1453,7 @@ void PlotCanvas::paintEvent(QPaintEvent *event)
     QPainter painter(this);
     painter.fillRect(rect(), m_host->color(IPanelHost::ColorRole::Base));
 
-    const QRect area = plotArea();
+    QRect area = plotArea();
     if (area.width() < 2 || area.height() < 2)
         return;
 
@@ -1082,8 +1464,65 @@ void PlotCanvas::paintEvent(QPaintEvent *event)
         return;
     }
 
-    const XTransform transform = transformFor(area);
-    const QList<SeriesFrame> frames = buildFrames(area, transform);
+    XTransform transform = transformFor(area);
+    QList<SeriesFrame> frames = buildFrames(area, transform);
+
+    // Ширина поля оси зависит от самих чисел. Повторно сводим ряды только если она реально
+    // изменилась: преобразование X меняется вместе с областью, а рисовать старые колонки
+    // в новой геометрии означало бы сдвинуть данные относительно шкалы.
+    int axisMargin = verticalAxisMargin(frames);
+    switch (m_view->mode()) {
+    case PlotViewState::Mode::Xy: {
+        const int index = subjectSeries();
+        if (index >= 0) {
+            const SampleBuffer::ColumnStats stats = m_model->samples().stats(index);
+            const PlotScales::Range range = PlotScales::resolve(
+                m_model->series(index), {stats.minimum, stats.maximum, stats.finiteCount > 0},
+                {});
+            axisMargin = valueAxisMargin(applyVertical(range, area));
+        }
+        break;
+    }
+
+    case PlotViewState::Mode::Histogram:
+    case PlotViewState::Mode::Spectrum:
+        // В этих режимах ось Y выводит производные величины (частоты либо амплитуды),
+        // поэтому ширину нельзя брать у исходного ряда. Обычного компактного поля
+        // достаточно для четырёх значащих цифр; прежний резерв в 96 логических точек на
+        // Retina съедал почти двести пикселей самого графика.
+        axisMargin = kMinimumMarginLeft;
+        break;
+
+    case PlotViewState::Mode::MultiPlot:
+        for (const SeriesFrame &frame : frames)
+            axisMargin = qMax(axisMargin, valueAxisMargin(frame.scale));
+        break;
+
+    case PlotViewState::Mode::TimeSeries:
+    case PlotViewState::Mode::Cumulative:
+        break;
+    }
+
+    const int modeIndex = int(m_view->mode());
+    Q_ASSERT(modeIndex >= 0 && modeIndex < int(m_axisMargins.size()));
+    int &stableAxisMargin = m_axisMargins.at(size_t(modeIndex));
+    if (m_view->mode() == PlotViewState::Mode::Histogram
+        || m_view->mode() == PlotViewState::Mode::Spectrum) {
+        // Шкала специальных режимов не связана с исходным рядом. Нельзя позволить ей
+        // унаследовать однажды выросшее поле временной развёртки.
+        stableAxisMargin = axisMargin;
+    } else {
+        stableAxisMargin = qMax(stableAxisMargin, axisMargin);
+    }
+    axisMargin = qMax(kMinimumMarginLeft, stableAxisMargin);
+    if (axisMargin != m_leftMargin) {
+        m_leftMargin = axisMargin;
+        area = plotArea();
+        if (area.width() < 2 || area.height() < 2)
+            return;
+        transform = transformFor(area);
+        frames = buildFrames(area, transform);
+    }
 
     m_visibleOrder.clear();
     m_visibleOrder.reserve(frames.size());
@@ -1108,7 +1547,7 @@ void PlotCanvas::paintEvent(QPaintEvent *event)
     case PlotViewState::Mode::TimeSeries:
     case PlotViewState::Mode::Cumulative:
         // Накопление — та же развёртка, только прореживатель считает бегущую сумму;
-        // отдельного кода отрисовки ему не нужно.
+        // осью может быть и принятый штамп, и монотонный счётчик от устройства.
         drawFrame(painter, area, transform, frames);
         drawTimeSeries(painter, area, transform, frames);
         drawCursor(painter, area, transform, frames);
@@ -1129,13 +1568,6 @@ void PlotCanvas::paintEvent(QPaintEvent *event)
         break;
     }
 
-    if (m_view->paused()) {
-        // Замороженную картинку легко принять за зависшую программу. Надпись отвечает на
-        // этот вопрос раньше, чем он возникнет.
-        painter.setPen(m_host->color(IPanelHost::ColorRole::Accent));
-        painter.drawText(area.adjusted(6, 4, -6, 0), Qt::AlignRight | Qt::AlignTop,
-                         tr("PAUSED"));
-    }
 }
 
 } // namespace spotty

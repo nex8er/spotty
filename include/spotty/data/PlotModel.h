@@ -90,6 +90,14 @@ public:
     /// \brief Задать или снять пользовательские пределы шкалы ряда.
     void setSeriesRange(int index, bool hasRange, double minimum, double maximum);
 
+    /**
+     * \brief Вернуть оформление рядов к умолчаниям, не трогая накопленные отсчёты.
+     *
+     * Имя возвращается к заголовку устройства, если он уже был получен, и к `alpha`,
+     * `bravo`, … в противном случае.
+     */
+    void resetSeriesConfiguration();
+
     /// \brief Имена всех рядов по порядку — для экспорта и для опознания профиля.
     QStringList seriesNames() const;
 
@@ -139,6 +147,13 @@ private:
     SampleBuffer m_samples;
     SampleParser m_parser;
     QList<PlotSeries> m_series;
+    /**
+     * \brief Последний заголовок устройства; нужен и до появления первой строки данных.
+     *
+     * Это внутреннее состояние, а не поле PlotSeries: данные серии входят в публичный SDK,
+     * и расширять их ради служебного имени означало бы без нужды ломать его ABI.
+     */
+    QStringList m_reportedNames;
     int m_xAxis = -1;
     int m_rejected = 0;
 };

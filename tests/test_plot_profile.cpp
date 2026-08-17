@@ -45,6 +45,9 @@ TEST_F(Profiles, RoundTripsEveryField)
     profile.xAxis = 1;
     profile.capacity = 12345;
     profile.mode = QStringLiteral("spectrum");
+    profile.horizontalDurationNs = 30'000'000'000LL;
+    profile.verticalZoom = 2.5;
+    profile.verticalOffset = -0.75;
     profile.series[0].color = 0xFF102030;
     profile.series[0].nameIsCustom = true;
     profile.series[1].visible = false;
@@ -60,6 +63,9 @@ TEST_F(Profiles, RoundTripsEveryField)
     EXPECT_EQ(loaded.xAxis, 1);
     EXPECT_EQ(loaded.capacity, 12345);
     EXPECT_EQ(loaded.mode, QStringLiteral("spectrum"));
+    EXPECT_EQ(loaded.horizontalDurationNs, 30'000'000'000LL);
+    EXPECT_DOUBLE_EQ(loaded.verticalZoom, 2.5);
+    EXPECT_DOUBLE_EQ(loaded.verticalOffset, -0.75);
     ASSERT_EQ(loaded.series.size(), 2);
     EXPECT_EQ(loaded.series.at(0).color, 0xFF102030u);
     EXPECT_TRUE(loaded.series.at(0).nameIsCustom);

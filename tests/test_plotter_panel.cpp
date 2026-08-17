@@ -3,6 +3,7 @@
  * \brief Тесты проводки панели плоттера: профиль, таблица, ширины колонок.
  */
 #include "PlotterPanel.h"
+#include "PlotterPlugin.h"
 
 #include <spotty/data/PlotModel.h>
 #include <spotty/data/PlotProfile.h>
@@ -14,7 +15,10 @@
 #include <gtest/gtest.h>
 
 #include <QApplication>
+#include <QComboBox>
+#include <QSpinBox>
 #include <QSplitter>
+#include <QToolButton>
 
 using namespace spotty;
 
@@ -112,7 +116,9 @@ TEST_F(Panel, ProfileCarriesNonSeriesSettingsToo)
     build();
     QApplication::processEvents();
 
-    EXPECT_EQ(model->capacity(), 4321);
+    // Старые профили могли хранить точное число отсчётов. В новом поле оно показывается
+    // тысячами, поэтому ближайшее представимое значение — 4K.
+    EXPECT_EQ(model->capacity(), 4000);
 }
 
 TEST_F(Panel, ChangingAColourRewritesTheProfileFile)
@@ -174,6 +180,129 @@ TEST_F(Panel, SplitterPositionSurvivesRebuild)
     EXPECT_EQ(restored->sizes(), saved);
 }
 
+TEST_F(Panel, MiniatureHeightSurvivesRebuild)
+{
+    build();
+    auto *splitter = panel->findChild<QSplitter *>();
+    ASSERT_NE(splitter, nullptr);
+
+    splitter->setSizes({240, 260});
+    Q_EMIT splitter->splitterMoved(240, 1);
+    QApplication::processEvents();
+
+    const int savedHeight = splitter->sizes().first();
+    EXPECT_EQ(host->settings.value(QStringLiteral("miniatureHeight")).toInt(), savedHeight);
+
+    panel.reset();
+    build();
+
+    auto *restored = panel->findChild<QSplitter *>();
+    ASSERT_NE(restored, nullptr);
+    EXPECT_EQ(restored->sizes().first(), savedHeight);
+}
+
+TEST_F(Panel, ModeComboKeepsIconsAndChangesTheView)
+{
+    build();
+    auto *mode = panel->findChild<QComboBox *>(QStringLiteral("plotMode"));
+    ASSERT_NE(mode, nullptr);
+    ASSERT_EQ(mode->count(), 6);
+    EXPECT_EQ(mode->itemText(0), QStringLiteral("General"));
+    for (int index = 0; index < mode->count(); ++index)
+        EXPECT_FALSE(mode->itemIcon(index).isNull());
+    EXPECT_TRUE(host->iconGlyphs.contains(char32_t(0xF0100)));
+    EXPECT_TRUE(host->iconGlyphs.contains(char32_t(0xF04EB)));
+
+    const int spectrum = mode->findData(int(PlotViewState::Mode::Spectrum));
+    ASSERT_GE(spectrum, 0);
+    mode->setCurrentIndex(spectrum);
+    EXPECT_EQ(view->mode(), PlotViewState::Mode::Spectrum);
+
+    view->setMode(PlotViewState::Mode::Xy);
+    EXPECT_EQ(mode->currentData().toInt(), int(PlotViewState::Mode::Xy));
+}
+
+TEST_F(Panel, ProfileAppliesAndSavesPlotScale)
+{
+    storeProfile(QStringLiteral("board"), {0xFF112233});
+    PlotProfileStore store(dir.path());
+    PlotProfile profile = store.load(QStringLiteral("board"));
+    profile.horizontalDurationNs = 30'000'000'000LL;
+    profile.verticalZoom = 2.5;
+    profile.verticalOffset = -0.75;
+    ASSERT_TRUE(store.save(profile));
+
+    build();
+    EXPECT_EQ(view->windowDuration(), 30'000'000'000LL);
+    EXPECT_DOUBLE_EQ(view->verticalZoom(), 2.5);
+    EXPECT_DOUBLE_EQ(view->verticalOffset(), -0.75);
+
+    view->setWindowDuration(20'000'000'000LL);
+    view->setVerticalTransform(1.5, 0.25);
+
+    ASSERT_TRUE(test::waitFor([this] {
+        const PlotProfile saved = PlotProfileStore(dir.path()).load(QStringLiteral("board"));
+        return saved.horizontalDurationNs == 20'000'000'000LL
+               && qFuzzyCompare(saved.verticalZoom, 1.5)
+               && qFuzzyCompare(saved.verticalOffset, 0.25);
+    }, 3000));
+}
+
+TEST_F(Panel, BufferSizeIsShownAndStoredInThousands)
+{
+    build();
+    auto *buffer = panel->findChild<QSpinBox *>(QStringLiteral("plotBuffer"));
+    ASSERT_NE(buffer, nullptr);
+
+    EXPECT_EQ(buffer->minimum(), 1);
+    EXPECT_EQ(buffer->maximum(), 100);
+    EXPECT_EQ(buffer->value(), 50);
+    EXPECT_EQ(buffer->suffix(), QStringLiteral("K"));
+
+    buffer->setValue(42);
+    EXPECT_EQ(model->capacity(), 42'000);
+    EXPECT_EQ(host->settings.value(QStringLiteral("capacity")).toInt(), 42'000);
+}
+
+TEST_F(Panel, ResetProfileRestoresReportedFieldNamesAndDefaults)
+{
+    storeProfile(QStringLiteral("board"), {0xFF112233, 0xFF445566});
+    build();
+    model->feed(QStringLiteral("1,2"), 0);
+    model->feed(QStringLiteral("voltage,current"), 1);
+    model->setSeriesName(0, QStringLiteral("battery"));
+    model->setSeriesVisible(1, false);
+    model->setSeriesRange(0, true, -5.0, 5.0);
+    model->setSeparator(u';');
+    model->setCapacity(100);
+    model->setXAxisSeries(0);
+    view->setMode(PlotViewState::Mode::Spectrum);
+
+    auto *reset = panel->findChild<QToolButton *>(QStringLiteral("resetPlotProfile"));
+    ASSERT_NE(reset, nullptr);
+    ASSERT_TRUE(reset->isEnabled());
+    EXPECT_TRUE(host->iconGlyphs.contains(char32_t(0xF006F)));
+    reset->click();
+
+    EXPECT_EQ(model->separator(), u',');
+    EXPECT_EQ(model->capacity(), 50000);
+    EXPECT_EQ(model->xAxisSeries(), -1);
+    EXPECT_EQ(view->mode(), PlotViewState::Mode::TimeSeries);
+    EXPECT_EQ(view->windowDuration(), PlotViewState::kDefaultDuration);
+    EXPECT_DOUBLE_EQ(view->verticalZoom(), 1.0);
+    EXPECT_DOUBLE_EQ(view->verticalOffset(), 0.0);
+    EXPECT_EQ(model->series(0).name, QStringLiteral("voltage"));
+    EXPECT_EQ(model->series(1).name, QStringLiteral("current"));
+    EXPECT_FALSE(model->series(0).nameIsCustom);
+    EXPECT_TRUE(model->series(1).visible);
+    EXPECT_FALSE(model->series(0).hasCustomRange);
+
+    const PlotProfile stored = PlotProfileStore(dir.path()).load(QStringLiteral("board"));
+    ASSERT_EQ(stored.series.size(), 2);
+    EXPECT_FALSE(stored.series.at(0).nameIsCustom);
+    EXPECT_EQ(stored.series.at(0).name, QStringLiteral("voltage"));
+}
+
 TEST_F(Panel, MiniatureAndTableBothStayUsable)
 {
     // Схлопывать нечего: панель без графика или без таблицы бесполезна, а вернуть
@@ -204,4 +333,41 @@ TEST_F(Panel, WithoutAProfileNothingIsWritten)
     QApplication::processEvents();
 
     EXPECT_TRUE(PlotProfileStore(dir.path()).profiles().isEmpty());
+}
+
+TEST_F(Panel, PauseDiscardsIncomingPlotSamples)
+{
+    PlotterPlugin plugin;
+    std::unique_ptr<QWidget> created(plugin.createPanel(QStringLiteral("plotter"), host.get(),
+                                                         nullptr));
+    auto *pluginModel = plugin.findChild<PlotModel *>();
+    auto *pluginView = plugin.findChild<PlotViewState *>();
+    ASSERT_NE(pluginModel, nullptr);
+    ASSERT_NE(pluginView, nullptr);
+
+    TerminalLine first;
+    first.text = QStringLiteral("1,2");
+    first.complete = true;
+    first.direction = DataDirection::Rx;
+    host->appendTerminalLine(first);
+    ASSERT_EQ(pluginModel->samples().sampleCount(), 1);
+
+    pluginView->setPaused(true);
+    TerminalLine paused;
+    paused.text = QStringLiteral("3,4");
+    paused.complete = true;
+    paused.direction = DataDirection::Rx;
+    host->appendTerminalLine(paused);
+    EXPECT_EQ(pluginModel->samples().sampleCount(), 1);
+
+    pluginView->setPaused(false);
+    TerminalLine resumed;
+    resumed.text = QStringLiteral("5,6");
+    resumed.complete = true;
+    resumed.direction = DataDirection::Rx;
+    host->appendTerminalLine(resumed);
+
+    ASSERT_EQ(pluginModel->samples().sampleCount(), 2);
+    EXPECT_DOUBLE_EQ(pluginModel->samples().at(1, 0), 5.0);
+    EXPECT_DOUBLE_EQ(pluginModel->samples().at(1, 1), 6.0);
 }

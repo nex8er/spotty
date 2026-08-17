@@ -37,9 +37,9 @@ filter-off palette translate format-font format-size theme-light-dark weather-ni
 white-balance-sunny information-outline alert-outline timer-outline puzzle rename-box
 content-duplicate file-import file-export chart-line file-upload format-list-numbered table-off
 format-letter-case regex format-letter-matches image-broken-variant
-chart-areaspline axis-y-arrow format-columns arrow-collapse-right monitor-screenshot
+chart-areaspline axis-y-arrow format-columns arrow-collapse-right monitor-screenshot camera table
 chart-scatter-plot chart-bell-curve chart-bell-curve-cumulative poll chart-multiple
-target-variant
+target-variant backup-restore
 """.split()
 
 HEADER = Path(__file__).resolve().parent.parent / "include" / "spotty" / "ui" / "MdiCodepoints.h"

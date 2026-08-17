@@ -79,11 +79,14 @@ inline constexpr char32_t AxisYArrow = 0xF0D51;
 inline constexpr char32_t FormatColumns = 0xF08DF;
 inline constexpr char32_t ArrowCollapseRight = 0xF0794;
 inline constexpr char32_t MonitorScreenshot = 0xF0E51;
+inline constexpr char32_t Camera = 0xF0100;
+inline constexpr char32_t Table = 0xF04EB;
 inline constexpr char32_t ChartScatterPlot = 0xF0E92;
 inline constexpr char32_t ChartBellCurve = 0xF0C50;
 inline constexpr char32_t ChartBellCurveCumulative = 0xF0FA7;
 inline constexpr char32_t Poll = 0xF041F;
 inline constexpr char32_t ChartMultiple = 0xF1213;
 inline constexpr char32_t TargetVariant = 0xF0A77;
+inline constexpr char32_t BackupRestore = 0xF006F;
 
 } // namespace spotty::mdi

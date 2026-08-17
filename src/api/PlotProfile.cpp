@@ -149,6 +149,10 @@ PlotProfile PlotProfileStore::load(const QString &name) const
     profile.xAxis = root.value(QStringLiteral("xAxis")).toInt(-1);
     profile.capacity = root.value(QStringLiteral("capacity")).toInt(50000);
     profile.mode = root.value(QStringLiteral("mode")).toString(QStringLiteral("timeseries"));
+    profile.horizontalDurationNs = root.value(QStringLiteral("horizontalDurationNs"))
+                                      .toInteger(10'000'000'000LL);
+    profile.verticalZoom = root.value(QStringLiteral("verticalZoom")).toDouble(1.0);
+    profile.verticalOffset = root.value(QStringLiteral("verticalOffset")).toDouble(0.0);
     profile.lastUsed =
         QDateTime::fromString(root.value(QStringLiteral("lastUsed")).toString(), Qt::ISODate);
 
@@ -177,6 +181,9 @@ bool PlotProfileStore::save(const PlotProfile &profile) const
     root.insert(QStringLiteral("xAxis"), profile.xAxis);
     root.insert(QStringLiteral("capacity"), profile.capacity);
     root.insert(QStringLiteral("mode"), profile.mode);
+    root.insert(QStringLiteral("horizontalDurationNs"), profile.horizontalDurationNs);
+    root.insert(QStringLiteral("verticalZoom"), profile.verticalZoom);
+    root.insert(QStringLiteral("verticalOffset"), profile.verticalOffset);
     root.insert(QStringLiteral("lastUsed"),
                 (profile.lastUsed.isValid() ? profile.lastUsed : QDateTime::currentDateTimeUtc())
                     .toString(Qt::ISODate));

@@ -82,7 +82,12 @@ QWidget *PlotterPlugin::createPanel(const QString &panelId, IPanelHost *host, QW
                         }
                         if (!line.complete)
                             break;
-                        if (line.direction == DataDirection::Rx) {
+                        // Пауза относится к захвату графика, а не к терминалу: устройство
+                        // и общий журнал продолжают работать, но точка, пришедшая во время
+                        // разглядывания кривой, не должна позже внезапно попасть в образец.
+                        // Номер строки всё равно продвигаем ниже, иначе после снятия паузы
+                        // плоттер перечитает и нарисует весь пропущенный поток.
+                        if (line.direction == DataDirection::Rx && !m_view->paused()) {
                             // Отметка времени идёт вместе со строкой: точки приходят
                             // неравномерно, и равноотстоящая ось искажает форму сигнала.
                             m_model->feed(line.text.trimmed(), line.monotonicNs);

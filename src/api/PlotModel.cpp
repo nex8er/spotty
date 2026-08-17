@@ -43,7 +43,9 @@ bool PlotModel::growSeries(int columns)
     while (m_series.size() < columns) {
         PlotSeries series;
         series.color = defaultColor(int(m_series.size()));
-        series.name = PlotFormat::defaultSeriesName(int(m_series.size()));
+        const int index = int(m_series.size());
+        const QString sourceName = m_reportedNames.value(index);
+        series.name = sourceName.isEmpty() ? PlotFormat::defaultSeriesName(index) : sourceName;
         m_series.append(series);
     }
     return true;
@@ -58,13 +60,17 @@ bool PlotModel::feed(const QString &line, qint64 monotonicNs)
         m_parser.parse(line, m_samples.columnCount(), &values, &names);
 
     if (result.outcome == SampleParser::Outcome::Header) {
-        // Заголовок не создаёт колонок сам: пока данных не было, переименовывать нечего, а
-        // имена запомнятся, когда придёт первый отсчёт той же ширины.
+        // Заголовок не создаёт колонок сам, но запоминается и до первой строки данных:
+        // иначе профиль, сброшенный после раннего заголовка, мог вернуть только alpha,
+        // bravo, хотя устройство уже назвало поля.
+        m_reportedNames = names;
         bool renamed = false;
         for (int i = 0; i < names.size() && i < m_series.size(); ++i) {
-            if (m_series.at(i).nameIsCustom || m_series.at(i).name == names.at(i))
+            PlotSeries &series = m_series[i];
+            const QString sourceName = m_reportedNames.at(i);
+            if (sourceName.isEmpty() || series.nameIsCustom || series.name == sourceName)
                 continue;
-            m_series[i].name = names.at(i);
+            series.name = sourceName;
             renamed = true;
         }
         if (renamed)
@@ -126,13 +132,43 @@ void PlotModel::setSeriesName(int index, const QString &name)
     // Пустое имя возвращает ряд к имени по умолчанию и снимает признак ручной правки:
     // иначе стерев имя, пользователь получил бы безымянную строку без пути назад.
     if (trimmed.isEmpty()) {
-        m_series[index].name = PlotFormat::defaultSeriesName(index);
+        const QString sourceName = m_reportedNames.value(index);
+        m_series[index].name = sourceName.isEmpty() ? PlotFormat::defaultSeriesName(index)
+                                                     : sourceName;
         m_series[index].nameIsCustom = false;
     } else {
         m_series[index].name = trimmed;
         m_series[index].nameIsCustom = true;
     }
     Q_EMIT seriesAdded();
+    Q_EMIT configurationChanged();
+}
+
+void PlotModel::resetSeriesConfiguration()
+{
+    bool didChange = false;
+    for (int index = 0; index < m_series.size(); ++index) {
+        PlotSeries &series = m_series[index];
+        const QString reportedName = m_reportedNames.value(index);
+        const QString sourceName = reportedName.isEmpty() ? PlotFormat::defaultSeriesName(index)
+                                                           : reportedName;
+        if (series.name != sourceName || series.nameIsCustom
+            || series.color != defaultColor(index) || !series.visible || series.hasCustomRange) {
+            didChange = true;
+        }
+        series.name = sourceName;
+        series.nameIsCustom = false;
+        series.color = defaultColor(index);
+        series.visible = true;
+        series.hasCustomRange = false;
+        series.customMinimum = 0.0;
+        series.customMaximum = 1.0;
+    }
+
+    if (!didChange)
+        return;
+    Q_EMIT seriesAdded();
+    Q_EMIT changed();
     Q_EMIT configurationChanged();
 }
 

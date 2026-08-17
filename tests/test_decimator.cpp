@@ -121,6 +121,63 @@ TEST(Decimator, SamplesOutsideTheWindowAreSkipped)
     EXPECT_DOUBLE_EQ(result.visible.maximum, 5.0);
 }
 
+TEST(Decimator, NeighbouringSamplesExtendTheCurveBeyondWindowEdges)
+{
+    SampleBuffer buffer;
+    for (int i = 0; i < 10; ++i)
+        append(buffer, qint64(i) * kSecond, double(i));
+
+    const auto result = Decimator::reduce(buffer, 0, windowOf(3 * kSecond, 5 * kSecond), 100);
+
+    ASSERT_EQ(result.columns.size(), 5);
+    EXPECT_EQ(result.columns.first().x, -1);
+    EXPECT_EQ(result.columns.last().x, 100);
+    // Контекст соединяет кривую, но не раздувает шкалу за счёт невидимых 2 и 6.
+    EXPECT_DOUBLE_EQ(result.visible.minimum, 3.0);
+    EXPECT_DOUBLE_EQ(result.visible.maximum, 5.0);
+}
+
+TEST(Decimator, NeighboursDoNotInventACurveForAnEmptyWindow)
+{
+    SampleBuffer buffer;
+    append(buffer, 0, 1.0);
+    append(buffer, 10 * kSecond, 2.0);
+
+    const auto result = Decimator::reduce(buffer, 0, windowOf(4 * kSecond, 6 * kSecond), 100);
+
+    EXPECT_TRUE(result.columns.isEmpty());
+    EXPECT_FALSE(result.visible.valid);
+}
+
+TEST(Decimator, LongPauseSplitsTheCurve)
+{
+    SampleBuffer buffer;
+    append(buffer, 0, 0.0);
+    append(buffer, kSecond, 1.0);
+    append(buffer, 2 * kSecond, 2.0);
+    append(buffer, 10 * kSecond, 10.0);
+    append(buffer, 11 * kSecond, 11.0);
+
+    const auto result = Decimator::reduce(buffer, 0, windowOf(0, 11 * kSecond), 110);
+
+    ASSERT_EQ(result.runStarts.size(), 2);
+    EXPECT_EQ(result.runStarts.at(0), 0);
+    EXPECT_EQ(result.runStarts.at(1), 3);
+}
+
+TEST(Decimator, RegularSparseSamplesStayInOneCurve)
+{
+    SampleBuffer buffer;
+    append(buffer, 0, 0.0);
+    append(buffer, 2 * kSecond, 2.0);
+    append(buffer, 4 * kSecond, 4.0);
+    append(buffer, 6 * kSecond, 6.0);
+
+    const auto result = Decimator::reduce(buffer, 0, windowOf(0, 6 * kSecond), 600);
+
+    EXPECT_EQ(result.runStarts.size(), 1);
+}
+
 TEST(Decimator, ReduceReportsVisibleRangeMatchingTheData)
 {
     // Контракт «автомасштаб бесплатно»: пределы выпадают из того же прохода.
@@ -175,6 +232,45 @@ TEST(Decimator, LowerBoundFindsTheWindowStart)
     EXPECT_EQ(Decimator::lowerBound(buffer, 5 * kSecond), 5);
     EXPECT_EQ(Decimator::lowerBound(buffer, 5 * kSecond - 1), 5);
     EXPECT_EQ(Decimator::lowerBound(buffer, 100 * kSecond), 10);
+}
+
+TEST(Decimator, UsesMonotonicDataCounterAsHorizontalCoordinate)
+{
+    SampleBuffer buffer;
+    for (int i = 0; i < 5; ++i) {
+        const double values[] = {double(i), double(i) * 100.0};
+        buffer.append(qint64(i) * kSecond, values, 2);
+    }
+
+    const auto result = Decimator::reduce(
+        buffer, 0,
+        windowOf(100 * Decimator::kCounterCoordinateScale,
+                 300 * Decimator::kCounterCoordinateScale),
+        100, Decimator::Accumulator::None, 0, 1);
+
+    ASSERT_TRUE(result.visible.valid);
+    EXPECT_DOUBLE_EQ(result.visible.minimum, 1.0);
+    EXPECT_DOUBLE_EQ(result.visible.maximum, 3.0);
+    EXPECT_EQ(Decimator::lowerBound(buffer, 250 * Decimator::kCounterCoordinateScale, 1), 3);
+}
+
+TEST(Decimator, PreservesFractionalDataCounter)
+{
+    SampleBuffer buffer;
+    for (int i = 0; i < 4; ++i) {
+        const double values[] = {double(i), 0.25 + double(i) * 0.125};
+        buffer.append(qint64(i) * kSecond, values, 2);
+    }
+
+    const auto result = Decimator::reduce(
+        buffer, 0,
+        windowOf(qint64(0.3 * Decimator::kCounterCoordinateScale),
+                 qint64(0.6 * Decimator::kCounterCoordinateScale)),
+        100, Decimator::Accumulator::None, 0, 1);
+
+    ASSERT_TRUE(result.visible.valid);
+    EXPECT_DOUBLE_EQ(result.visible.minimum, 1.0);
+    EXPECT_DOUBLE_EQ(result.visible.maximum, 2.0);
 }
 
 TEST(Decimator, EmptyBufferProducesNothing)

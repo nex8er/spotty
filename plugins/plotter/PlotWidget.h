@@ -58,18 +58,6 @@ private:
     /// \brief Обновить значок и подсказку кнопки паузы под текущее состояние.
     void updatePlayPause();
 
-    /// \brief Название режима для меню и подсказки.
-    static QString modeTitle(PlotViewState::Mode mode);
-
-    /// \brief Пояснение, зачем режим нужен.
-    static QString modeHint(PlotViewState::Mode mode);
-
-    /// \brief Меню выбора режима показа — по левому клику.
-    void showModeMenu();
-
-    /// \brief Обновить значок кнопки режима под текущий режим.
-    void updateModeIcon();
-
     /// \brief Меню выбора разделителя — по левому клику, как просил владелец.
     void showSeparatorMenu();
 
@@ -88,7 +76,6 @@ private:
     PlotCanvas *m_canvas = nullptr;
     QToolButton *m_playPause = nullptr;
     QToolButton *m_follow = nullptr;
-    QToolButton *m_mode = nullptr;
 };
 
 } // namespace spotty
