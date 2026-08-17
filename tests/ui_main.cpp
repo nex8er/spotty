@@ -26,6 +26,12 @@
  */
 int main(int argc, char **argv)
 {
+    // gtest_discover_tests запускает этот файл ещё при сборке, до того как CTest
+    // применит свойство ENVIRONMENT к отдельным тестам. Без платформы Qt такой
+    // запуск пытается открыть X11-дисплей и ломает headless-сборки Linux.
+    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM"))
+        qputenv("QT_QPA_PLATFORM", "offscreen");
+
     QApplication app(argc, argv);
 
     QCoreApplication::setOrganizationName(QStringLiteral("SpottyTests"));

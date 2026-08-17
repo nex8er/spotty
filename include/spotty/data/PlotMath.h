@@ -22,7 +22,7 @@ public:
      * \struct Bins
      * \brief Корзины равной ширины на отрезке [minimum, maximum].
      */
-    struct Bins
+    struct SPOTTY_API_EXPORT Bins
     {
         QList<int> counts;
         double minimum = 0.0;
