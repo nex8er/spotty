@@ -47,6 +47,7 @@ public:
 
     QList<PanelDescriptor> panels() const override;
     QWidget *createPanel(const QString &panelId, IPanelHost *host, QWidget *parent) override;
+    SettingsSchema settingsSchema() const override;
 
     /// \brief Показать плоттер отдельным окном либо поднять уже открытое.
     void openInWindow(IPanelHost *host);

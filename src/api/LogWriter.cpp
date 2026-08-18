@@ -197,34 +197,62 @@ QByteArray LogWriter::selectLines(const QByteArray &data)
 
 void LogWriter::write(const QByteArray &data, DataDirection direction)
 {
-    if (!m_file || data.isEmpty())
-        return;
-    if (direction == DataDirection::Tx && !m_includeTx)
+    writeImpl({data, direction}, true);
+}
+
+void LogWriter::writeMany(const QList<WriteRequest> &requests)
+{
+    if (!m_file)
         return;
 
-    QByteArray payload = m_filterAnsi ? stripAnsi(data) : data;
-    if (payload.isEmpty())
-        return;
+    for (const WriteRequest &request : requests) {
+        if (!writeImpl(request, false))
+            return;
+    }
 
-    if (m_csvMode != CsvMode::All)
-        payload = selectLines(payload);
+    m_file->flush();
+}
+
+bool LogWriter::writeImpl(const WriteRequest &request, bool flush)
+{
+    if (!m_file || request.data.isEmpty())
+        return true;
+    if (request.direction == DataDirection::Tx && !m_includeTx)
+        return true;
+
+    QByteArray payload = m_filterAnsi ? stripAnsi(request.data) : request.data;
     if (payload.isEmpty())
-        return;
+        return true;
+
+    if (m_csvMode != CsvMode::All) {
+        if (request.classification.isEmpty()) {
+            payload = selectLines(payload);
+        } else {
+            const bool isData = m_csvDetector.isDataLine(
+                QString::fromUtf8(request.classification).trimmed());
+            if ((m_csvMode == CsvMode::OnlyData) != isData)
+                return true;
+        }
+    }
+    if (payload.isEmpty())
+        return true;
 
     const qint64 written = m_file->write(payload);
     if (written < 0) {
         const QString message = tr("Log write failed: %1").arg(m_file->errorString());
         stop();
         Q_EMIT errorOccurred(message);
-        return;
+        return false;
     }
 
     // Сброс на каждую порцию: лог нужен ровно тогда, когда что-то пошло не так, и терять
     // последние секунды перед зависанием — терять самое важное.
-    m_file->flush();
+    if (flush)
+        m_file->flush();
 
     m_bytesWritten += written;
     Q_EMIT bytesWrittenChanged(m_bytesWritten);
+    return true;
 }
 
 QByteArray LogWriter::stripAnsi(const QByteArray &data)

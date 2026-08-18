@@ -18,7 +18,7 @@
  * \note Всё, что сказано в #SPOTTY_API_VERSION про ломающие изменения, действует и здесь,
  *       включая добавление виртуального метода в конец класса.
  */
-#define SPOTTY_UI_API_VERSION 4
+#define SPOTTY_UI_API_VERSION 6
 
 /**
  * \def SPOTTY_PANEL_PLUGIN_IID

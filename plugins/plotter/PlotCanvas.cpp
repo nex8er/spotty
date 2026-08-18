@@ -1155,6 +1155,12 @@ int PlotCanvas::subjectSeries() const
     return -1;
 }
 
+void PlotCanvas::drawEmptySubjectName(QPainter &painter, const QRect &area, int series) const
+{
+    painter.setPen(QColor::fromRgba(m_model->series(series).color));
+    painter.drawText(area, Qt::AlignCenter, m_model->series(series).name);
+}
+
 void PlotCanvas::visibleValues(QList<double> *values, QList<qint64> *timestamps) const
 {
     const int index = subjectSeries();
@@ -1184,14 +1190,13 @@ void PlotCanvas::drawHistogram(QPainter &painter, const QRect &area) const
     QList<double> values;
     visibleValues(&values, nullptr);
 
+    const QColor colour = QColor::fromRgba(m_model->series(index).color);
     const Histogram::Bins bins = Histogram::bins(values);
     if (bins.counts.isEmpty() || bins.total == 0) {
-        painter.setPen(m_host->color(IPanelHost::ColorRole::TextMuted));
-        painter.drawText(area, Qt::AlignCenter, tr("Not enough data for a histogram"));
+        drawEmptySubjectName(painter, area, index);
         return;
     }
 
-    const QColor colour = QColor::fromRgba(m_model->series(index).color);
     const QColor muted = m_host->color(IPanelHost::ColorRole::TextMuted);
     const QFontMetrics metrics(font());
 
@@ -1262,9 +1267,8 @@ void PlotCanvas::drawHistogram(QPainter &painter, const QRect &area) const
     }
     painter.restore();
 
-    const QString summary = tr("%1: μ %2, σ %3")
-                                .arg(m_model->series(index).name,
-                                     PlotFormat::number(normal.mean, 4),
+    const QString summary = tr("μ %1, σ %2")
+                                .arg(PlotFormat::number(normal.mean, 4),
                                      PlotFormat::number(normal.sigma, 4));
     if (metrics.horizontalAdvance(summary) <= area.width() - 8) {
         const QRect summaryRect(area.right() - metrics.horizontalAdvance(summary) - 6,
@@ -1286,29 +1290,29 @@ void PlotCanvas::drawSpectrum(QPainter &painter, const QRect &area) const
     QList<qint64> stamps;
     visibleValues(&values, &stamps);
 
-    const bool usesContinuousSegment = keepLongestContinuousSegment(&values, &stamps);
+    keepLongestContinuousSegment(&values, &stamps);
     const Spectrum::Result result = Spectrum::computeFromSamples(values, stamps);
     const QColor muted = m_host->color(IPanelHost::ColorRole::TextMuted);
+    const QColor colour = QColor::fromRgba(m_model->series(index).color);
 
     if (!result.isValid()) {
-        painter.setPen(muted);
-        painter.drawText(area, Qt::AlignCenter,
-                         tr("No spectrum: %1").arg(result.problem));
+        drawEmptySubjectName(painter, area, index);
         return;
     }
 
     double tallest = 0.0;
     for (const double value : result.magnitude)
         tallest = qMax(tallest, value);
-    if (tallest <= 0.0)
+    if (tallest <= 0.0) {
+        drawEmptySubjectName(painter, area, index);
         return;
+    }
 
     // Амплитуда спектра так же не связана с вертикальным масштабом исходного ряда.
     const YScale amplitudeScale{0.0, tallest, double(area.top()), double(area.height())};
     drawValueAxis(painter, area, amplitudeScale, muted);
     drawNumericHorizontalAxis(painter, area, 0.0, result.binHz * double(result.magnitude.size()));
 
-    const QColor colour = QColor::fromRgba(m_model->series(index).color);
     QColor fill = colour;
     fill.setAlpha(150);
     painter.save();
@@ -1327,23 +1331,6 @@ void PlotCanvas::drawSpectrum(QPainter &painter, const QRect &area) const
     }
     painter.setBrush(Qt::NoBrush);
     painter.restore();
-
-    QString note = m_model->series(index).name;
-    if (result.resampled) {
-        // Молча пересэмплировать и показать уверенную ось частот значило бы соврать:
-        // строки приходят когда устройству вздумается.
-        note += QStringLiteral(" · ") + tr("resampled to an even grid");
-    }
-    if (usesContinuousSegment)
-        note += QStringLiteral(" · ") + tr("longest continuous segment");
-    const QFontMetrics metrics(font());
-    if (metrics.horizontalAdvance(note) <= area.width() - 8) {
-        const QRect noteRect(area.left() + 2, area.top() + 2,
-                             metrics.horizontalAdvance(note) + 6, metrics.height() + 2);
-        painter.fillRect(noteRect, m_host->color(IPanelHost::ColorRole::Base));
-        painter.setPen(muted);
-        painter.drawText(noteRect, Qt::AlignCenter, note);
-    }
 }
 
 void PlotCanvas::drawCursor(QPainter &painter, const QRect &area, const XTransform &transform,

@@ -196,6 +196,9 @@ private:
     /// \brief Профиль выбран человеком — автоподбор его больше не трогает.
     bool m_profileChosenByUser = false;
 
+    /// \brief В таблице виден дополнительный столбец «максимум − минимум».
+    bool m_showDelta = false;
+
     /// \brief Скольким рядам профиль уже роздан; см. applyStoredProfile().
     int m_appliedSeriesCount = 0;
 

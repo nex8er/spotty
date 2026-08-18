@@ -142,6 +142,7 @@ public:
      * колонка не нужна и только отнимала бы ширину.
      */
     void setShowSource(bool show);
+    bool showSource() const { return m_showSource; }
 
     /**
      * \brief Показывать метку времени относительно предыдущей строки, а не абсолютную.
@@ -154,6 +155,7 @@ public:
 
     /// \brief Формат абсолютной метки времени в записи QDateTime::toString().
     void setTimestampFormat(const QString &format);
+    QString timestampFormat() const { return m_timestampFormat; }
 
     /// \brief Показывать отметку направления обмена.
     void setShowDirection(bool show);
@@ -167,6 +169,7 @@ public:
      * посреди уже накопленного журнала, не теряя контекст до него.
      */
     void setLineNumberOrigin(qint64 lineNumber);
+    qint64 lineNumberOrigin() const { return m_lineNumberOrigin; }
 
     /// \brief Байтов в ряду HEX-дампа.
     void setHexBytesPerRow(int bytes);

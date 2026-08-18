@@ -8,6 +8,7 @@
 #include <spotty/ui/PanelWidget.h>
 
 class QCheckBox;
+class QEvent;
 class QLabel;
 class QLineEdit;
 class QTableWidget;
@@ -50,6 +51,7 @@ public:
 protected:
     void themeChanged() override;
     void settingsReset() override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     /// \brief Собрать образец из полей и передать его терминалу.

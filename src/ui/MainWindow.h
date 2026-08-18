@@ -84,6 +84,9 @@ public:
     /// \brief Положить текст в строку отправки, не отправляя.
     void composeInSendBar(const QString &text, DataCodec::Format format);
 
+    /// \brief Терминация, выбранная пользователем в строке отправки.
+    DataCodec::Termination sendTermination() const;
+
     void showStatusMessage(const QString &message);
 
     /// \brief Показать файл в области терминала вместо живого вывода.

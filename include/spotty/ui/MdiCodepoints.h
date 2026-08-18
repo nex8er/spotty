@@ -88,5 +88,10 @@ inline constexpr char32_t Poll = 0xF041F;
 inline constexpr char32_t ChartMultiple = 0xF1213;
 inline constexpr char32_t TargetVariant = 0xF0A77;
 inline constexpr char32_t BackupRestore = 0xF006F;
+inline constexpr char32_t SineWave = 0xF095B;
+inline constexpr char32_t SquareWave = 0xF147B;
+inline constexpr char32_t TriangleWave = 0xF147C;
+inline constexpr char32_t SawtoothWave = 0xF147A;
+inline constexpr char32_t StepForward = 0xF04D7;
 
 } // namespace spotty::mdi

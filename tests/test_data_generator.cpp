@@ -54,6 +54,17 @@ TEST(DataGenerator, FixedPatternRepeatsTheByte)
     EXPECT_EQ(generator.generate(), QByteArray(4, char(0xA5)));
 }
 
+TEST(DataGenerator, PrefixIsPrependedWithoutChangingPayloadLength)
+{
+    DataGenerator generator;
+    generator.setPattern(DataGenerator::Pattern::Fixed);
+    generator.setFixedByte(0xA5);
+    generator.setLength(4);
+    generator.setPrefix(QByteArrayLiteral("tag,"));
+
+    EXPECT_EQ(generator.generate(), QByteArrayLiteral("tag,") + QByteArray(4, char(0xA5)));
+}
+
 TEST(DataGenerator, CounterIsZeroPaddedAndIncrements)
 {
     DataGenerator generator;
@@ -63,6 +74,32 @@ TEST(DataGenerator, CounterIsZeroPaddedAndIncrements)
     EXPECT_EQ(generator.generate(), QByteArrayLiteral("000000"));
     EXPECT_EQ(generator.generate(), QByteArrayLiteral("000001"));
     EXPECT_EQ(generator.generate(), QByteArrayLiteral("000002"));
+}
+
+TEST(DataGenerator, CounterSupportsInitialValueAndNegativeIncrement)
+{
+    DataGenerator generator;
+    generator.setPattern(DataGenerator::Pattern::Counter);
+    generator.setLength(4);
+    generator.setCounterStart(10);
+    generator.setCounterIncrement(-2);
+    generator.reset();
+
+    EXPECT_EQ(generator.generate(), QByteArrayLiteral("0010"));
+    EXPECT_EQ(generator.generate(), QByteArrayLiteral("0008"));
+}
+
+TEST(DataGenerator, RampSupportsInitialByteAndNegativeIncrement)
+{
+    DataGenerator generator;
+    generator.setPattern(DataGenerator::Pattern::Ramp);
+    generator.setLength(4);
+    generator.setRampStart(0xFE);
+    generator.setRampIncrement(-1);
+    generator.reset();
+
+    EXPECT_EQ(generator.generate(), QByteArray::fromHex("FEFDFCFB"));
+    EXPECT_EQ(generator.generate(), QByteArray::fromHex("FAF9F8F7"));
 }
 
 TEST(DataGenerator, RampContinuesAcrossPackets)
@@ -164,6 +201,25 @@ TEST(DataGenerator, RandomProducesDifferentPackets)
     EXPECT_GT(seen.size(), 1u);
 }
 
+TEST(DataGenerator, RandomValuesStayWithinTheConfiguredRange)
+{
+    DataGenerator generator;
+    generator.setPattern(DataGenerator::Pattern::Random);
+    generator.setLength(512);
+    generator.setRandomRange(42, 75);
+
+    const QByteArray data = generator.generate();
+    for (const char byte : data) {
+        EXPECT_GE(quint8(byte), 42);
+        EXPECT_LE(quint8(byte), 75);
+    }
+
+    // Неверный порядок границ не должен расширять диапазон или зависеть от UI.
+    generator.setRandomRange(9, 3);
+    EXPECT_EQ(generator.randomMinimum(), 3);
+    EXPECT_EQ(generator.randomMaximum(), 9);
+}
+
 TEST(DataGenerator, PatternNamesAreNotEmpty)
 {
     for (const auto pattern : {DataGenerator::Pattern::Counter,
@@ -212,6 +268,27 @@ TEST(DataGenerator, SquareHasOnlyTwoLevels)
     EXPECT_EQ(levels.size(), 2);
 }
 
+TEST(DataGenerator, WaveOffsetPrecisionAndDutyAreApplied)
+{
+    DataGenerator generator;
+    generator.setPattern(DataGenerator::Pattern::Square);
+    generator.setWavePeriod(10);
+    generator.setAmplitude(4.0);
+    generator.setOffset(-1.5);
+    generator.setDutyCycle(30.0);
+    generator.setWavePrecision(1);
+
+    const QByteArray first = generator.generate();
+    const QByteArray third = generator.generate();
+    generator.generate();
+    generator.generate();
+    const QByteArray sixth = generator.generate();
+
+    EXPECT_EQ(first, QByteArrayLiteral("2.5"));
+    EXPECT_EQ(third, QByteArrayLiteral("2.5"));
+    EXPECT_EQ(sixth, QByteArrayLiteral("-1.5"));
+}
+
 TEST(DataGenerator, SawtoothResetsAfterThePeriod)
 {
     DataGenerator generator;
@@ -227,12 +304,11 @@ TEST(DataGenerator, SawtoothResetsAfterThePeriod)
     EXPECT_DOUBLE_EQ(first, afterPeriod);
 }
 
-TEST(DataGenerator, WavePeriodIsClampedToTwo)
+TEST(DataGenerator, WavePeriodIsClampedToOne)
 {
     DataGenerator generator;
     generator.setWavePeriod(0);
-    // Меньше двух посылок на период — уже не форма, а чередование двух чисел.
-    EXPECT_EQ(generator.wavePeriod(), 2);
+    EXPECT_EQ(generator.wavePeriod(), 1);
 }
 
 TEST(DataGenerator, WaveformFlagMatchesThePattern)

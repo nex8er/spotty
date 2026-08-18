@@ -230,6 +230,7 @@ QPushButton:default:disabled {
 QLineEdit,
 QComboBox,
 QSpinBox,
+QDoubleSpinBox,
 QPlainTextEdit,
 QKeySequenceEdit,
 QAbstractScrollArea {
@@ -273,8 +274,10 @@ QLineEdit > QToolButton {
 }
 
 /* Справа — запас под стрелки, как у QComboBox: без него длинное значение уезжает под
-   кнопки увеличения и уменьшения, и последняя цифра оказывается наполовину закрыта. */
-QSpinBox {
+   кнопки увеличения и уменьшения, и последняя цифра оказывается наполовину закрыта.
+   QDoubleSpinBox обязан идти тем же правилом: числовая точность не должна менять вид поля. */
+QSpinBox,
+QDoubleSpinBox {
     padding: @padV 18px @padV 6px;
     min-height: @controlHeight;
 }
@@ -293,13 +296,15 @@ QComboBox {
    проходящий над полем, гасил бы акцентную рамку поля, в котором сейчас курсор ввода. */
 QLineEdit:hover:!focus,
 QComboBox:hover:!focus,
-QSpinBox:hover:!focus {
+QSpinBox:hover:!focus,
+QDoubleSpinBox:hover:!focus {
     border-color: @textMuted;
 }
 
 QLineEdit:focus,
 QComboBox:focus,
 QSpinBox:focus,
+QDoubleSpinBox:focus,
 QKeySequenceEdit:focus,
 QPlainTextEdit:focus {
     border-color: @accent;
@@ -307,7 +312,8 @@ QPlainTextEdit:focus {
 
 QLineEdit:disabled,
 QComboBox:disabled,
-QSpinBox:disabled {
+QSpinBox:disabled,
+QDoubleSpinBox:disabled {
     background: @panel;
     color: @textMuted;
     border-color: @border;
@@ -360,10 +366,12 @@ QComboBox::down-arrow:on {
  * появляется приклеенный к краю прямоугольник вместо подсвеченной кнопки. Отсчёт от
  * padding держит заливку строго внутри рамки.
  *
- * Ширина совпадает с правым отступом самого QSpinBox: две кнопки ровно занимают место,
- * которое там для них и отведено. */
+ * Ширина совпадает с правым отступом QSpinBox и QDoubleSpinBox: две кнопки ровно занимают
+ * место, которое там для них и отведено. */
 QSpinBox::up-button,
-QSpinBox::down-button {
+QSpinBox::down-button,
+QDoubleSpinBox::up-button,
+QDoubleSpinBox::down-button {
     subcontrol-origin: padding;
     width: 20px;
     height: @spinButton;
@@ -373,33 +381,41 @@ QSpinBox::down-button {
 
 /* Скругление внешних углов повторяет скругление поля: прямой угол заливки внутри
    скруглённого угла рамки оставляет заметный уголок фона. */
-QSpinBox::up-button {
+QSpinBox::up-button,
+QDoubleSpinBox::up-button {
     subcontrol-position: top right;
     border-top-right-radius: @radius;
 }
 
-QSpinBox::down-button {
+QSpinBox::down-button,
+QDoubleSpinBox::down-button {
     subcontrol-position: bottom right;
     border-bottom-right-radius: @radius;
 }
 
 QSpinBox::up-button:hover,
-QSpinBox::down-button:hover {
+QSpinBox::down-button:hover,
+QDoubleSpinBox::up-button:hover,
+QDoubleSpinBox::down-button:hover {
     background: @hover;
 }
 
 QSpinBox::up-button:pressed,
-QSpinBox::down-button:pressed {
+QSpinBox::down-button:pressed,
+QDoubleSpinBox::up-button:pressed,
+QDoubleSpinBox::down-button:pressed {
     background: @pressed;
 }
 
-QSpinBox::up-arrow {
+QSpinBox::up-arrow,
+QDoubleSpinBox::up-arrow {
     image: url(:/icons/chevron-up.svg);
     width: 9px;
     height: 9px;
 }
 
-QSpinBox::down-arrow {
+QSpinBox::down-arrow,
+QDoubleSpinBox::down-arrow {
     image: url(:/icons/chevron-down.svg);
     width: 9px;
     height: 9px;
@@ -408,12 +424,16 @@ QSpinBox::down-arrow {
 /* Значение упёрлось в предел диапазона: `off` — состояние кнопки, которой больше некуда
    нажимать. Без него счётчик молча перестаёт отзываться и выглядит сломанным. */
 QSpinBox::up-arrow:off,
-QSpinBox::up-arrow:disabled {
+QSpinBox::up-arrow:disabled,
+QDoubleSpinBox::up-arrow:off,
+QDoubleSpinBox::up-arrow:disabled {
     image: url(:/icons/chevron-up-muted.svg);
 }
 
 QSpinBox::down-arrow:off,
-QSpinBox::down-arrow:disabled {
+QSpinBox::down-arrow:disabled,
+QDoubleSpinBox::down-arrow:off,
+QDoubleSpinBox::down-arrow:disabled {
     image: url(:/icons/chevron-down-muted.svg);
 }
 
@@ -544,6 +564,7 @@ QTableView:focus {
 QAbstractItemView QLineEdit,
 QAbstractItemView QComboBox,
 QAbstractItemView QSpinBox,
+QAbstractItemView QDoubleSpinBox,
 QAbstractItemView QKeySequenceEdit,
 QAbstractItemView QPlainTextEdit {
     min-height: 0;
@@ -558,7 +579,8 @@ QAbstractItemView QComboBox {
     padding: 0 22px 0 4px;
 }
 
-QAbstractItemView QSpinBox {
+QAbstractItemView QSpinBox,
+QAbstractItemView QDoubleSpinBox {
     padding: 0 20px 0 4px;
 }
 

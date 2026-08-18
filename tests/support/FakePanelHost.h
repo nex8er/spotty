@@ -47,12 +47,19 @@ public:
     mutable QList<char32_t> iconGlyphs;
     QString alias = QStringLiteral("fake");
     QString selection;
+    int findNextCalls = 0;
+    int findPreviousCalls = 0;
     QVector<TerminalLine> terminalLines;
+    TerminalGutterSettings gutterSettings;
     /// @}
 
     QString pluginId() const override { return QStringLiteral("plotter"); }
 
     void send(const QByteArray &) override {}
+    DataCodec::Termination sendTermination() const override
+    {
+        return DataCodec::Termination::CrLf;
+    }
     void composeInSendBar(const QString &, DataCodec::Format) override {}
 
     ChannelState channelState() const override { return ChannelState::Closed; }
@@ -87,8 +94,8 @@ public:
     void setHighlightRules(const HighlightRules &) override {}
     void setSearchPattern(const QString &, SearchOptions) override {}
     void setFilterEnabled(bool) override {}
-    void findNext() override {}
-    void findPrevious() override {}
+    void findNext() override { ++findNextCalls; }
+    void findPrevious() override { ++findPreviousCalls; }
     int matchCount() const override { return 0; }
     int currentMatch() const override { return 0; }
     QString selectedText() const override { return selection; }
@@ -102,6 +109,7 @@ public:
         *out = terminalLines.at(number);
         return true;
     }
+    TerminalGutterSettings terminalGutterSettings() const override { return gutterSettings; }
 
     /// \brief Добавить готовую строку терминала и сообщить о ней панели.
     void appendTerminalLine(const TerminalLine &line)

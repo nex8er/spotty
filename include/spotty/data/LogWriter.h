@@ -10,6 +10,8 @@
 #include <spotty/api/SpottyApiExport.h>
 #include <spotty/data/CsvDetector.h>
 
+#include <QByteArray>
+#include <QList>
 #include <QObject>
 #include <QString>
 
@@ -43,6 +45,21 @@ class SPOTTY_API_EXPORT LogWriter : public QObject
     Q_OBJECT
 
 public:
+    /**
+     * \brief Одна порция данных для пакетной записи.
+     *
+     * Снимок буфера может состоять из тысяч строк. Пакет нужен, чтобы не сбрасывать
+     * файл на диск после каждой из них, сохраняя обычную немедленную запись для живого
+     * потока.
+     */
+    struct SPOTTY_API_EXPORT WriteRequest
+    {
+        QByteArray data;
+        DataDirection direction = DataDirection::Rx;
+        /// Текст до добавления служебных полей; нужен для отбора телеметрии.
+        QByteArray classification;
+    };
+
     explicit LogWriter(QObject *parent = nullptr);
     ~LogWriter() override;
 
@@ -119,6 +136,9 @@ public Q_SLOTS:
     /// \brief Записать порцию данных.
     void write(const QByteArray &data, spotty::DataDirection direction);
 
+    /// \brief Записать снимок буфера одним сбросом на диск.
+    void writeMany(const QList<WriteRequest> &requests);
+
 Q_SIGNALS:
     void recordingStarted(const QString &filePath);
     void recordingStopped(const QString &filePath);
@@ -133,6 +153,9 @@ private:
 
     /// \brief Оставить из порции только те строки, что подходят под #m_csvMode.
     QByteArray selectLines(const QByteArray &data);
+
+    /// \brief Записать порцию, при необходимости сбросив файл на диск.
+    bool writeImpl(const WriteRequest &request, bool flush);
 
     QString m_directory;
     QString m_template = QStringLiteral("{alias}_{date}_{time}");

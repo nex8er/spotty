@@ -166,6 +166,9 @@ Q_SIGNALS:
      */
     void lineUpdated(qint64 lineNumber);
 
+    /// \brief Строка получила окончание и больше не будет дописываться.
+    void lineFinalized(qint64 lineNumber);
+
     /// \brief Старые строки вытеснены; \p newFirstLineNumber — новая граница буфера.
     void trimmed(qint64 newFirstLineNumber);
 

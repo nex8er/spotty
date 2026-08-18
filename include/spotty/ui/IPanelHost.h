@@ -132,6 +132,9 @@ public:
      */
     virtual void send(const QByteArray &data) = 0;
 
+    /// \brief Терминация, выбранная в нижней строке отправки в данный момент.
+    virtual DataCodec::Termination sendTermination() const = 0;
+
     /// \brief Положить текст в строку отправки, не отправляя: пусть человек посмотрит.
     virtual void composeInSendBar(const QString &text, DataCodec::Format format) = 0;
 
@@ -273,6 +276,9 @@ public:
      */
     virtual bool line(qint64 number, TerminalLine *out) const = 0;
 
+    /// \brief Текущая конфигурация служебных колонок терминала.
+    virtual TerminalGutterSettings terminalGutterSettings() const = 0;
+
     /// @}
     /// \name Оформление
     /// @{
@@ -307,6 +313,9 @@ Q_SIGNALS:
 
     /// \brief В терминале появились строки; читать их через line().
     void terminalLinesAppended(qint64 firstLineNumber, qint64 count);
+
+    /// \brief Строка терминала завершена и больше не будет дописываться.
+    void terminalLineFinalized(qint64 lineNumber);
 
     void channelStateChanged(spotty::ChannelState state);
     void themeChanged();

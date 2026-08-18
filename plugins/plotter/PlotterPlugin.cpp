@@ -16,6 +16,14 @@
 
 namespace spotty {
 
+namespace {
+
+constexpr int kDefaultBufferK = 50;
+constexpr int kMinimumBufferK = 1;
+constexpr int kMaximumBufferK = 100;
+
+} // namespace
+
 PlotterPlugin::PlotterPlugin()
     : m_model(new PlotModel(this))
     , m_view(new PlotViewState(this))
@@ -113,6 +121,40 @@ QWidget *PlotterPlugin::createPanel(const QString &panelId, IPanelHost *host, QW
         return strip;
     }
     return nullptr;
+}
+
+SettingsSchema PlotterPlugin::settingsSchema() const
+{
+    SettingsSchema schema;
+    schema.add(SettingsField{
+        .key = QStringLiteral("separator"),
+        .label = tr("Field separator"),
+        .group = tr("Data"),
+        .type = SettingsField::Text,
+        .defaultValue = QStringLiteral(","),
+        .hint = tr("The first character separates incoming values into fields."),
+    });
+    schema.add(SettingsField{
+        .key = QStringLiteral("bufferK"),
+        .label = tr("Buffer"),
+        .group = tr("Data"),
+        .type = SettingsField::Integer,
+        .defaultValue = kDefaultBufferK,
+        .minimum = kMinimumBufferK,
+        .maximum = kMaximumBufferK,
+        .suffix = QStringLiteral("K"),
+        .hint = tr("How many thousands of samples to keep."),
+    });
+    schema.add(SettingsField{
+        .key = QStringLiteral("showDelta"),
+        .label = tr("Show delta"),
+        .group = tr("Table"),
+        .type = SettingsField::Toggle,
+        .defaultValue = false,
+        .hint = tr("Show the difference between the maximum and minimum values for every "
+                   "series."),
+    });
+    return schema;
 }
 
 void PlotterPlugin::openInWindow(IPanelHost *host)

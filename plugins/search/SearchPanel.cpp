@@ -9,7 +9,9 @@
 
 #include <QCheckBox>
 #include <QColorDialog>
+#include <QEvent>
 #include <QIcon>
+#include <QKeyEvent>
 #include <QPainter>
 #include <QPixmap>
 #include <QHBoxLayout>
@@ -97,6 +99,7 @@ SearchPanel::SearchPanel(IPanelHost *panelHost, QWidget *parent)
 
     m_pattern = new QLineEdit(this);
     m_pattern->setClearButtonEnabled(true);
+    m_pattern->installEventFilter(this);
     layout->addWidget(m_pattern);
 
     // Ряд под полем: слева модификаторы образца, справа переходы по совпадениям. Деление
@@ -314,6 +317,20 @@ void SearchPanel::themeChanged()
 void SearchPanel::settingsReset()
 {
     reloadFromSettings();
+}
+
+bool SearchPanel::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_pattern && event->type() == QEvent::KeyPress) {
+        auto *keyEvent = static_cast<QKeyEvent *>(event);
+        const bool enter = keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter;
+        if (enter && keyEvent->modifiers().testFlag(Qt::ShiftModifier)) {
+            host()->findPrevious();
+            return true;
+        }
+    }
+
+    return PanelWidget::eventFilter(watched, event);
 }
 
 void SearchPanel::reloadFromSettings()

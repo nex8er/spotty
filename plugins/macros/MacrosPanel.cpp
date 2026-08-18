@@ -21,6 +21,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QIntValidator>
+#include <QItemSelectionModel>
 #include <QMessageBox>
 
 #include <algorithm>
@@ -177,7 +178,7 @@ MacrosPanel::MacrosPanel(IPanelHost *panelHost, QWidget *parent)
 
     // --- Периодическая отправка --------------------------------------------------------
 
-    auto *periodicBox = new QGroupBox(tr("Repeat"), this);
+    auto *periodicBox = new QGroupBox(tr("Auto-send"), this);
     // Без этого групбокс — единственный виджет с политикой Preferred среди соседей
     // растянутой таблицы — забирал себе долю лишней высоты панели вместо неё: таблица
     // соседствует с ним в одном QVBoxLayout, и Qt отдавал остаток не только ей. Fixed
@@ -196,10 +197,12 @@ MacrosPanel::MacrosPanel(IPanelHost *panelHost, QWidget *parent)
     // «каждые 1700 мс под цикл опроса устройства» в список не впишешь — таких значений
     // столько же, сколько устройств.
     m_periodInterval->setEditable(true);
+    m_periodInterval->setObjectName(QStringLiteral("autoSendInterval"));
     m_periodInterval->setInsertPolicy(QComboBox::NoInsert);
     m_periodInterval->setValidator(
         new QIntValidator(kMinPeriodMs, kMaxPeriodMs, m_periodInterval));
-    m_periodInterval->setToolTip(tr("Pick a preset or type the period in milliseconds"));
+    m_periodInterval->setToolTip(
+        tr("Pick a preset or type a custom period in milliseconds"));
 
     m_periodicButton = new QToolButton(periodicBox);
     m_periodicButton->setCheckable(true);
@@ -656,7 +659,9 @@ void MacrosPanel::showContextMenu(const QPoint &position)
     if (row >= m_store.macros().size())
         return;
 
-    m_table->setCurrentCell(row, index.column());
+    // Правый клик по уже выбранной строке открывает действия для всей группы. Обычный
+    // setCurrentCell() очищает эту группу, поэтому меняем только current index.
+    m_table->selectionModel()->setCurrentIndex(index, QItemSelectionModel::NoUpdate);
     const Macro &macro = m_store.macros().at(row);
 
     menu.addAction(tr("Send now"), this, [this, row] { sendMacro(row); });

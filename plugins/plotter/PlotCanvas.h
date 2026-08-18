@@ -199,6 +199,9 @@ private:
     /// \brief Ряд, по которому строится одномерный режим: активный либо первый видимый.
     int subjectSeries() const;
 
+    /// \brief Имя выбранного ряда в пустом одномерном графике.
+    void drawEmptySubjectName(QPainter &painter, const QRect &area, int series) const;
+
     /// \brief Значения активного ряда в видимом окне вместе с метками времени.
     void visibleValues(QList<double> *values, QList<qint64> *timestamps) const;
 

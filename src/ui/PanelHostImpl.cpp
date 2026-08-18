@@ -41,6 +41,8 @@ PanelHostImpl::PanelHostImpl(const AppContext &context, MainWindow *window, QStr
         connect(session, &Session::dataReceived, this, &IPanelHost::dataReceived);
         connect(session->buffer(), &TerminalBuffer::linesAppended, this,
                 &IPanelHost::terminalLinesAppended);
+        connect(session->buffer(), &TerminalBuffer::lineFinalized, this,
+                &IPanelHost::terminalLineFinalized);
     }
 
     if (TerminalView *terminal = m_window ? m_window->terminalView() : nullptr) {
@@ -57,6 +59,11 @@ void PanelHostImpl::send(const QByteArray &data)
 {
     if (m_context.session)
         m_context.session->send(data);
+}
+
+DataCodec::Termination PanelHostImpl::sendTermination() const
+{
+    return m_window ? m_window->sendTermination() : DataCodec::Termination::None;
 }
 
 void PanelHostImpl::composeInSendBar(const QString &text, DataCodec::Format format)
@@ -293,8 +300,26 @@ bool PanelHostImpl::line(qint64 number, TerminalLine *out) const
     out->monotonicNs = source->monotonicNs;
     out->wallClock = source->wallClock;
     out->direction = source->direction;
+    out->source = source->source;
     out->complete = source->complete;
     return true;
+}
+
+TerminalGutterSettings PanelHostImpl::terminalGutterSettings() const
+{
+    TerminalGutterSettings settings;
+    TerminalView *terminal = m_window ? m_window->terminalView() : nullptr;
+    if (!terminal)
+        return settings;
+
+    settings.showLineNumbers = terminal->showLineNumbers();
+    settings.showSource = terminal->showSource();
+    settings.showTimestamps = terminal->showTimestamps();
+    settings.relativeTimestamps = terminal->relativeTimestamps();
+    settings.showDirection = terminal->showDirection();
+    settings.lineNumberOrigin = terminal->lineNumberOrigin();
+    settings.timestampFormat = terminal->timestampFormat();
+    return settings;
 }
 
 // --- Оформление ---------------------------------------------------------------------------

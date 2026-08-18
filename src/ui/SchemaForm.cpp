@@ -21,6 +21,7 @@ namespace spotty {
 SchemaForm::SchemaForm(const SettingsSchema &schema, const QVariantMap &values, QWidget *parent)
     : QWidget(parent)
     , m_schema(schema)
+    , m_initialValues(values)
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -114,7 +115,10 @@ QWidget *SchemaForm::createEditor(const SettingsField &field, const QVariant &va
 
 QVariantMap SchemaForm::values() const
 {
-    QVariantMap result;
+    // Схема описывает только редкие общие параметры, а панель может хранить рядом своё
+    // рабочее состояние. Сохраняем незнакомые форме ключи, иначе нажатие OK стирало бы
+    // профиль, положение разделителя и другие настройки самого плагина.
+    QVariantMap result = m_initialValues;
 
     for (const SettingsField &field : m_schema.fields()) {
         QWidget *editor = m_editors.value(field.key);

@@ -47,6 +47,7 @@ namespace {
 
 constexpr auto kKeySeparator = "separator";
 constexpr auto kKeyCapacity = "capacity";
+constexpr auto kKeyCapacityK = "bufferK";
 constexpr auto kKeyProfile = "profile";
 constexpr auto kKeySplitter = "panelSplitter";
 constexpr auto kKeyMiniatureHeight = "miniatureHeight";
@@ -75,9 +76,9 @@ constexpr int kMaximumCapacityK = 100;
 /**
  * \brief Колонки таблицы рядов.
  *
- * Последнего значения здесь нет намеренно: панель узкая, семь колонок в неё не влезали и
- * уезжали за край вместе с прокруткой. Текущее значение и так показывает перекрестие на
- * самом графике, а таблица отвечает на другой вопрос — «в каких пределах гуляет ряд».
+ * Текущее значение и так показывает перекрестие на самом графике, а таблица отвечает на
+ * другой вопрос — «в каких пределах гуляет ряд». Дельта включается отдельно: в узкой
+ * панели она не отбирает место у имени, пока не нужна.
  */
 enum Column {
     ColumnSwatch = 0, ///< Цвет ряда и галочка видимости на нём же.
@@ -85,6 +86,7 @@ enum Column {
     ColumnMin,
     ColumnAverage,
     ColumnMax,
+    ColumnDelta,
     ColumnCount,
 };
 
@@ -94,7 +96,7 @@ enum Column {
  * Порядок «мин, сред, макс» задан владельцем, и он же читается легче прежнего: среднее
  * лежит между своими границами и там, где его и ищет взгляд.
  */
-constexpr Column kStatColumns[] = {ColumnMin, ColumnAverage, ColumnMax};
+constexpr Column kStatColumns[] = {ColumnMin, ColumnAverage, ColumnMax, ColumnDelta};
 
 /**
  * \name Пределы ширины колонки статистики, в знакоместах
@@ -325,7 +327,8 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
     // нарушает, и просто не позволяет понять, какая из них чья.
     m_table = new QTableWidget(0, ColumnCount, this);
     m_table->setHorizontalHeaderLabels(
-        {QString(), tr("Series"), tr("Min"), tr("Avg"), tr("Max")});
+        {QString(), tr("Series"), tr("Min"), tr("Avg"), tr("Max"), tr("Delta")});
+    m_table->setColumnHidden(ColumnDelta, true);
     // Растягивается только имя ряда; остальные колонки ужимаются под содержимое. Иначе
     // равные доли отдают под галочку и квадратик цвета столько же, сколько под число.
     m_table->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
@@ -502,8 +505,16 @@ void PlotterPanel::reloadFromSettings()
     const QString separator =
         host()->value(QLatin1String(kKeySeparator), QStringLiteral(",")).toString();
     m_model->setSeparator(separator.isEmpty() ? u',' : separator.at(0));
-    m_points->setValue(
-        thousandsFromCapacity(host()->value(QLatin1String(kKeyCapacity), kDefaultCapacity).toInt()));
+    // Старые настройки держат ёмкость в отсчётах. Страница настроек показывает её в K,
+    // поэтому новый ключ читаем первым, а старый оставляем миграцией без потери выбора.
+    const QVariant capacityK = host()->value(QLatin1String(kKeyCapacityK));
+    const int capacity = capacityK.isValid()
+                             ? capacityFromThousands(capacityK.toInt())
+                             : host()->value(QLatin1String(kKeyCapacity), kDefaultCapacity).toInt();
+    m_points->setValue(thousandsFromCapacity(capacity));
+
+    m_showDelta = host()->value(QStringLiteral("showDelta"), false).toBool();
+    m_table->setColumnHidden(ColumnDelta, !m_showDelta);
 
 }
 
@@ -514,8 +525,10 @@ void PlotterPanel::commit()
 
     // Разделитель и ось X теперь меняют меню под графиком, а не поля панели, поэтому
     // сохраняются они по сигналу модели, а не отсюда: см. подписку в конструкторе.
-    if (!m_populating)
+    if (!m_populating) {
         host()->setValue(QLatin1String(kKeyCapacity), capacity);
+        host()->setValue(QLatin1String(kKeyCapacityK), m_points->value());
+    }
 }
 
 void PlotterPanel::resizeEvent(QResizeEvent *event)
@@ -528,6 +541,7 @@ void PlotterPanel::resizeEvent(QResizeEvent *event)
 void PlotterPanel::settingsReset()
 {
     reloadFromSettings();
+    rebuildTable();
 }
 
 void PlotterPanel::syncModeSelection()
@@ -613,6 +627,9 @@ void PlotterPanel::refreshStatistics()
                                              m_statisticsCharacters, kMeanDecimals));
         m_table->item(row, ColumnMax)
             ->setText(PlotFormat::fitted(any ? stats.maximum : qQNaN(), m_statisticsCharacters));
+        m_table->item(row, ColumnDelta)
+            ->setText(PlotFormat::fitted(any ? stats.maximum - stats.minimum : qQNaN(),
+                                         m_statisticsCharacters));
     }
 }
 
@@ -666,10 +683,14 @@ void PlotterPanel::updateStatisticsWidth()
 
     if (available > 0) {
         const int forStatistics = available - nameColumnNeeds();
-        const int characters =
-            qBound(kMinimumStatCharacters,
-                   forStatistics / (int(std::size(kStatColumns)) * zero),
-                   kMaximumStatCharacters);
+        int visibleStatistics = 0;
+        for (const Column column : kStatColumns) {
+            if (!m_table->isColumnHidden(column))
+                ++visibleStatistics;
+        }
+        const int characters = qBound(kMinimumStatCharacters,
+                                      forStatistics / (visibleStatistics * zero),
+                                      kMaximumStatCharacters);
 
         const int width = characters * zero;
         for (const Column column : kStatColumns)

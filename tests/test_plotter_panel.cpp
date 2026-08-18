@@ -18,6 +18,7 @@
 #include <QComboBox>
 #include <QSpinBox>
 #include <QSplitter>
+#include <QTableWidget>
 #include <QToolButton>
 
 using namespace spotty;
@@ -262,6 +263,57 @@ TEST_F(Panel, BufferSizeIsShownAndStoredInThousands)
     buffer->setValue(42);
     EXPECT_EQ(model->capacity(), 42'000);
     EXPECT_EQ(host->settings.value(QStringLiteral("capacity")).toInt(), 42'000);
+    EXPECT_EQ(host->settings.value(QStringLiteral("bufferK")).toInt(), 42);
+}
+
+TEST_F(Panel, ReadsBufferAndSeparatorFromGlobalSettings)
+{
+    host->settings.insert(QStringLiteral("bufferK"), 12);
+    host->settings.insert(QStringLiteral("separator"), QStringLiteral(";"));
+    build();
+
+    auto *buffer = panel->findChild<QSpinBox *>(QStringLiteral("plotBuffer"));
+    ASSERT_NE(buffer, nullptr);
+    EXPECT_EQ(buffer->value(), 12);
+    EXPECT_EQ(model->capacity(), 12'000);
+    EXPECT_EQ(model->separator(), u';');
+}
+
+TEST_F(Panel, ShowsDeltaColumnWhenEnabledInSettings)
+{
+    host->settings.insert(QStringLiteral("showDelta"), true);
+    build();
+    model->feed(QStringLiteral("2"), 0);
+    model->feed(QStringLiteral("7"), 1);
+
+    auto *table = panel->findChild<QTableWidget *>();
+    ASSERT_NE(table, nullptr);
+    EXPECT_FALSE(table->isColumnHidden(5));
+    EXPECT_EQ(table->horizontalHeaderItem(5)->text(), QStringLiteral("Delta"));
+    ASSERT_TRUE(test::waitFor([table] { return table->item(0, 5)->text() == QStringLiteral("5"); },
+                              3000));
+}
+
+TEST(PlotterPlugin, ProvidesSettingsForTheGlobalDataFormat)
+{
+    PlotterPlugin plugin;
+    const SettingsSchema schema = plugin.settingsSchema();
+    const SettingsField *separator = schema.field(QStringLiteral("separator"));
+    const SettingsField *buffer = schema.field(QStringLiteral("bufferK"));
+    const SettingsField *delta = schema.field(QStringLiteral("showDelta"));
+    ASSERT_NE(separator, nullptr);
+    ASSERT_NE(buffer, nullptr);
+    ASSERT_NE(delta, nullptr);
+
+    EXPECT_EQ(separator->type, SettingsField::Text);
+    EXPECT_EQ(separator->defaultValue.toString(), QStringLiteral(","));
+    EXPECT_EQ(buffer->type, SettingsField::Integer);
+    EXPECT_EQ(buffer->defaultValue.toInt(), 50);
+    EXPECT_EQ(buffer->minimum, 1);
+    EXPECT_EQ(buffer->maximum, 100);
+    EXPECT_EQ(buffer->suffix, QStringLiteral("K"));
+    EXPECT_EQ(delta->type, SettingsField::Toggle);
+    EXPECT_FALSE(delta->defaultValue.toBool());
 }
 
 TEST_F(Panel, ResetProfileRestoresReportedFieldNamesAndDefaults)

@@ -79,6 +79,9 @@ spotty_add_test(spotty-ui-tests
         test_series_swatch.cpp
         test_plotter_panel.cpp
         test_live_options.cpp
+        test_generator_panel.cpp
+        test_logging_panel.cpp
+        test_search_panel.cpp
         # Панель плоттера целиком: её проводка — то место, где ошибки не видит ни один
         # тест модели, а пользователь видит сразу.
         "${CMAKE_SOURCE_DIR}/plugins/plotter/PlotterPlugin.cpp"
@@ -86,6 +89,9 @@ spotty_add_test(spotty-ui-tests
         "${CMAKE_SOURCE_DIR}/plugins/plotter/PlotWidget.cpp"
         "${CMAKE_SOURCE_DIR}/plugins/plotter/PlotCanvas.cpp"
         "${CMAKE_SOURCE_DIR}/plugins/plotter/ScaleLimitsDialog.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/generator/GeneratorPanel.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/logging/LoggingPanel.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/search/SearchPanel.cpp"
         # Реестр живёт в src/ui и входит в исполняемый файл приложения, а не в
         # библиотеку. Проще взять его исходник сюда напрямую, чем заводить библиотеку
         # ради одного класса.
@@ -106,7 +112,10 @@ spotty_add_test(spotty-ui-tests
 )
 target_include_directories(spotty-ui-tests PRIVATE
     "${CMAKE_SOURCE_DIR}/src/ui"
-    "${CMAKE_SOURCE_DIR}/plugins/plotter")
+    "${CMAKE_SOURCE_DIR}/plugins/plotter"
+    "${CMAKE_SOURCE_DIR}/plugins/generator"
+    "${CMAKE_SOURCE_DIR}/plugins/logging"
+    "${CMAKE_SOURCE_DIR}/plugins/search")
 
 # Цель `coverage` объявляется после исполняемого файла тестов: инструментам нужен его
 # путь, чтобы прочитать карту покрытия. Меряется только spotty-tests.

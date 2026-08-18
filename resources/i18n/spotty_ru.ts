@@ -167,12 +167,12 @@
 <context>
     <name>spotty::DataGenerator</name>
     <message>
-        <source>Random bytes</source>
-        <translation>Случайные байты</translation>
+        <source>Random values</source>
+        <translation>Случайные значения</translation>
     </message>
     <message>
-        <source>Fixed byte</source>
-        <translation>Постоянный байт</translation>
+        <source>Fixed value</source>
+        <translation>Постоянное значение</translation>
     </message>
     <message>
         <source>Ramp 00..FF</source>
@@ -385,32 +385,24 @@
         <translation>Генератор</translation>
     </message>
     <message>
-        <source>Pattern</source>
-        <translation>Выражение</translation>
-    </message>
-    <message>
-        <source> bytes</source>
-        <translation> байт</translation>
-    </message>
-    <message>
         <source>Length</source>
         <translation>Длина</translation>
     </message>
     <message>
-        <source>Byte value</source>
-        <translation>Значение байта</translation>
+        <source>Form</source>
+        <translation>Форма</translation>
     </message>
     <message>
-        <source> packets</source>
-        <translation> посылок</translation>
+        <source>Optional text before every packet</source>
+        <translation>Необязательный текст перед каждой посылкой</translation>
     </message>
     <message>
-        <source>Period counted in packets, not milliseconds: the send interval is not kept exactly by the operating system, and a shape tied to the clock would drift.</source>
-        <translation>Период считается в посылках, а не в миллисекундах: интервал отправки система не выдерживает точно, и форма, привязанная к часам, поплыла бы.</translation>
+        <source>UTF-8 text prepended to every generated packet; it does not reduce the payload length.</source>
+        <translation>Текст UTF-8 добавляется перед каждой посылкой и не уменьшает длину полезной нагрузки.</translation>
     </message>
     <message>
-        <source>Wave period</source>
-        <translation>Период формы</translation>
+        <source>Prefix</source>
+        <translation>Префикс</translation>
     </message>
     <message>
         <source>Amplitude</source>
@@ -421,40 +413,116 @@
         <translation>%1 мс</translation>
     </message>
     <message>
-        <source>Stream interval</source>
-        <translation>Период потока</translation>
+        <source>%1 s</source>
+        <translation>%1 с</translation>
+    </message>
+    <message>
+        <source> values</source>
+        <translation> значений</translation>
+    </message>
+    <message>
+        <source>Offset</source>
+        <translation>Смещение</translation>
+    </message>
+    <message>
+        <source>Period</source>
+        <translation>Период</translation>
+    </message>
+    <message>
+        <source> %</source>
+        <translation> %</translation>
+    </message>
+    <message>
+        <source>Duty cycle</source>
+        <translation>Скважность</translation>
+    </message>
+    <message>
+        <source>Signal generator</source>
+        <translation>Генератор сигналов</translation>
+    </message>
+    <message>
+        <source>Parameters</source>
+        <translation>Параметры</translation>
+    </message>
+    <message>
+        <source>Initial value</source>
+        <translation>Начальное значение</translation>
+    </message>
+    <message>
+        <source>Increment</source>
+        <translation>Шаг</translation>
+    </message>
+    <message>
+        <source>Inclusive lower byte value</source>
+        <translation>Нижняя граница значения байта включительно</translation>
+    </message>
+    <message>
+        <source>Minimum</source>
+        <translation>Минимум</translation>
+    </message>
+    <message>
+        <source>Inclusive upper byte value</source>
+        <translation>Верхняя граница значения байта включительно</translation>
+    </message>
+    <message>
+        <source>Maximum</source>
+        <translation>Максимум</translation>
+    </message>
+    <message>
+        <source>Fixed value</source>
+        <translation>Постоянное значение</translation>
+    </message>
+    <message>
+        <source>Period is counted in packets, not milliseconds.</source>
+        <translation>Период задаётся в посылках, а не миллисекундах.</translation>
+    </message>
+    <message>
+        <source>Precision</source>
+        <translation>Точность</translation>
+    </message>
+    <message>
+        <source>Frequency</source>
+        <translation>Частота</translation>
+    </message>
+    <message>
+        <source>Interval between packets while streaming</source>
+        <translation>Интервал между посылками в потоке</translation>
+    </message>
+    <message>
+        <source>Send frequency</source>
+        <translation>Частота отправки</translation>
+    </message>
+    <message>
+        <source> Hz</source>
+        <translation> Гц</translation>
+    </message>
+    <message>
+        <source>Pause stream</source>
+        <translation>Приостановить поток</translation>
+    </message>
+    <message>
+        <source>Start stream</source>
+        <translation>Запустить поток</translation>
+    </message>
+    <message>
+        <source>Reset generated sequence and packet counter</source>
+        <translation>Сбросить последовательность и счётчик посылок</translation>
+    </message>
+    <message>
+        <source>Send one packet</source>
+        <translation>Отправить одну посылку</translation>
     </message>
     <message>
         <source>Preview</source>
         <translation>Предпросмотр</translation>
     </message>
     <message>
-        <source>Send once</source>
-        <translation>Отправить один раз</translation>
+        <source>Show preview as hexadecimal</source>
+        <translation>Показать предпросмотр в шестнадцатеричном виде</translation>
     </message>
     <message>
-        <source>Stream</source>
-        <translation>Поток</translation>
-    </message>
-    <message>
-        <source>To send bar</source>
-        <translation>В строку отправки</translation>
-    </message>
-    <message>
-        <source>Put the generated data into the send bar without sending</source>
-        <translation>Положить порождённые данные в строку отправки, не отправляя</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n packet(s) sent</source>
-        <translation>
-            <numerusform>отправлена %n посылка</numerusform>
-            <numerusform>отправлено %n посылки</numerusform>
-            <numerusform>отправлено %n посылок</numerusform>
-        </translation>
-    </message>
-    <message>
-        <source>Stop</source>
-        <translation>Стоп</translation>
+        <source>Sent %1</source>
+        <translation>Отправлено %1</translation>
     </message>
 </context>
 <context>
@@ -641,6 +709,10 @@
         <translation>Логирование</translation>
     </message>
     <message>
+        <source>Save current buffer</source>
+        <translation>Сохранить текущий буфер</translation>
+    </message>
+    <message>
         <source>Strip ANSI escape sequences</source>
         <translation>Убирать коды ANSI</translation>
     </message>
@@ -651,6 +723,14 @@
     <message>
         <source>Include sent data</source>
         <translation>Записывать отправленное</translation>
+    </message>
+    <message>
+        <source>Informational messages</source>
+        <translation>Информационные сообщения</translation>
+    </message>
+    <message>
+        <source>Write the line number, source, timestamp and direction currently shown in the terminal gutter.</source>
+        <translation>Записывать номер строки, источник, время и направление, которые сейчас показаны в gutter терминала.</translation>
     </message>
     <message>
         <source>Everything</source>
@@ -677,6 +757,14 @@
         <translation>Последние логи</translation>
     </message>
     <message>
+        <source>File</source>
+        <translation>Файл</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Размер</translation>
+    </message>
+    <message>
         <source>Recording to %1</source>
         <translation>Запись в %1</translation>
     </message>
@@ -687,6 +775,18 @@
     <message>
         <source>Select an interface before recording.</source>
         <translation>Выберите интерфейс перед началом записи.</translation>
+    </message>
+    <message>
+        <source>The terminal buffer is empty.</source>
+        <translation>Буфер терминала пуст.</translation>
+    </message>
+    <message>
+        <source>terminal</source>
+        <translation>терминал</translation>
+    </message>
+    <message>
+        <source>Saved current buffer to %1</source>
+        <translation>Текущий буфер сохранён в %1</translation>
     </message>
     <message>
         <source>Recording unavailable</source>
@@ -919,8 +1019,8 @@
         <translation>Добавить макрос</translation>
     </message>
     <message>
-        <source>Pick a preset or type the period in milliseconds</source>
-        <translation>Выберите готовый период или введите его в миллисекундах</translation>
+        <source>Pick a preset or type a custom period in milliseconds</source>
+        <translation>Выберите готовый период или введите свой в миллисекундах</translation>
     </message>
     <message>
         <source>Saved as a macro: %1</source>
@@ -1023,8 +1123,8 @@
         <translation>Импорт макросов</translation>
     </message>
     <message>
-        <source>Repeat</source>
-        <translation>Повтор</translation>
+        <source>Auto-send</source>
+        <translation>Автоотправка</translation>
     </message>
     <message>
         <source>Name</source>
@@ -1389,6 +1489,22 @@ Double-click to edit, right-click for options</source>
         <translation>Очистить</translation>
     </message>
     <message>
+        <source>Last 100 counts</source>
+        <translation>Последние 100 отсчётов</translation>
+    </message>
+    <message>
+        <source>Last 1K counts</source>
+        <translation>Последние 1K отсчётов</translation>
+    </message>
+    <message>
+        <source>Last 10K counts</source>
+        <translation>Последние 10K отсчётов</translation>
+    </message>
+    <message>
+        <source>Last 100K counts</source>
+        <translation>Последние 100K отсчётов</translation>
+    </message>
+    <message>
         <source>Last 1 s</source>
         <translation>Последняя 1 с</translation>
     </message>
@@ -1421,24 +1537,8 @@ Double-click to edit, right-click for options</source>
         <translation>Выберите колонку для оси X, чтобы увидеть фазовый портрет</translation>
     </message>
     <message>
-        <source>Not enough data for a histogram</source>
-        <translation>Данных для гистограммы недостаточно</translation>
-    </message>
-    <message>
-        <source>%1: μ %2, σ %3</source>
-        <translation>%1: μ %2, σ %3</translation>
-    </message>
-    <message>
-        <source>No spectrum: %1</source>
-        <translation>Спектра нет: %1</translation>
-    </message>
-    <message>
-        <source>%1 Hz</source>
-        <translation>%1 Гц</translation>
-    </message>
-    <message>
-        <source>resampled to an even grid</source>
-        <translation>приведено к равномерной сетке</translation>
+        <source>μ %1, σ %2</source>
+        <translation>μ %1, σ %2</translation>
     </message>
     <message>
         <source>No data</source>
@@ -1652,7 +1752,11 @@ Double-click to edit, right-click for options</source>
     </message>
     <message>
         <source>Avg</source>
-        <translation>Среднее</translation>
+        <translation>Сред</translation>
+    </message>
+    <message>
+        <source>Delta</source>
+        <translation>Дельта</translation>
     </message>
     <message>
         <source>Click to show or hide, double-click to change the colour</source>
@@ -1720,6 +1824,38 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Plotter</source>
         <translation>Плоттер</translation>
+    </message>
+    <message>
+        <source>Field separator</source>
+        <translation>Разделитель полей</translation>
+    </message>
+    <message>
+        <source>Data</source>
+        <translation>Данные</translation>
+    </message>
+    <message>
+        <source>The first character separates incoming values into fields.</source>
+        <translation>Первый символ разделяет входящие значения на поля.</translation>
+    </message>
+    <message>
+        <source>Buffer</source>
+        <translation>Буфер</translation>
+    </message>
+    <message>
+        <source>How many thousands of samples to keep.</source>
+        <translation>Сколько тысяч отсчётов хранить.</translation>
+    </message>
+    <message>
+        <source>Show delta</source>
+        <translation>Показывать дельту</translation>
+    </message>
+    <message>
+        <source>Table</source>
+        <translation>Таблица</translation>
+    </message>
+    <message>
+        <source>Show the difference between the maximum and minimum values for every series.</source>
+        <translation>Показывать разницу между максимальным и минимальным значениями каждого ряда.</translation>
     </message>
     <message>
         <source>Spotty — plotter</source>

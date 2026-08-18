@@ -1795,6 +1795,11 @@ void MainWindow::composeInSendBar(const QString &text, DataCodec::Format format)
     m_sendBar->focusInput();
 }
 
+DataCodec::Termination MainWindow::sendTermination() const
+{
+    return m_sendBar ? m_sendBar->termination() : DataCodec::Termination::None;
+}
+
 void MainWindow::showStatusMessage(const QString &message)
 {
     statusBar()->showMessage(message, 8000);

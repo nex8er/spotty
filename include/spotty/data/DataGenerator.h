@@ -65,12 +65,33 @@ public:
     void setFixedByte(quint8 value) { m_fixedByte = value; }
     quint8 fixedByte() const { return m_fixedByte; }
 
+    /// \brief Включительные границы случайного байта для Pattern::Random.
+    void setRandomRange(int minimum, int maximum);
+    int randomMinimum() const { return m_randomMinimum; }
+    int randomMaximum() const { return m_randomMaximum; }
+
+    /// \brief Начальное значение десятичного счётчика.
+    void setCounterStart(qint64 value) { m_counterStart = value; }
+    qint64 counterStart() const { return m_counterStart; }
+
+    /// \brief Приращение десятичного счётчика после каждой посылки.
+    void setCounterIncrement(qint64 increment) { m_counterIncrement = increment; }
+    qint64 counterIncrement() const { return m_counterIncrement; }
+
+    /// \brief Первый байт двоичной пилы.
+    void setRampStart(int value);
+    int rampStart() const { return m_rampStart; }
+
+    /// \brief Шаг двоичной пилы между соседними байтами; может быть отрицательным.
+    void setRampIncrement(int increment);
+    int rampIncrement() const { return m_rampIncrement; }
+
     /**
      * \brief Период формы сигнала в посылках.
      *
      * Считается в посылках, а не в миллисекундах: период отправки задаётся отдельно и
-     * операционной системой не выдерживается точно. Привязка к числу посылок даёт форму,
-     * которая не плывёт от того, что таймер опоздал на пару миллисекунд.
+     * операционной системой не выдерживается точно. Единица допустима для постоянного
+     * уровня; большее число даёт форму, не плывущую от опозданий таймера.
      */
     void setWavePeriod(int samples);
     int wavePeriod() const { return m_wavePeriod; }
@@ -78,6 +99,27 @@ public:
     /// \brief Размах формы сигнала: значения идут от нуля до этой величины.
     void setAmplitude(double amplitude);
     double amplitude() const { return m_amplitude; }
+
+    /// \brief Постоянное смещение, прибавляемое к значению математической формы.
+    void setOffset(double offset);
+    double offset() const { return m_offset; }
+
+    /// \brief Доля периода, в которой меандр находится на верхнем уровне, в процентах.
+    void setDutyCycle(double percent);
+    double dutyCycle() const { return m_dutyCycle; }
+
+    /// \brief Число знаков после запятой в математических формах.
+    void setWavePrecision(int digits);
+    int wavePrecision() const { return m_wavePrecision; }
+
+    /**
+     * \brief Статический префикс каждой посылки.
+     *
+     * Не входит в #length(): длина задаёт только полезную нагрузку выбранного байтового
+     * режима, а префикс позволяет добавить маркер протокола, CSV-поле или имя канала.
+     */
+    void setPrefix(const QByteArray &prefix) { m_prefix = prefix; }
+    QByteArray prefix() const { return m_prefix; }
 
     /// \brief Породить очередную посылку и продвинуть внутреннее состояние.
     QByteArray generate();
@@ -98,16 +140,28 @@ public:
 
 private:
     /// \brief Общая реализация для generate() и preview().
-    QByteArray build(quint64 counter, int rampOffset) const;
+    QByteArray build(qint64 counter, quint64 packetIndex, int rampOffset) const;
 
     Pattern m_pattern = Pattern::Counter;
     int m_length = 16;
     quint8 m_fixedByte = 0x55;
+    int m_randomMinimum = 0;
+    int m_randomMaximum = 255;
 
-    quint64 m_counter = 0;
+    qint64 m_counterStart = 0;
+    qint64 m_counterIncrement = 1;
+    int m_rampStart = 0;
+    int m_rampIncrement = 1;
+
+    qint64 m_counter = 0;
+    quint64 m_packetIndex = 0;
     int m_rampOffset = 0;
     int m_wavePeriod = 32;
     double m_amplitude = 100.0;
+    double m_offset = 0.0;
+    double m_dutyCycle = 50.0;
+    int m_wavePrecision = 3;
+    QByteArray m_prefix;
 };
 
 } // namespace spotty
