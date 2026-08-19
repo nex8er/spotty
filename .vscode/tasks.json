@@ -1,51 +1,47 @@
 {
-    // Задачи сборки Spotty.
+    // Задачи сборки Spotty для Qt 6.11.1 / MinGW 13.1 в Windows.
     //
-    // Имена короткие: они же выводятся в строке состояния расширением actboy168.tasks,
-    // и длинная подпись съедала бы её целиком. Что делает задача, объясняет detail —
-    // он виден в списке Run Task и во всплывающей подсказке.
-    //
-    // Отладочная сборка живёт в отдельном каталоге build-debug, а не в build: у Debug и
-    // обычной сборки разные флаги, и переключение типа в одном каталоге каждый раз
-    // обесценивало бы весь кэш объектных файлов.
+    // Пути к Qt и компилятору задаются в settings.json: при обновлении Qt достаточно
+    // поменять их там, а не в каждой конфигурации ниже.
     "version": "2.0.0",
     "options": {
         "env": {
-            // Путь к Qt из Homebrew. На Linux и Windows строку можно убрать: там Qt
-            // обычно находится сам.
-            "SPOTTY_PREFIX_PATH": "/opt/homebrew"
+            // Нужен не только компилятору: test и отладчик запускают программы, которым
+            // требуются DLL Qt и рантайм MinGW.
+            "PATH": "${config:spotty.qtRoot}/bin;${config:spotty.mingwBin};${env:PATH}"
         }
     },
     "tasks": [
         {
             "label": "cfg",
-            "type": "shell",
+            "type": "process",
             "command": "cmake",
             "args": [
                 "-S", "${workspaceFolder}",
                 "-B", "${workspaceFolder}/build-debug",
                 "-G", "Ninja",
-                "-DCMAKE_PREFIX_PATH=${env:SPOTTY_PREFIX_PATH}",
+                "-DCMAKE_PREFIX_PATH=${config:spotty.qtRoot}",
+                "-DCMAKE_CXX_COMPILER=${config:spotty.mingwCompiler}",
                 "-DCMAKE_BUILD_TYPE=Debug",
                 "-DSPOTTY_BUILD_TESTS=ON"
             ],
             "problemMatcher": [],
             "detail": "Настроить отладочную сборку с тестами",
             "options": {
-                // Скрыта из строки состояния: это зависимость сборки, а не то, что
-                // нажимают руками.
                 "statusbar": { "hide": true }
             }
         },
         {
             "label": "cfg:rel",
-            "type": "shell",
+            "type": "process",
             "command": "cmake",
             "args": [
                 "-S", "${workspaceFolder}",
                 "-B", "${workspaceFolder}/build",
                 "-G", "Ninja",
-                "-DCMAKE_PREFIX_PATH=${env:SPOTTY_PREFIX_PATH}",
+                "-DCMAKE_PREFIX_PATH=${config:spotty.qtRoot}",
+                "-DCMAKE_CXX_COMPILER=${config:spotty.mingwCompiler}",
+                "-DCMAKE_BUILD_TYPE=Release",
                 "-DSPOTTY_BUILD_TESTS=ON"
             ],
             "problemMatcher": [],
@@ -56,7 +52,7 @@
         },
         {
             "label": "build",
-            "type": "shell",
+            "type": "process",
             "command": "cmake",
             "args": ["--build", "${workspaceFolder}/build-debug"],
             "group": { "kind": "build", "isDefault": true },
@@ -71,7 +67,7 @@
         },
         {
             "label": "build:rel",
-            "type": "shell",
+            "type": "process",
             "command": "cmake",
             "args": ["--build", "${workspaceFolder}/build"],
             "dependsOn": "cfg:rel",
@@ -82,13 +78,30 @@
             }
         },
         {
-            "label": "static",
-            "type": "shell",
-            "command": "bash",
+            "label": "cfg:static",
+            "type": "process",
+            "command": "cmake",
             "args": [
-                "-c",
-                "cmake -S '${workspaceFolder}' -B '${workspaceFolder}/build-static' -G Ninja -DCMAKE_PREFIX_PATH=\"$SPOTTY_PREFIX_PATH\" -DSPOTTY_STATIC_PLUGINS=ON && cmake --build '${workspaceFolder}/build-static'"
+                "-S", "${workspaceFolder}",
+                "-B", "${workspaceFolder}/build-static",
+                "-G", "Ninja",
+                "-DCMAKE_PREFIX_PATH=${config:spotty.qtRoot}",
+                "-DCMAKE_CXX_COMPILER=${config:spotty.mingwCompiler}",
+                "-DCMAKE_BUILD_TYPE=Debug",
+                "-DSPOTTY_STATIC_PLUGINS=ON"
             ],
+            "problemMatcher": [],
+            "detail": "Настроить сборку со статическими плагинами",
+            "options": {
+                "statusbar": { "hide": true }
+            }
+        },
+        {
+            "label": "static",
+            "type": "process",
+            "command": "cmake",
+            "args": ["--build", "${workspaceFolder}/build-static"],
+            "dependsOn": "cfg:static",
             "problemMatcher": ["$gcc"],
             // Вторая половина гибридной сборки. Ломается она молча — динамическая
             // продолжает работать, — поэтому проверять её нужно осознанно.
@@ -99,7 +112,7 @@
         },
         {
             "label": "test",
-            "type": "shell",
+            "type": "process",
             "command": "ctest",
             "args": [
                 "--test-dir", "${workspaceFolder}/build-debug",
@@ -110,32 +123,64 @@
             "problemMatcher": [],
             "detail": "Прогнать все тесты",
             "options": {
+                "env": {
+                    "QT_QPA_PLATFORM": "offscreen",
+                    "PATH": "${config:spotty.qtRoot}/bin;${config:spotty.mingwBin};${env:PATH}"
+                },
                 "statusbar": { "label": "$(beaker) test" }
             }
         },
         {
-            "label": "cov",
-            "type": "shell",
-            "command": "bash",
+            "label": "cfg:cov",
+            "type": "process",
+            "command": "cmake",
             "args": [
-                "-c",
-                "cmake -S '${workspaceFolder}' -B '${workspaceFolder}/build-cov' -G Ninja -DCMAKE_PREFIX_PATH=\"$SPOTTY_PREFIX_PATH\" -DCMAKE_BUILD_TYPE=Debug -DSPOTTY_BUILD_TESTS=ON -DSPOTTY_ENABLE_COVERAGE=ON && cmake --build '${workspaceFolder}/build-cov' --target coverage"
+                "-S", "${workspaceFolder}",
+                "-B", "${workspaceFolder}/build-cov",
+                "-G", "Ninja",
+                "-DCMAKE_PREFIX_PATH=${config:spotty.qtRoot}",
+                "-DCMAKE_CXX_COMPILER=${config:spotty.mingwCompiler}",
+                "-DCMAKE_BUILD_TYPE=Debug",
+                "-DSPOTTY_BUILD_TESTS=ON",
+                "-DSPOTTY_ENABLE_COVERAGE=ON"
             ],
             "problemMatcher": [],
-            "detail": "Прогнать тесты с измерением покрытия",
+            "detail": "Настроить сборку с измерением покрытия",
+            "options": {
+                "statusbar": { "hide": true }
+            }
+        },
+        {
+            "label": "cov",
+            "type": "process",
+            "command": "cmake",
+            "args": ["--build", "${workspaceFolder}/build-cov", "--target", "coverage"],
+            "dependsOn": "cfg:cov",
+            "problemMatcher": [],
+            "detail": "Прогнать тесты с измерением покрытия (требуется gcovr)",
             "options": {
                 "statusbar": { "label": "$(graph) cov" }
             }
         },
         {
-            "label": "i18n",
-            "type": "shell",
-            "command": "bash",
-            "args": [
-                "-c",
-                "cmake --build '${workspaceFolder}/build-debug' --target update_translations && python3 '${workspaceFolder}/tools/fill_ru_translations.py'"
-            ],
+            "label": "i18n:update",
+            "type": "process",
+            "command": "cmake",
+            "args": ["--build", "${workspaceFolder}/build-debug", "--target", "update_translations"],
             "dependsOn": "cfg",
+            "problemMatcher": [],
+            "detail": "Обновить исходные файлы переводов",
+            "options": {
+                "statusbar": { "hide": true }
+            }
+        },
+        {
+            "label": "i18n",
+            "type": "process",
+            "command": "python",
+            "args": ["${workspaceFolder}/tools/fill_ru_translations.py"],
+            "dependsOn": "i18n:update",
+            "dependsOrder": "sequence",
             "problemMatcher": [],
             // Скрипт печатает список строк без перевода — единственный способ заметить,
             // что в интерфейсе появился новый текст.
@@ -145,13 +190,30 @@
             }
         },
         {
-            "label": "dist",
-            "type": "shell",
-            "command": "bash",
+            "label": "cfg:dist",
+            "type": "process",
+            "command": "cmake",
             "args": [
-                "-c",
-                "cmake -S '${workspaceFolder}' -B '${workspaceFolder}/build-pkg' -G Ninja -DCMAKE_PREFIX_PATH=\"$SPOTTY_PREFIX_PATH\" -DSPOTTY_STATIC_PLUGINS=ON && cmake --build '${workspaceFolder}/build-pkg' --target spotty-package"
+                "-S", "${workspaceFolder}",
+                "-B", "${workspaceFolder}/build-pkg",
+                "-G", "Ninja",
+                "-DCMAKE_PREFIX_PATH=${config:spotty.qtRoot}",
+                "-DCMAKE_CXX_COMPILER=${config:spotty.mingwCompiler}",
+                "-DCMAKE_BUILD_TYPE=Release",
+                "-DSPOTTY_STATIC_PLUGINS=ON"
             ],
+            "problemMatcher": [],
+            "detail": "Настроить сборку распространяемого комплекта",
+            "options": {
+                "statusbar": { "hide": true }
+            }
+        },
+        {
+            "label": "dist",
+            "type": "process",
+            "command": "cmake",
+            "args": ["--build", "${workspaceFolder}/build-pkg", "--target", "spotty-package"],
+            "dependsOn": "cfg:dist",
             "problemMatcher": [],
             "detail": "Собрать распространяемый комплект",
             "options": {
@@ -160,11 +222,12 @@
         },
         {
             "label": "reset",
-            "type": "shell",
-            "command": "bash",
+            "type": "process",
+            "command": "powershell.exe",
             "args": [
-                "-c",
-                "rm -rf \"$HOME/Library/Preferences/Spotty/Spotty\" \"$HOME/.config/Spotty/Spotty\" && echo 'Настройки удалены'"
+                "-NoProfile",
+                "-Command",
+                "$spottyConfig = Join-Path $env:APPDATA 'Spotty\\Spotty'; if (Test-Path -LiteralPath $spottyConfig) { Remove-Item -LiteralPath $spottyConfig -Recurse -Force }; Write-Output 'Settings removed'"
             ],
             "problemMatcher": [],
             // Проверить поведение при первом запуске иначе невозможно: программа помнит
@@ -173,7 +236,7 @@
             "options": {
                 // Единственная задача с цветом: она удаляет данные, и её стоит отличать
                 // от остальных боковым зрением.
-                "statusbar": { "label": "$(trash) reset"}
+                "statusbar": { "label": "$(trash) reset" }
             }
         }
     ]
