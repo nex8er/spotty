@@ -2,7 +2,7 @@
 
 Плагины, которые обрабатывают данные и показывают собственный интерфейс.
 
-**Версия API:** 2 (`SPOTTY_UI_API_VERSION`)
+**Версия API:** 4 (`SPOTTY_UI_API_VERSION`)
 
 Про плагины **транспортов** — отдельный документ: [PLUGIN_API.md](PLUGIN_API.md).
 
@@ -45,7 +45,7 @@
 
 Готовые примеры в дереве: `plugins/generator` (проще некуда), `plugins/search`,
 `plugins/logging` (схема настроек и чтение потока), `plugins/macros` (таблица, свой
-делегат, горячие клавиши), `plugins/csvchart` (две панели и слой поверх вывода),
+делегат, горячие клавиши), `plugins/plotter` (две панели: рейка и полоса вместо терминала),
 `plugins/filesend` (длительная операция с прогрессом и отменой).
 
 ---
@@ -97,7 +97,7 @@ new QShortcut(QKeySequence("Ctrl+K"), window());
 
 `PanelDescriptor::id` попадает в настройки как выбранная панель и служит адресом для
 `activatePanel()`. Он уникален среди **всех** панельных плагинов, а не внутри своего.
-Принято составлять из идентификатора плагина: `"csvchart"`, `"csvchart.plot"`.
+Принято составлять из идентификатора плагина: `"plotter"`, `"plotter.plot"`.
 
 ### 5. Идентификатор плагина — часть путей
 
@@ -111,8 +111,8 @@ new QShortcut(QKeySequence("Ctrl+K"), window());
 ### Обязательные методы
 
 ```cpp
-QString pluginId() const;     // "csvchart"
-QString displayName() const;  // tr("CSV chart")
+QString pluginId() const;     // "plotter"
+QString displayName() const;  // tr("Plotter")
 ```
 
 Всё. Плагин без панелей законен: звено цепочки преобразования может ничего не показывать.
@@ -140,13 +140,13 @@ QString displayName() const;  // tr("CSV chart")
 
 ```cpp
 PanelDescriptor{
-    .id = QStringLiteral("csvchart.plot"),
-    .title = tr("CSV plot"),
-    .glyph = mdi::ChartLine,
-    .placement = PanelPlacement::Overlay,
+    .id = QStringLiteral("plotter.plot"),
+    .title = tr("Plotter"),
+    .placement = PanelPlacement::Splitter,
     .order = 500,
-    .anchor = PanelAnchor::Fill,
-    .mouseTransparent = true,
+    .side = PanelSide::Below,
+    .preferredSize = 320,
+    .visibleByDefault = false,
 }
 ```
 
@@ -156,10 +156,16 @@ PanelDescriptor{
 |---|---|---|
 | `Rail` | страница в боковой рейке значков | настройки, таблицы, всё, что смотрят по требованию |
 | `Splitter` | своя полоса над или под терминалом | то, что должно быть видно постоянно и ничего не закрывать |
-| `Overlay` | слой поверх области вывода | то, что читается вместе с текстом: график, индикатор |
+| `Overlay` | слой поверх области вывода | то, что читается вместе с текстом: индикатор, подсказка |
 
 `Splitter` дополнительно смотрит на `side` и `preferredSize`, `Overlay` — на `anchor` и
 `mouseTransparent`.
+
+**`Splitter` со снятым `visibleByDefault` — это полоса вместо терминала.** Такая панель не
+показывается сама, зато даёт пункт в переключателе режима области вывода, и её собственные
+`QAction` становятся кнопками в панели управления, когда она выбрана. Так сделан плоттер.
+С поднятым `visibleByDefault` та же панель становится постоянной полосой над или под
+терминалом — и ни пункта в переключателе, ни кнопок у неё уже нет.
 
 **Слой относится к живому выводу.** При просмотре файла лога он прячется: график,
 построенный по потоку, поверх чужого файла показывал бы не то, что означает.
@@ -202,7 +208,7 @@ QString documentsDir() const;  // для файлов, которые откро
 
 Запись: `appendToTerminal()`, `injectReceived()`, `clearTerminal()`, `showDocument()`.
 Показ: `setHighlightRules()`, `setSearchPattern()`, `setFilterEnabled()`, `findNext()`,
-`findPrevious()`, `matchCount()`, `currentMatch()`.
+`findPrevious()`, `matchCount()`, `currentMatch()`, `selectedText()`.
 Чтение: `firstLineNumber()`, `nextLineNumber()`, `line(number, TerminalLine *)`.
 
 > Нумерация строк сквозная и никогда не сбрасывается, но буфер подрезается спереди —
@@ -405,6 +411,14 @@ add_subdirectory(mypanel)
 
 > Добавление виртуального метода **в конец** класса ломает ABI и здесь тоже.
 
+### История версий
+
+| Версия | Что изменилось |
+|---|---|
+| 4 | `IPanelHost::selectedText()` — чтение текущего выделения терминала. Вставлен не в конец, а между `currentMatch()` и разделом чтения строк: сдвигает vtable-смещения ещё сильнее, чем добавление в конец, поэтому версию поднимать обязательно даже при, казалось бы, «маленькой» правке |
+| 3 | Дотянулась правка `SettingsField::live` в основном API — панельные плагины тоже возвращают `SettingsSchema` |
+| 2 | Первый выпуск с текущей раскладкой `IPanelHost` |
+
 ---
 
 ## Частые ошибки
@@ -433,7 +447,7 @@ add_subdirectory(mypanel)
 `send()` вызван одним куском. Нужно обратное давление — см. предупреждение в разделе
 [Отправка](#отправка).
 
-### График не виден, вместо него сплошной прямоугольник
+### Слой не виден, вместо него сплошной прямоугольник
 
 Слою не хватает правила `#panelOverlay { background: transparent; border: none; }` — он
 унаследовал вид `#card`. Правило уже есть в штатной таблице стилей; если панель задаёт

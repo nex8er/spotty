@@ -168,9 +168,13 @@ TEST(InterfaceRegistry, ReappearanceIsReportedAgain)
 TEST(InterfaceRegistry, DiscoveredAtIsSetOnAppearanceAndClearedOnLoss)
 {
     Fixture fixture;
+    // Первый refresh() — аналог опроса при старте программы: пока устройств нет, но это
+    // и есть то самое обращение, после которого дальнейшие появления — уже настоящий
+    // hotplug, увиденный самим Spotty, а не стартовое обнаружение.
+    fixture.registry.refresh();
+
     const auto device = FakeInterfacePlugin::makeDevice(QStringLiteral("a"),
                                                         QStringLiteral("dev-a"));
-
     fixture.plugin.devices = {device};
     fixture.registry.refresh();
     EXPECT_TRUE(fixture.registry.entry(QStringLiteral("fake:a"))->discoveredAt.isValid());
@@ -178,6 +182,24 @@ TEST(InterfaceRegistry, DiscoveredAtIsSetOnAppearanceAndClearedOnLoss)
     fixture.plugin.devices.clear();
     fixture.registry.refresh();
     EXPECT_FALSE(fixture.registry.entry(QStringLiteral("fake:a"))->discoveredAt.isValid());
+}
+
+TEST(InterfaceRegistry, DiscoveredAtStaysUnknownForDeviceFoundOnTheVeryFirstRefresh)
+{
+    Fixture fixture;
+    fixture.plugin.devices = {FakeInterfacePlugin::makeDevice(QStringLiteral("a"),
+                                                              QStringLiteral("dev-a"))};
+
+    // Устройство уже стоит в системе на самом первом опросе — ровно так, как при обычном
+    // запуске программы с уже подключённым портом. Когда оно появилось на самом деле,
+    // Spotty знать не может, и подставлять текущее время значило бы соврать «только что»
+    // порту, который стоит уже неделю.
+    fixture.registry.refresh();
+
+    const InterfaceEntry *entry = fixture.registry.entry(QStringLiteral("fake:a"));
+    ASSERT_NE(entry, nullptr);
+    EXPECT_TRUE(entry->present);
+    EXPECT_FALSE(entry->discoveredAt.isValid());
 }
 
 TEST(InterfaceRegistry, AliasIsStoredAndUsedForDisplay)

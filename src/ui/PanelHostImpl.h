@@ -51,6 +51,7 @@ public:
     QString pluginId() const override { return m_pluginId; }
 
     void send(const QByteArray &data) override;
+    DataCodec::Termination sendTermination() const override;
     void composeInSendBar(const QString &text, DataCodec::Format format) override;
 
     ChannelState channelState() const override;
@@ -79,10 +80,12 @@ public:
     void findPrevious() override;
     int matchCount() const override;
     int currentMatch() const override;
+    QString selectedText() const override;
 
     qint64 firstLineNumber() const override;
     qint64 nextLineNumber() const override;
     bool line(qint64 number, TerminalLine *out) const override;
+    TerminalGutterSettings terminalGutterSettings() const override;
 
     QColor color(ColorRole role) const override;
     int metric(Metric which) const override;

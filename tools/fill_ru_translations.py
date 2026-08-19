@@ -168,6 +168,7 @@ TRANSLATIONS = {
     "Interface A": "Интерфейс A",
     "Interface B": "Интерфейс B",
     "Both": "Оба",
+    "First available": "Первый доступный",
     "The interface is not open.": "Интерфейс не открыт.",
     "No interface selected.": "Интерфейс не выбран.",
     "Fill in the required settings to open this interface.":
@@ -279,6 +280,7 @@ TRANSLATIONS = {
     "Highlight colour": "Цвет подсветки",
     "Add rule": "Добавить правило",
     "Delete rule": "Удалить правило",
+    "Add a highlight rule from the search pattern": "Добавить правило подсветки из образца поиска",
     "Double-click to change": "Двойной щелчок меняет цвет",
 
     # --- Генератор ---
@@ -412,6 +414,45 @@ TRANSLATIONS = {
         "Управляющий блок RTT ещё не найден на таргете — проверьте, что RTT "
         "инициализирован в прошивке и таргет запущен.",
 
+    # --- CLI поверх CAN (clican) ---
+    "CLI over CAN (PCAN)": "CLI через CAN (PCAN)",
+    "CAN bus": "Шина CAN",
+    "Tunnel": "Туннель",
+    "Bit rate": "Скорость",
+    "%1 Mbit/s": "%1 Мбит/с",
+    "%1 kbit/s": "%1 кбит/с",
+    "Node": "Узел",
+    "Boards answer the broadcast query while this window is open. A node that is silent "
+    "right now can be entered by number.":
+        "Пока это окно открыто, платы отвечают на широковещательный запрос. Молчащий "
+        "сейчас узел можно указать номером.",
+    "Keep-alive": "Удержание туннеля",
+    "A board leaves tunnelling mode %1 ms after the last packet addressed to it and goes "
+    "back to its own UART.":
+        "Плата выходит из режима туннелирования через %1 мс после последнего пакета на "
+        "её адрес и возвращается к своему UART.",
+    "Response timeout": "Таймаут ответа",
+    "Warn when the node stays silent for this long. The channel stays open - a rebooting "
+    "board comes back on its own. Zero disables it.":
+        "Предупредить, если узел молчит дольше этого времени. Канал при этом остаётся "
+        "открытым — перезагружающаяся плата вернётся сама. Ноль отключает проверку.",
+    "in use by another application": "занят другим приложением",
+    "node %1, %2": "узел %1, %2",
+    "no node, %1": "узел не выбран, %1",
+    "Node %1": "Узел %1",
+    "Node %1 - no answer": "Узел %1 — нет ответа",
+    "Select a node between %1 and %2: the CAN tunnel addresses a specific board, not the "
+    "bus as a whole.":
+        "Выберите узел от %1 до %2: туннель CAN обращается к конкретной плате, а не к "
+        "шине целиком.",
+    "Could not reach node %1: %2": "Не удалось обратиться к узлу %1: %2",
+    "Could not send to node %1: %2": "Не удалось отправить узлу %1: %2",
+    "Node %1 has not answered for %2 ms": "Узел %1 не отвечает уже %2 мс",
+    "Unsupported CAN bit rate: %1 bit/s": "Неподдерживаемая скорость CAN: %1 бит/с",
+    "Could not open the CAN channel: %1": "Не удалось открыть канал CAN: %1",
+    "The CAN channel is closed": "Канал CAN закрыт",
+    "CAN bus error: %1": "Ошибка шины CAN: %1",
+
     # --- Сообщения сессии ---
     "--- %1 opened ---": "--- %1 открыт ---",
     "--- closed ---": "--- закрыт ---",
@@ -453,8 +494,23 @@ TRANSLATIONS = {
     "Show line numbers": "Показывать номера строк",
     "Line numbers": "Номера строк",
     "Count from Here": "Считать отсюда",
-    "Hide telemetry lines: values separated by the delimiter set in Settings":
-        "Скрывать телеметрию: числа через разделитель, заданный в настройках",
+    "Hide telemetry lines: values separated by the delimiter set in Settings. "
+    "Right-click to change the delimiter":
+        "Скрывать телеметрию: числа через разделитель, заданный в настройках. "
+        "Разделитель можно сменить по правому клику",
+    "Hide unreadable characters: control codes and invalid encoding. "
+    "Right-click to choose how":
+        "Скрывать нечитаемые символы: управляющие коды и битую кодировку. "
+        "Способ показа — по правому клику",
+    "Show as dots": "Точками",
+    "Hide": "Скрывать",
+    "Hide the whole line": "Скрывать строку целиком",
+    "Comma (,)": "Запятая (,)",
+    "Semicolon (;)": "Точка с запятой (;)",
+    "Pipe (|)": "Вертикальная черта (|)",
+    "Space character": "Пробел",
+    "Custom…": "Другой…",
+    "Delimiter character:": "Символ-разделитель:",
     "Side &panel": "&Боковая панель",
     "Show / hide the side panel": "Показать или скрыть боковую панель",
 
@@ -465,9 +521,11 @@ TRANSLATIONS = {
     # --- Настройки телеметрии ---
     "Telemetry delimiter": "Разделитель телеметрии",
     "Lines made only of numbers separated by this character can be hidden from the "
-    "terminal with the toolbar button. They still reach the chart, the search and the log.":
-        "Строки из одних чисел через этот знак можно скрыть из терминала кнопкой в панели. "
-        "В график, поиск и журнал они при этом попадают.",
+    "terminal — right-click the toolbar button for quick presets. Hidden lines still "
+    "reach the chart, the search and the log.":
+        "Строки из одних чисел через этот знак можно скрыть из терминала — быстрый выбор "
+        "разделителя по правому клику на кнопке в панели. В график, поиск и журнал "
+        "скрытые строки при этом попадают.",
 
     # --- Строка отправки ---
     "%1 of %2 — Tab for next": "%1 из %2 — Tab дальше",
@@ -520,7 +578,139 @@ TRANSLATIONS = {
         "Период считается в посылках, а не в миллисекундах: интервал отправки система не "
         "выдерживает точно, и форма, привязанная к часам, поплыла бы.",
 
-    # --- График ---
+    # --- Генератор сигналов (signalgen) ---
+    "Signal generator": "Генератор сигналов",
+    "Virtual signal source": "Виртуальный источник сигналов",
+    "Virtual math signal source": "Виртуальный источник математических сигналов",
+    "Waveform": "Форма сигнала",
+    "Cosine": "Косинус",
+    "Square": "Меандр",
+    "Triangle": "Треугольник",
+    "Sawtooth": "Пила",
+    "Noise": "Шум",
+    "Chirp (rising frequency)": "Свип (растущая частота)",
+    "Damped sine (retriggered)": "Затухающая синусоида (с перезапуском)",
+    "Pulse train": "Импульсы",
+    "Staircase": "Лестница",
+    "All waveforms (6 columns)": "Все формы разом (6 колонок)",
+    "Growing column count": "Растущее число колонок",
+    "Period": "Период",
+    "Amplitude": "Амплитуда",
+    "Offset": "Смещение",
+    "Sample interval": "Интервал отсчётов",
+    "Output": "Вывод",
+    "Prepend time column": "Первой колонкой — время",
+    "Emit status text lines": "Слать текстовые строки состояния",
+    "Added to every value; shifts the curve up or down.":
+        "Прибавляется к каждому значению; поднимает или опускает кривую.",
+    "How often a new line is emitted.": "Как часто выдаётся новая строка.",
+    "Length of one cycle. Chirp and the retriggered sine use it as the starting period of "
+    "a longer, repeating pattern.":
+        "Длительность одного цикла. Свип и затухающая синусоида берут её как начальный "
+        "период более длинного повторяющегося узора.",
+    "Random jitter layered on top of the waveform, as a percentage of the amplitude.":
+        "Случайный разброс поверх формы, в процентах от амплитуды.",
+    "First column holds seconds elapsed since the channel opened - a steady reference axis, "
+    "useful as a custom X axis in the chart panel.":
+        "Первая колонка — секунды с открытия канала: ровная опорная ось, годится как своя "
+        "ось X в плоттере.",
+    "Occasionally sends a non-numeric line, like a device mixing log messages into "
+    "telemetry - checks that the chart skips it instead of breaking.":
+        "Изредка шлёт нечисловую строку, как устройство, мешающее сообщения с телеметрией, "
+        "— проверяет, что плоттер её пропустит, а не сломается.",
+    '"All waveforms" and "Growing column count" emit several columns at once - handy for '
+    "testing the chart panel's series table, its colours, and how it reacts to a series "
+    "appearing mid-stream.":
+        "«Все формы разом» и «Растущее число колонок» выдают несколько колонок сразу — "
+        "удобно проверять таблицу рядов плоттера, её цвета и то, как он встречает колонку, "
+        "появившуюся посреди потока.",
+
+    # --- Плоттер ---
+    "Plotter": "Плоттер",
+    "Buffer": "Буфер",
+    "Jump to the newest data": "Перейти к свежим данным",
+    "Jump to the newest data and keep following it":
+        "Перейти к свежим данным и следовать за ними",
+    "Resume drawing; data kept coming while paused":
+        "Продолжить отрисовку; данные копились и на паузе",
+    "Freeze the picture, not the data": "Заморозить картинку, но не данные",
+    "Field separator": "Разделитель полей",
+    "What the plot shows": "Что показывает график",
+    "Settings saved for a particular device":
+        "Настройки, сохранённые под конкретное устройство",
+    "Save the current settings as a profile": "Сохранить текущие настройки профилем",
+    "Delete this profile": "Удалить этот профиль",
+    "New profile": "Новый профиль",
+    "Profile name:": "Имя профиля:",
+    "That name cannot be used for a file": "Такое имя не годится для файла",
+    "Could not save the profile": "Не удалось сохранить профиль",
+    "Plotter profile: %1": "Профиль плоттера: %1",
+    "Not enough data for a histogram": "Данных для гистограммы недостаточно",
+    "No spectrum: %1": "Спектра нет: %1",
+    "%1: μ %2, σ %3": "%1: μ %2, σ %3",
+    "%1 Hz": "%1 Гц",
+    "resampled to an even grid": "приведено к равномерной сетке",
+    "Showing: %1": "Показано: %1",
+    "Time series": "Развёртка по времени",
+    "Multi-plot": "Мультиплот",
+    "XY (phase)": "XY (фазовый)",
+    "Cumulative": "Накопление",
+    "Histogram": "Гистограмма",
+    "Spectrum": "Спектр",
+    "Values against time": "Значения от времени",
+    "One small plot per series, sharing the time axis":
+        "По мини-графику на ряд, ось времени общая",
+    "One series against another; time is not used":
+        "Один ряд против другого; время не участвует",
+    "Running sum from the start of the buffer": "Бегущая сумма от начала буфера",
+    "How often each value occurs": "Как часто встречается каждое значение",
+    "Amplitude against frequency": "Амплитуда от частоты",
+    "Pick a column for the X axis to see a phase plot":
+        "Выберите колонку для оси X, чтобы увидеть фазовый портрет",
+    "Click to show or hide, double-click to change the colour":
+        "Клик — показать или скрыть, двойной клик — сменить цвет",
+    "Double-click to rename": "Двойной клик — переименовать",
+    "Change colour…": "Сменить цвет…",
+    "Rename…": "Переименовать…",
+    "Set scale limits…": "Задать пределы шкалы…",
+    "Change scale limits…": "Изменить пределы шкалы…",
+    "Back to automatic scale": "Вернуть автомасштаб",
+    "Clear this series only": "Очистить только этот ряд",
+    "Scale limits": "Пределы шкалы",
+    "Scale limits — %1": "Пределы шкалы — %1",
+    "Minimum": "Минимум",
+    "Maximum": "Максимум",
+    "Measured: %1 … %2": "Измерено: %1 … %2",
+    "Use measured": "Взять измеренные",
+    "Minimum for %1:": "Минимум для %1:",
+    "Maximum for %1:": "Максимум для %1:",
+    "Separator character:": "Символ-разделитель:",
+    "What goes on the X axis": "Что отложено по оси X",
+    "Open in a separate window": "Открыть отдельным окном",
+    "Clear the collected data": "Очистить накопленное",
+    "Copy the plot as an image. Right-click to save a file":
+        "Скопировать график картинкой. Правый клик — сохранить в файл",
+    "Save to file…": "Сохранить в файл…",
+    "Save plot": "Сохранить график",
+    "PNG image (*.png)": "Изображение PNG (*.png)",
+    "CSV file (*.csv)": "Файл CSV (*.csv)",
+    "Plot copied to the clipboard": "График скопирован в буфер обмена",
+    "Nothing to export yet": "Экспортировать пока нечего",
+    "Saved %1": "Сохранено: %1",
+    "Cannot save %1": "Не удалось сохранить %1",
+    "Follow new data": "Следовать за новыми данными",
+    "Reset vertical zoom": "Сбросить масштаб по вертикали",
+    "Whole buffer": "Весь буфер",
+    "Last 1 s": "Последняя 1 с",
+    "Last 10 s": "Последние 10 с",
+    "Last 1 min": "Последняя 1 мин",
+    "Last 10 min": "Последние 10 мин",
+    " samples": " отсчётов",
+    "How many samples to keep. What part of them is on screen is set by scrolling and "
+    "zooming the plot itself.":
+        "Сколько отсчётов хранить. Какая их часть на экране — решают прокрутка и масштаб "
+        "самого графика.",
+    "Spotty — plotter": "Spotty — плоттер",
     "Chart": "График",
     "CSV chart": "График CSV",
     "Spotty — chart": "Spotty — график",
@@ -652,7 +842,9 @@ def escape(text: str) -> str:
 
 def unescape(text: str) -> str:
     """Обратное преобразование: в словаре ключи записаны обычным текстом."""
-    return (text.replace("&quot;", '"').replace("&amp;", "&")
+    # &apos; сюда попадает от lupdate: апостроф в исходной строке он экранирует, а в
+    # словаре ключи записаны обычным текстом, и без этой замены строка не находилась.
+    return (text.replace("&quot;", '"').replace("&apos;", "'").replace("&amp;", "&")
                 .replace("&lt;", "<").replace("&gt;", ">"))
 
 

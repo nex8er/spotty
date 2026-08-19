@@ -28,10 +28,11 @@ target_include_directories(spotty-test-main PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
 # spotty-ui-tests намеренно не участвует в подсчёте покрытия: там мерялась бы доля
 # покрытого кода интерфейса, а он проверяется запуском, а не модульными тестами.
 add_library(spotty-ui-test-main STATIC
-    main.cpp
+    ui_main.cpp
     support/TestSupport.h
     support/FakeInterfacePlugin.h
     support/FakePanelPlugin.h
+    support/FakePanelHost.h
 )
 target_link_libraries(spotty-ui-test-main PUBLIC Spotty::Core Spotty::UiApi
                                                  GTest::gtest GTest::gmock)
@@ -46,16 +47,28 @@ spotty_add_test(spotty-tests
         test_data_codec.cpp
         test_history_store.cpp
         test_settings_store.cpp
+        test_settings_migration.cpp
         test_app_settings.cpp
         test_highlight_rules.cpp
         test_data_generator.cpp
         test_macro_store.cpp
         test_log_writer.cpp
+        test_plot_format.cpp
+        test_sample_buffer.cpp
+        test_sample_parser.cpp
+        test_plot_model.cpp
+        test_plot_view.cpp
+        test_decimator.cpp
+        test_plot_math.cpp
+        test_plot_profile.cpp
         test_interface_registry.cpp
         test_session.cpp
         test_data_filter.cpp
         test_single_instance.cpp
         test_paths.cpp
+        # Протокол туннеля CLI-CAN: вся его арифметика вынесена в заголовок плагина
+        # именно ради проверки без адаптера и без драйвера PEAK.
+        test_clican_protocol.cpp
     LINK
         spotty-test-main
 )
@@ -63,14 +76,32 @@ spotty_add_test(spotty-tests
 spotty_add_test(spotty-ui-tests
     SOURCES
         test_panel_registry.cpp
-        test_csv_series.cpp
+        test_series_swatch.cpp
+        test_plotter_panel.cpp
+        test_live_options.cpp
+        test_generator_panel.cpp
+        test_logging_panel.cpp
+        test_search_panel.cpp
+        # Панель плоттера целиком: её проводка — то место, где ошибки не видит ни один
+        # тест модели, а пользователь видит сразу.
+        "${CMAKE_SOURCE_DIR}/plugins/plotter/PlotterPlugin.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/plotter/PlotterPanel.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/plotter/PlotWidget.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/plotter/PlotCanvas.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/plotter/ScaleLimitsDialog.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/generator/GeneratorPanel.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/logging/LoggingPanel.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/search/SearchPanel.cpp"
         # Реестр живёт в src/ui и входит в исполняемый файл приложения, а не в
         # библиотеку. Проще взять его исходник сюда напрямую, чем заводить библиотеку
         # ради одного класса.
         "${CMAKE_SOURCE_DIR}/src/ui/PanelPluginRegistry.cpp"
-        # Разбор CSV — логика плагина-примера, и она заслуживает проверки не меньше
-        # ядровой: именно она решает, что считать данными, а что сообщением устройства.
-        "${CMAKE_SOURCE_DIR}/plugins/csvchart/CsvSeries.cpp"
+        # Делегат таблицы рядов — из плагина плоттера, по той же причине.
+        "${CMAKE_SOURCE_DIR}/plugins/plotter/SeriesSwatchDelegate.cpp"
+        # Панель настроек интерфейса: живые списки (SettingsField::live) — её проводка, и
+        # проверить их можно только вместе с ней.
+        "${CMAKE_SOURCE_DIR}/src/ui/dialogs/InterfaceSettingsPanel.cpp"
+        "${CMAKE_SOURCE_DIR}/src/ui/InterfaceLabel.cpp"
     LINK
         spotty-ui-test-main
     # Панель-двойник умеет вернуть настоящий QLabel, и как только этим воспользуется хоть
@@ -81,7 +112,10 @@ spotty_add_test(spotty-ui-tests
 )
 target_include_directories(spotty-ui-tests PRIVATE
     "${CMAKE_SOURCE_DIR}/src/ui"
-    "${CMAKE_SOURCE_DIR}/plugins/csvchart")
+    "${CMAKE_SOURCE_DIR}/plugins/plotter"
+    "${CMAKE_SOURCE_DIR}/plugins/generator"
+    "${CMAKE_SOURCE_DIR}/plugins/logging"
+    "${CMAKE_SOURCE_DIR}/plugins/search")
 
 # Цель `coverage` объявляется после исполняемого файла тестов: инструментам нужен его
 # путь, чтобы прочитать карту покрытия. Меряется только spotty-tests.

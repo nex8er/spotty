@@ -84,6 +84,9 @@ public:
     /// \brief Положить текст в строку отправки, не отправляя.
     void composeInSendBar(const QString &text, DataCodec::Format format);
 
+    /// \brief Терминация, выбранная пользователем в строке отправки.
+    DataCodec::Termination sendTermination() const;
+
     void showStatusMessage(const QString &message);
 
     /// \brief Показать файл в области терминала вместо живого вывода.
@@ -170,6 +173,15 @@ private:
 
     /// \brief Раздать текущие настройки всем потребителям.
     void applySettings();
+
+    /**
+     * \brief Сменить разделитель телеметрии и сохранить его в настройках.
+     *
+     * Общий путь для пресетов и пункта «Custom…» контекстного меню кнопки «Hide telemetry
+     * lines» на панели терминала — оба ведут к одному и тому же полю AppSettings, что и
+     * диалог настроек.
+     */
+    void applyCsvSeparator(QChar separator);
 
     /// \brief Назначить действиям сочетания клавиш из настроек.
     void applyShortcuts();
@@ -381,6 +393,7 @@ private:
     QToolButton *m_echoButton = nullptr;
     QToolButton *m_lineNumberButton = nullptr;
     QToolButton *m_csvFilterButton = nullptr;
+    QToolButton *m_hideUnreadableButton = nullptr;
     QToolButton *m_clearButton = nullptr;
     QToolButton *m_followButton = nullptr;
 

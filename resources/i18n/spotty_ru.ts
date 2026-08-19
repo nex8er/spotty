@@ -2,6 +2,25 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ru" sourcelanguage="en">
 <context>
+    <name>QObject</name>
+    <message>
+        <source>Unsupported CAN bit rate: %1 bit/s</source>
+        <translation>Неподдерживаемая скорость CAN: %1 бит/с</translation>
+    </message>
+    <message>
+        <source>Could not open the CAN channel: %1</source>
+        <translation>Не удалось открыть канал CAN: %1</translation>
+    </message>
+    <message>
+        <source>The CAN channel is closed</source>
+        <translation>Канал CAN закрыт</translation>
+    </message>
+    <message>
+        <source>CAN bus error: %1</source>
+        <translation>Ошибка шины CAN: %1</translation>
+    </message>
+</context>
+<context>
     <name>spotty::ChannelWorker</name>
     <message>
         <source>Could not open the interface.</source>
@@ -21,214 +40,97 @@
     </message>
 </context>
 <context>
-    <name>spotty::ThemeManager</name>
+    <name>spotty::CliCanChannel</name>
     <message>
-        <source>Undo</source>
-        <translation>Отменить</translation>
+        <source>Select a node between %1 and %2: the CAN tunnel addresses a specific board, not the bus as a whole.</source>
+        <translation>Выберите узел от %1 до %2: туннель CAN обращается к конкретной плате, а не к шине целиком.</translation>
     </message>
     <message>
-        <source>Redo</source>
-        <translation>Повторить</translation>
+        <source>Could not reach node %1: %2</source>
+        <translation>Не удалось обратиться к узлу %1: %2</translation>
     </message>
     <message>
-        <source>Cut</source>
-        <translation>Вырезать</translation>
+        <source>Node %1</source>
+        <translation>Узел %1</translation>
     </message>
     <message>
-        <source>Copy</source>
-        <translation>Копировать</translation>
+        <source>Could not send to node %1: %2</source>
+        <translation>Не удалось отправить узлу %1: %2</translation>
     </message>
     <message>
-        <source>Paste</source>
-        <translation>Вставить</translation>
+        <source>Node %1 has not answered for %2 ms</source>
+        <translation>Узел %1 не отвечает уже %2 мс</translation>
     </message>
     <message>
-        <source>Delete</source>
-        <translation>Удалить</translation>
-    </message>
-    <message>
-        <source>Select All</source>
-        <translation>Выделить всё</translation>
+        <source>Node %1 - no answer</source>
+        <translation>Узел %1 — нет ответа</translation>
     </message>
 </context>
 <context>
-    <name>spotty::CsvChartPanel</name>
+    <name>spotty::CliCanPlugin</name>
     <message>
-        <source>Chart</source>
-        <translation>График</translation>
+        <source>%1 Mbit/s</source>
+        <translation>%1 Мбит/с</translation>
     </message>
     <message>
-        <source>Plots numeric lines from the output, such as &quot;12.5,3,-7&quot;.</source>
-        <translation>Строит график по числовым строкам вывода — например, «12.5,3,-7».</translation>
+        <source>%1 kbit/s</source>
+        <translation>%1 кбит/с</translation>
     </message>
     <message>
-        <source>Pause</source>
-        <translation>Пауза</translation>
+        <source>in use by another application</source>
+        <translation>занят другим приложением</translation>
     </message>
     <message>
-        <source>Freezes the picture, not the data: collecting continues.</source>
-        <translation>Замораживает картинку, но не сбор: накопление продолжается.</translation>
+        <source>CAN bus</source>
+        <translation>Шина CAN</translation>
     </message>
     <message>
-        <source>Open in window</source>
-        <translation>Открыть в окне</translation>
+        <source>Tunnel</source>
+        <translation>Туннель</translation>
     </message>
     <message>
-        <source>Comma</source>
-        <translation>Запятая</translation>
+        <source>Bit rate</source>
+        <translation>Скорость</translation>
     </message>
     <message>
-        <source>Semicolon</source>
-        <translation>Точка с запятой</translation>
+        <source>Node</source>
+        <translation>Узел</translation>
     </message>
     <message>
-        <source>Tab</source>
-        <translation>Табуляция</translation>
+        <source>Boards answer the broadcast query while this window is open. A node that is silent right now can be entered by number.</source>
+        <translation>Пока это окно открыто, платы отвечают на широковещательный запрос. Молчащий сейчас узел можно указать номером.</translation>
     </message>
     <message>
-        <source>Space</source>
-        <translation>Ноль</translation>
+        <source>Keep-alive</source>
+        <translation>Удержание туннеля</translation>
     </message>
     <message>
-        <source>Separator</source>
-        <translation>Разделитель</translation>
+        <source>ms</source>
+        <translation>мс</translation>
     </message>
     <message>
-        <source> points</source>
-        <translation> точек</translation>
+        <source>A board leaves tunnelling mode %1 ms after the last packet addressed to it and goes back to its own UART.</source>
+        <translation>Плата выходит из режима туннелирования через %1 мс после последнего пакета на её адрес и возвращается к своему UART.</translation>
     </message>
     <message>
-        <source>Window</source>
-        <translation>Окно</translation>
+        <source>Response timeout</source>
+        <translation>Таймаут ответа</translation>
     </message>
     <message>
-        <source>Which column supplies X. Time is honest when the device does not send a coordinate of its own.</source>
-        <translation>Какая колонка даёт X. Время честнее, когда устройство не шлёт свою координату.</translation>
+        <source>Warn when the node stays silent for this long. The channel stays open - a rebooting board comes back on its own. Zero disables it.</source>
+        <translation>Предупредить, если узел молчит дольше этого времени. Канал при этом остаётся открытым — перезагружающаяся плата вернётся сама. Ноль отключает проверку.</translation>
     </message>
     <message>
-        <source>X axis</source>
-        <translation>Ось X</translation>
+        <source>no node, %1</source>
+        <translation>узел не выбран, %1</translation>
     </message>
     <message>
-        <source>Series</source>
-        <translation>Ряд</translation>
+        <source>node %1, %2</source>
+        <translation>узел %1, %2</translation>
     </message>
     <message>
-        <source>Colour</source>
-        <translation>Цвет</translation>
-    </message>
-    <message>
-        <source>Min</source>
-        <translation>Мин</translation>
-    </message>
-    <message>
-        <source>Max</source>
-        <translation>Макс</translation>
-    </message>
-    <message>
-        <source>Avg</source>
-        <translation>Среднее</translation>
-    </message>
-    <message>
-        <source>Export CSV</source>
-        <translation>Выгрузить CSV</translation>
-    </message>
-    <message>
-        <source>Save PNG</source>
-        <translation>Сохранить PNG</translation>
-    </message>
-    <message>
-        <source>Clear</source>
-        <translation>Очистить</translation>
-    </message>
-    <message>
-        <source>Series colour</source>
-        <translation>Цвет ряда</translation>
-    </message>
-    <message>
-        <source>Double-click to change</source>
-        <translation>Двойной щелчок меняет цвет</translation>
-    </message>
-    <message>
-        <source>Time</source>
-        <translation>Время</translation>
-    </message>
-    <message>
-        <source>Spotty — chart</source>
-        <translation>Spotty — график</translation>
-    </message>
-    <message>
-        <source>There is nothing to export yet.</source>
-        <translation>Пока нечего выгружать.</translation>
-    </message>
-    <message>
-        <source>Export chart data</source>
-        <translation>Выгрузка данных графика</translation>
-    </message>
-    <message>
-        <source>CSV files (*.csv)</source>
-        <translation>Файлы CSV (*.csv)</translation>
-    </message>
-    <message>
-        <source>Could not write %1</source>
-        <translation>Не удалось записать %1</translation>
-    </message>
-    <message>
-        <source>Exported to %1</source>
-        <translation>Экспортировано в %1</translation>
-    </message>
-    <message>
-        <source>Save chart image</source>
-        <translation>Сохранение снимка графика</translation>
-    </message>
-    <message>
-        <source>PNG images (*.png)</source>
-        <translation>Изображения PNG (*.png)</translation>
-    </message>
-    <message>
-        <source>Saved to %1</source>
-        <translation>Сохранено в %1</translation>
-    </message>
-</context>
-<context>
-    <name>spotty::CsvChartPlugin</name>
-    <message>
-        <source>Chart</source>
-        <translation>График</translation>
-    </message>
-    <message>
-        <source>CSV chart</source>
-        <translation>График CSV</translation>
-    </message>
-</context>
-<context>
-    <name>spotty::CsvChartView</name>
-    <message>
-        <source>Pause</source>
-        <translation>Пауза</translation>
-    </message>
-    <message>
-        <source>Freezes the picture, not the data: collecting continues.</source>
-        <translation>Замораживает картинку, но не сбор: накопление продолжается.</translation>
-    </message>
-    <message>
-        <source>Clear</source>
-        <translation>Очистить</translation>
-    </message>
-    <message>
-        <source>Waiting for numeric lines in the output</source>
-        <translation>Ждём числовые строки в выводе</translation>
-    </message>
-    <message>
-        <source>PAUSED</source>
-        <translation>ПАУЗА</translation>
-    </message>
-</context>
-<context>
-    <name>spotty::CsvSeries</name>
-    <message>
-        <source>Column %1</source>
-        <translation>Колонка %1</translation>
+        <source>CLI over CAN (PCAN)</source>
+        <translation>CLI через CAN (PCAN)</translation>
     </message>
 </context>
 <context>
@@ -265,12 +167,12 @@
 <context>
     <name>spotty::DataGenerator</name>
     <message>
-        <source>Random bytes</source>
-        <translation>Случайные байты</translation>
+        <source>Random values</source>
+        <translation>Случайные значения</translation>
     </message>
     <message>
-        <source>Fixed byte</source>
-        <translation>Постоянный байт</translation>
+        <source>Fixed value</source>
+        <translation>Постоянное значение</translation>
     </message>
     <message>
         <source>Ramp 00..FF</source>
@@ -483,32 +385,24 @@
         <translation>Генератор</translation>
     </message>
     <message>
-        <source>Pattern</source>
-        <translation>Выражение</translation>
-    </message>
-    <message>
-        <source> bytes</source>
-        <translation> байт</translation>
-    </message>
-    <message>
         <source>Length</source>
         <translation>Длина</translation>
     </message>
     <message>
-        <source>Byte value</source>
-        <translation>Значение байта</translation>
+        <source>Form</source>
+        <translation>Форма</translation>
     </message>
     <message>
-        <source> packets</source>
-        <translation> посылок</translation>
+        <source>Optional text before every packet</source>
+        <translation>Необязательный текст перед каждой посылкой</translation>
     </message>
     <message>
-        <source>Period counted in packets, not milliseconds: the send interval is not kept exactly by the operating system, and a shape tied to the clock would drift.</source>
-        <translation>Период считается в посылках, а не в миллисекундах: интервал отправки система не выдерживает точно, и форма, привязанная к часам, поплыла бы.</translation>
+        <source>UTF-8 text prepended to every generated packet; it does not reduce the payload length.</source>
+        <translation>Текст UTF-8 добавляется перед каждой посылкой и не уменьшает длину полезной нагрузки.</translation>
     </message>
     <message>
-        <source>Wave period</source>
-        <translation>Период формы</translation>
+        <source>Prefix</source>
+        <translation>Префикс</translation>
     </message>
     <message>
         <source>Amplitude</source>
@@ -519,40 +413,116 @@
         <translation>%1 мс</translation>
     </message>
     <message>
-        <source>Stream interval</source>
-        <translation>Период потока</translation>
+        <source>%1 s</source>
+        <translation>%1 с</translation>
+    </message>
+    <message>
+        <source> values</source>
+        <translation> значений</translation>
+    </message>
+    <message>
+        <source>Offset</source>
+        <translation>Смещение</translation>
+    </message>
+    <message>
+        <source>Period</source>
+        <translation>Период</translation>
+    </message>
+    <message>
+        <source> %</source>
+        <translation> %</translation>
+    </message>
+    <message>
+        <source>Duty cycle</source>
+        <translation>Скважность</translation>
+    </message>
+    <message>
+        <source>Signal generator</source>
+        <translation>Генератор сигналов</translation>
+    </message>
+    <message>
+        <source>Parameters</source>
+        <translation>Параметры</translation>
+    </message>
+    <message>
+        <source>Initial value</source>
+        <translation>Начальное значение</translation>
+    </message>
+    <message>
+        <source>Increment</source>
+        <translation>Шаг</translation>
+    </message>
+    <message>
+        <source>Inclusive lower byte value</source>
+        <translation>Нижняя граница значения байта включительно</translation>
+    </message>
+    <message>
+        <source>Minimum</source>
+        <translation>Минимум</translation>
+    </message>
+    <message>
+        <source>Inclusive upper byte value</source>
+        <translation>Верхняя граница значения байта включительно</translation>
+    </message>
+    <message>
+        <source>Maximum</source>
+        <translation>Максимум</translation>
+    </message>
+    <message>
+        <source>Fixed value</source>
+        <translation>Постоянное значение</translation>
+    </message>
+    <message>
+        <source>Period is counted in packets, not milliseconds.</source>
+        <translation>Период задаётся в посылках, а не миллисекундах.</translation>
+    </message>
+    <message>
+        <source>Precision</source>
+        <translation>Точность</translation>
+    </message>
+    <message>
+        <source>Frequency</source>
+        <translation>Частота</translation>
+    </message>
+    <message>
+        <source>Interval between packets while streaming</source>
+        <translation>Интервал между посылками в потоке</translation>
+    </message>
+    <message>
+        <source>Send frequency</source>
+        <translation>Частота отправки</translation>
+    </message>
+    <message>
+        <source> Hz</source>
+        <translation> Гц</translation>
+    </message>
+    <message>
+        <source>Pause stream</source>
+        <translation>Приостановить поток</translation>
+    </message>
+    <message>
+        <source>Start stream</source>
+        <translation>Запустить поток</translation>
+    </message>
+    <message>
+        <source>Reset generated sequence and packet counter</source>
+        <translation>Сбросить последовательность и счётчик посылок</translation>
+    </message>
+    <message>
+        <source>Send one packet</source>
+        <translation>Отправить одну посылку</translation>
     </message>
     <message>
         <source>Preview</source>
         <translation>Предпросмотр</translation>
     </message>
     <message>
-        <source>Send once</source>
-        <translation>Отправить один раз</translation>
+        <source>Show preview as hexadecimal</source>
+        <translation>Показать предпросмотр в шестнадцатеричном виде</translation>
     </message>
     <message>
-        <source>Stream</source>
-        <translation>Поток</translation>
-    </message>
-    <message>
-        <source>To send bar</source>
-        <translation>В строку отправки</translation>
-    </message>
-    <message>
-        <source>Put the generated data into the send bar without sending</source>
-        <translation>Положить порождённые данные в строку отправки, не отправляя</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n packet(s) sent</source>
-        <translation>
-            <numerusform>отправлена %n посылка</numerusform>
-            <numerusform>отправлено %n посылки</numerusform>
-            <numerusform>отправлено %n посылок</numerusform>
-        </translation>
-    </message>
-    <message>
-        <source>Stop</source>
-        <translation>Стоп</translation>
+        <source>Sent %1</source>
+        <translation>Отправлено %1</translation>
     </message>
 </context>
 <context>
@@ -739,6 +709,10 @@
         <translation>Логирование</translation>
     </message>
     <message>
+        <source>Save current buffer</source>
+        <translation>Сохранить текущий буфер</translation>
+    </message>
+    <message>
         <source>Strip ANSI escape sequences</source>
         <translation>Убирать коды ANSI</translation>
     </message>
@@ -749,6 +723,14 @@
     <message>
         <source>Include sent data</source>
         <translation>Записывать отправленное</translation>
+    </message>
+    <message>
+        <source>Informational messages</source>
+        <translation>Информационные сообщения</translation>
+    </message>
+    <message>
+        <source>Write the line number, source, timestamp and direction currently shown in the terminal gutter.</source>
+        <translation>Записывать номер строки, источник, время и направление, которые сейчас показаны в gutter терминала.</translation>
     </message>
     <message>
         <source>Everything</source>
@@ -775,6 +757,14 @@
         <translation>Последние логи</translation>
     </message>
     <message>
+        <source>File</source>
+        <translation>Файл</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Размер</translation>
+    </message>
+    <message>
         <source>Recording to %1</source>
         <translation>Запись в %1</translation>
     </message>
@@ -785,6 +775,18 @@
     <message>
         <source>Select an interface before recording.</source>
         <translation>Выберите интерфейс перед началом записи.</translation>
+    </message>
+    <message>
+        <source>The terminal buffer is empty.</source>
+        <translation>Буфер терминала пуст.</translation>
+    </message>
+    <message>
+        <source>terminal</source>
+        <translation>терминал</translation>
+    </message>
+    <message>
+        <source>Saved current buffer to %1</source>
+        <translation>Текущий буфер сохранён в %1</translation>
     </message>
     <message>
         <source>Recording unavailable</source>
@@ -1017,8 +1019,8 @@
         <translation>Добавить макрос</translation>
     </message>
     <message>
-        <source>Pick a preset or type the period in milliseconds</source>
-        <translation>Выберите готовый период или введите его в миллисекундах</translation>
+        <source>Pick a preset or type a custom period in milliseconds</source>
+        <translation>Выберите готовый период или введите свой в миллисекундах</translation>
     </message>
     <message>
         <source>Saved as a macro: %1</source>
@@ -1121,8 +1123,8 @@
         <translation>Импорт макросов</translation>
     </message>
     <message>
-        <source>Repeat</source>
-        <translation>Повтор</translation>
+        <source>Auto-send</source>
+        <translation>Автоотправка</translation>
     </message>
     <message>
         <source>Name</source>
@@ -1205,10 +1207,6 @@ Double-click to edit, right-click for options</source>
         <translation>Показывать номера строк</translation>
     </message>
     <message>
-        <source>Hide telemetry lines: values separated by the delimiter set in Settings</source>
-        <translation>Скрывать телеметрию: числа через разделитель, заданный в настройках</translation>
-    </message>
-    <message>
         <source>Clear the terminal</source>
         <translation>Очистить терминал</translation>
     </message>
@@ -1283,6 +1281,58 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Focus &amp;send bar</source>
         <translation>Фокус в &amp;строку отправки</translation>
+    </message>
+    <message>
+        <source>Hide telemetry lines: values separated by the delimiter set in Settings. Right-click to change the delimiter</source>
+        <translation>Скрывать телеметрию: числа через разделитель, заданный в настройках. Разделитель можно сменить по правому клику</translation>
+    </message>
+    <message>
+        <source>Hide unreadable characters: control codes and invalid encoding. Right-click to choose how</source>
+        <translation>Скрывать нечитаемые символы: управляющие коды и битую кодировку. Способ показа — по правому клику</translation>
+    </message>
+    <message>
+        <source>Comma (,)</source>
+        <translation>Запятая (,)</translation>
+    </message>
+    <message>
+        <source>Semicolon (;)</source>
+        <translation>Точка с запятой (;)</translation>
+    </message>
+    <message>
+        <source>Tab</source>
+        <translation>Табуляция</translation>
+    </message>
+    <message>
+        <source>Space character</source>
+        <translation>Пробел</translation>
+    </message>
+    <message>
+        <source>Pipe (|)</source>
+        <translation>Вертикальная черта (|)</translation>
+    </message>
+    <message>
+        <source>Custom…</source>
+        <translation>Другой…</translation>
+    </message>
+    <message>
+        <source>Telemetry delimiter</source>
+        <translation>Разделитель телеметрии</translation>
+    </message>
+    <message>
+        <source>Delimiter character:</source>
+        <translation>Символ-разделитель:</translation>
+    </message>
+    <message>
+        <source>Show as dots</source>
+        <translation>Точками</translation>
+    </message>
+    <message>
+        <source>Hide</source>
+        <translation>Скрывать</translation>
+    </message>
+    <message>
+        <source>Hide the whole line</source>
+        <translation>Скрывать строку целиком</translation>
     </message>
     <message>
         <source>&amp;Theme</source>
@@ -1421,6 +1471,398 @@ Double-click to edit, right-click for options</source>
     </message>
 </context>
 <context>
+    <name>spotty::PlotCanvas</name>
+    <message>
+        <source>Pause</source>
+        <translation>Пауза</translation>
+    </message>
+    <message>
+        <source>Pause collecting points for the plot</source>
+        <translation>Приостановить сбор точек графика</translation>
+    </message>
+    <message>
+        <source>Jump to the newest data</source>
+        <translation>Перейти к свежим данным</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Очистить</translation>
+    </message>
+    <message>
+        <source>Last 100 counts</source>
+        <translation>Последние 100 отсчётов</translation>
+    </message>
+    <message>
+        <source>Last 1K counts</source>
+        <translation>Последние 1K отсчётов</translation>
+    </message>
+    <message>
+        <source>Last 10K counts</source>
+        <translation>Последние 10K отсчётов</translation>
+    </message>
+    <message>
+        <source>Last 100K counts</source>
+        <translation>Последние 100K отсчётов</translation>
+    </message>
+    <message>
+        <source>Last 1 s</source>
+        <translation>Последняя 1 с</translation>
+    </message>
+    <message>
+        <source>Last 10 s</source>
+        <translation>Последние 10 с</translation>
+    </message>
+    <message>
+        <source>Last 1 min</source>
+        <translation>Последняя 1 мин</translation>
+    </message>
+    <message>
+        <source>Last 10 min</source>
+        <translation>Последние 10 мин</translation>
+    </message>
+    <message>
+        <source>Whole buffer</source>
+        <translation>Весь буфер</translation>
+    </message>
+    <message>
+        <source>Follow new data</source>
+        <translation>Следовать за новыми данными</translation>
+    </message>
+    <message>
+        <source>Reset vertical zoom</source>
+        <translation>Сбросить масштаб по вертикали</translation>
+    </message>
+    <message>
+        <source>Pick a column for the X axis to see a phase plot</source>
+        <translation>Выберите колонку для оси X, чтобы увидеть фазовый портрет</translation>
+    </message>
+    <message>
+        <source>μ %1, σ %2</source>
+        <translation>μ %1, σ %2</translation>
+    </message>
+    <message>
+        <source>No data</source>
+        <translation>Нет данных</translation>
+    </message>
+    <message>
+        <source>Waiting for numeric lines in the output</source>
+        <translation>Ждём числовые строки в выводе</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::PlotWidget</name>
+    <message>
+        <source>Jump to the newest data and keep following it</source>
+        <translation>Перейти к свежим данным и следовать за ними</translation>
+    </message>
+    <message>
+        <source>Field separator</source>
+        <translation>Разделитель полей</translation>
+    </message>
+    <message>
+        <source>What goes on the X axis</source>
+        <translation>Что отложено по оси X</translation>
+    </message>
+    <message>
+        <source>Export CSV</source>
+        <translation>Выгрузить CSV</translation>
+    </message>
+    <message>
+        <source>Copy the plot as an image. Right-click to save a file</source>
+        <translation>Скопировать график картинкой. Правый клик — сохранить в файл</translation>
+    </message>
+    <message>
+        <source>Save to file…</source>
+        <translation>Сохранить в файл…</translation>
+    </message>
+    <message>
+        <source>Open in a separate window</source>
+        <translation>Открыть отдельным окном</translation>
+    </message>
+    <message>
+        <source>Clear the collected data</source>
+        <translation>Очистить накопленное</translation>
+    </message>
+    <message>
+        <source>Resume collecting points for the plot</source>
+        <translation>Продолжить сбор точек графика</translation>
+    </message>
+    <message>
+        <source>Pause collecting points for the plot</source>
+        <translation>Приостановить сбор точек графика</translation>
+    </message>
+    <message>
+        <source>Comma (,)</source>
+        <translation>Запятая (,)</translation>
+    </message>
+    <message>
+        <source>Semicolon (;)</source>
+        <translation>Точка с запятой (;)</translation>
+    </message>
+    <message>
+        <source>Tab</source>
+        <translation>Табуляция</translation>
+    </message>
+    <message>
+        <source>Space character</source>
+        <translation>Пробел</translation>
+    </message>
+    <message>
+        <source>Pipe (|)</source>
+        <translation>Вертикальная черта (|)</translation>
+    </message>
+    <message>
+        <source>Custom…</source>
+        <translation>Другой…</translation>
+    </message>
+    <message>
+        <source>Separator character:</source>
+        <translation>Символ-разделитель:</translation>
+    </message>
+    <message>
+        <source>Time</source>
+        <translation>Время</translation>
+    </message>
+    <message>
+        <source>Plot copied to the clipboard</source>
+        <translation>График скопирован в буфер обмена</translation>
+    </message>
+    <message>
+        <source>Save plot</source>
+        <translation>Сохранить график</translation>
+    </message>
+    <message>
+        <source>PNG image (*.png)</source>
+        <translation>Изображение PNG (*.png)</translation>
+    </message>
+    <message>
+        <source>Saved %1</source>
+        <translation>Сохранено: %1</translation>
+    </message>
+    <message>
+        <source>Cannot save %1</source>
+        <translation>Не удалось сохранить %1</translation>
+    </message>
+    <message>
+        <source>Nothing to export yet</source>
+        <translation>Экспортировать пока нечего</translation>
+    </message>
+    <message>
+        <source>CSV file (*.csv)</source>
+        <translation>Файл CSV (*.csv)</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::PlotterPanel</name>
+    <message>
+        <source>Plotter</source>
+        <translation>Плоттер</translation>
+    </message>
+    <message>
+        <source>Settings saved for a particular device</source>
+        <translation>Настройки, сохранённые под конкретное устройство</translation>
+    </message>
+    <message>
+        <source>Save the current settings as a profile</source>
+        <translation>Сохранить текущие настройки профилем</translation>
+    </message>
+    <message>
+        <source>Delete this profile</source>
+        <translation>Удалить этот профиль</translation>
+    </message>
+    <message>
+        <source>Buffer</source>
+        <translation>Буфер</translation>
+    </message>
+    <message>
+        <source>Values against time</source>
+        <translation>Значения от времени</translation>
+    </message>
+    <message>
+        <source>General</source>
+        <translation>Общий</translation>
+    </message>
+    <message>
+        <source>Multi-plot</source>
+        <translation>Мультиплот</translation>
+    </message>
+    <message>
+        <source>One small plot per series, sharing the time axis</source>
+        <translation>По мини-графику на ряд, ось времени общая</translation>
+    </message>
+    <message>
+        <source>XY (phase)</source>
+        <translation>XY (фазовый)</translation>
+    </message>
+    <message>
+        <source>One series against another; time is not used</source>
+        <translation>Один ряд против другого; время не участвует</translation>
+    </message>
+    <message>
+        <source>Cumulative</source>
+        <translation>Накопление</translation>
+    </message>
+    <message>
+        <source>Running sum from the start of the buffer</source>
+        <translation>Бегущая сумма от начала буфера</translation>
+    </message>
+    <message>
+        <source>Histogram</source>
+        <translation>Гистограмма</translation>
+    </message>
+    <message>
+        <source>How often each value occurs</source>
+        <translation>Как часто встречается каждое значение</translation>
+    </message>
+    <message>
+        <source>Spectrum</source>
+        <translation>Спектр</translation>
+    </message>
+    <message>
+        <source>Amplitude against frequency</source>
+        <translation>Амплитуда от частоты</translation>
+    </message>
+    <message>
+        <source>Reset this profile to defaults</source>
+        <translation>Сбросить этот профиль к настройкам по умолчанию</translation>
+    </message>
+    <message>
+        <source>Mode</source>
+        <translation>Режим</translation>
+    </message>
+    <message>
+        <source>What the plot shows</source>
+        <translation>Что показывает график</translation>
+    </message>
+    <message>
+        <source>How many thousands of samples to keep. What part of them is on screen is set by scrolling and zooming the plot itself.</source>
+        <translation>Сколько тысяч отсчётов хранить. Какая их часть на экране — решают прокрутка и масштаб самого графика.</translation>
+    </message>
+    <message>
+        <source>Series</source>
+        <translation>Ряд</translation>
+    </message>
+    <message>
+        <source>Min</source>
+        <translation>Мин</translation>
+    </message>
+    <message>
+        <source>Max</source>
+        <translation>Макс</translation>
+    </message>
+    <message>
+        <source>Avg</source>
+        <translation>Сред</translation>
+    </message>
+    <message>
+        <source>Delta</source>
+        <translation>Дельта</translation>
+    </message>
+    <message>
+        <source>Click to show or hide, double-click to change the colour</source>
+        <translation>Клик — показать или скрыть, двойной клик — сменить цвет</translation>
+    </message>
+    <message>
+        <source>Double-click to rename</source>
+        <translation>Двойной клик — переименовать</translation>
+    </message>
+    <message>
+        <source>Series colour</source>
+        <translation>Цвет ряда</translation>
+    </message>
+    <message>
+        <source>Change colour…</source>
+        <translation>Сменить цвет…</translation>
+    </message>
+    <message>
+        <source>Rename…</source>
+        <translation>Переименовать…</translation>
+    </message>
+    <message>
+        <source>Change scale limits…</source>
+        <translation>Изменить пределы шкалы…</translation>
+    </message>
+    <message>
+        <source>Set scale limits…</source>
+        <translation>Задать пределы шкалы…</translation>
+    </message>
+    <message>
+        <source>Back to automatic scale</source>
+        <translation>Вернуть автомасштаб</translation>
+    </message>
+    <message>
+        <source>Clear this series only</source>
+        <translation>Очистить только этот ряд</translation>
+    </message>
+    <message>
+        <source>Profile reset to defaults</source>
+        <translation>Профиль сброшен к настройкам по умолчанию</translation>
+    </message>
+    <message>
+        <source>New profile</source>
+        <translation>Новый профиль</translation>
+    </message>
+    <message>
+        <source>Profile name:</source>
+        <translation>Имя профиля:</translation>
+    </message>
+    <message>
+        <source>That name cannot be used for a file</source>
+        <translation>Такое имя не годится для файла</translation>
+    </message>
+    <message>
+        <source>Could not save the profile</source>
+        <translation>Не удалось сохранить профиль</translation>
+    </message>
+    <message>
+        <source>Plotter profile: %1</source>
+        <translation>Профиль плоттера: %1</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::PlotterPlugin</name>
+    <message>
+        <source>Plotter</source>
+        <translation>Плоттер</translation>
+    </message>
+    <message>
+        <source>Field separator</source>
+        <translation>Разделитель полей</translation>
+    </message>
+    <message>
+        <source>Data</source>
+        <translation>Данные</translation>
+    </message>
+    <message>
+        <source>The first character separates incoming values into fields.</source>
+        <translation>Первый символ разделяет входящие значения на поля.</translation>
+    </message>
+    <message>
+        <source>Buffer</source>
+        <translation>Буфер</translation>
+    </message>
+    <message>
+        <source>How many thousands of samples to keep.</source>
+        <translation>Сколько тысяч отсчётов хранить.</translation>
+    </message>
+    <message>
+        <source>Show delta</source>
+        <translation>Показывать дельту</translation>
+    </message>
+    <message>
+        <source>Table</source>
+        <translation>Таблица</translation>
+    </message>
+    <message>
+        <source>Show the difference between the maximum and minimum values for every series.</source>
+        <translation>Показывать разницу между максимальным и минимальным значениями каждого ряда.</translation>
+    </message>
+    <message>
+        <source>Spotty — plotter</source>
+        <translation>Spotty — плоттер</translation>
+    </message>
+</context>
+<context>
     <name>spotty::PluginManager</name>
     <message>
         <source>Not a Spotty plugin of any known kind.</source>
@@ -1441,6 +1883,29 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Another plugin already provides id &quot;%1&quot;.</source>
         <translation>Идентификатор «%1» уже занят другим плагином.</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::ScaleLimitsDialog</name>
+    <message>
+        <source>Scale limits — %1</source>
+        <translation>Пределы шкалы — %1</translation>
+    </message>
+    <message>
+        <source>Minimum</source>
+        <translation>Минимум</translation>
+    </message>
+    <message>
+        <source>Maximum</source>
+        <translation>Максимум</translation>
+    </message>
+    <message>
+        <source>Measured: %1 … %2</source>
+        <translation>Измерено: %1 … %2</translation>
+    </message>
+    <message>
+        <source>Use measured</source>
+        <translation>Взять измеренные</translation>
     </message>
 </context>
 <context>
@@ -1499,6 +1964,10 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Delete rule</source>
         <translation>Удалить правило</translation>
+    </message>
+    <message>
+        <source>Add a highlight rule from the search pattern</source>
+        <translation>Добавить правило подсветки из образца поиска</translation>
     </message>
     <message>
         <source>Find...</source>
@@ -1573,6 +2042,10 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Both</source>
         <translation>Оба</translation>
+    </message>
+    <message>
+        <source>First available</source>
+        <translation>Первый доступный</translation>
     </message>
     <message>
         <source>Save as macro</source>
@@ -1861,12 +2334,12 @@ Continue?</source>
         <translation>Отражать отправленное в терминале</translation>
     </message>
     <message>
-        <source>Telemetry delimiter</source>
-        <translation>Разделитель телеметрии</translation>
+        <source>Lines made only of numbers separated by this character can be hidden from the terminal — right-click the toolbar button for quick presets. Hidden lines still reach the chart, the search and the log.</source>
+        <translation>Строки из одних чисел через этот знак можно скрыть из терминала — быстрый выбор разделителя по правому клику на кнопке в панели. В график, поиск и журнал скрытые строки при этом попадают.</translation>
     </message>
     <message>
-        <source>Lines made only of numbers separated by this character can be hidden from the terminal with the toolbar button. They still reach the chart, the search and the log.</source>
-        <translation>Строки из одних чисел через этот знак можно скрыть из терминала кнопкой в панели. В график, поиск и журнал они при этом попадают.</translation>
+        <source>Telemetry delimiter</source>
+        <translation>Разделитель телеметрии</translation>
     </message>
     <message>
         <source>ANSI colours</source>
@@ -1978,6 +2451,136 @@ Continue?</source>
     </message>
 </context>
 <context>
+    <name>spotty::SignalGenChannel</name>
+    <message>
+        <source>Virtual signal source</source>
+        <translation>Виртуальный источник сигналов</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::SignalGenPlugin</name>
+    <message>
+        <source>Virtual math signal source</source>
+        <translation>Виртуальный источник математических сигналов</translation>
+    </message>
+    <message>
+        <source>Waveform</source>
+        <translation>Форма сигнала</translation>
+    </message>
+    <message>
+        <source>Sine</source>
+        <translation>Синус</translation>
+    </message>
+    <message>
+        <source>Cosine</source>
+        <translation>Косинус</translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation>Меандр</translation>
+    </message>
+    <message>
+        <source>Triangle</source>
+        <translation>Треугольник</translation>
+    </message>
+    <message>
+        <source>Sawtooth</source>
+        <translation>Пила</translation>
+    </message>
+    <message>
+        <source>Noise</source>
+        <translation>Шум</translation>
+    </message>
+    <message>
+        <source>Chirp (rising frequency)</source>
+        <translation>Свип (растущая частота)</translation>
+    </message>
+    <message>
+        <source>Damped sine (retriggered)</source>
+        <translation>Затухающая синусоида (с перезапуском)</translation>
+    </message>
+    <message>
+        <source>Pulse train</source>
+        <translation>Импульсы</translation>
+    </message>
+    <message>
+        <source>Staircase</source>
+        <translation>Лестница</translation>
+    </message>
+    <message>
+        <source>All waveforms (6 columns)</source>
+        <translation>Все формы разом (6 колонок)</translation>
+    </message>
+    <message>
+        <source>Growing column count</source>
+        <translation>Растущее число колонок</translation>
+    </message>
+    <message>
+        <source>&quot;All waveforms&quot; and &quot;Growing column count&quot; emit several columns at once - handy for testing the chart panel&apos;s series table, its colours, and how it reacts to a series appearing mid-stream.</source>
+        <translation>«Все формы разом» и «Растущее число колонок» выдают несколько колонок сразу — удобно проверять таблицу рядов плоттера, её цвета и то, как он встречает колонку, появившуюся посреди потока.</translation>
+    </message>
+    <message>
+        <source>Period</source>
+        <translation>Период</translation>
+    </message>
+    <message>
+        <source>ms</source>
+        <translation>мс</translation>
+    </message>
+    <message>
+        <source>Length of one cycle. Chirp and the retriggered sine use it as the starting period of a longer, repeating pattern.</source>
+        <translation>Длительность одного цикла. Свип и затухающая синусоида берут её как начальный период более長ого повторяющегося узора.</translation>
+    </message>
+    <message>
+        <source>Amplitude</source>
+        <translation>Амплитуда</translation>
+    </message>
+    <message>
+        <source>Offset</source>
+        <translation>Смещение</translation>
+    </message>
+    <message>
+        <source>Added to every value; shifts the curve up or down.</source>
+        <translation>Прибавляется к каждому значению; поднимает или опускает кривую.</translation>
+    </message>
+    <message>
+        <source>Random jitter layered on top of the waveform, as a percentage of the amplitude.</source>
+        <translation>Случайный разброс поверх формы, в процентах от амплитуды.</translation>
+    </message>
+    <message>
+        <source>Sample interval</source>
+        <translation>Интервал отсчётов</translation>
+    </message>
+    <message>
+        <source>Output</source>
+        <translation>Вывод</translation>
+    </message>
+    <message>
+        <source>How often a new line is emitted.</source>
+        <translation>Как часто выдаётся новая строка.</translation>
+    </message>
+    <message>
+        <source>Prepend time column</source>
+        <translation>Первой колонкой — время</translation>
+    </message>
+    <message>
+        <source>First column holds seconds elapsed since the channel opened - a steady reference axis, useful as a custom X axis in the chart panel.</source>
+        <translation>Первая колонка — секунды с открытия канала: ровная опорная ось, годится как своя ось X в плоттере.</translation>
+    </message>
+    <message>
+        <source>Emit status text lines</source>
+        <translation>Слать текстовые строки состояния</translation>
+    </message>
+    <message>
+        <source>Occasionally sends a non-numeric line, like a device mixing log messages into telemetry - checks that the chart skips it instead of breaking.</source>
+        <translation>Изредка шлёт нечисловую строку, как устройство, мешающее сообщения с телеметрией, — проверяет, что плоттер её пропустит, а не сломается.</translation>
+    </message>
+    <message>
+        <source>Signal generator</source>
+        <translation>Генератор сигналов</translation>
+    </message>
+</context>
+<context>
     <name>spotty::TerminalView</name>
     <message>
         <source>No lines match the filter</source>
@@ -2006,6 +2609,37 @@ Continue?</source>
     <message>
         <source>Scroll to Bottom</source>
         <translation>Прокрутить вниз</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::ThemeManager</name>
+    <message>
+        <source>Undo</source>
+        <translation>Отменить</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>Повторить</translation>
+    </message>
+    <message>
+        <source>Cut</source>
+        <translation>Вырезать</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Копировать</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>Вставить</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Удалить</translation>
+    </message>
+    <message>
+        <source>Select All</source>
+        <translation>Выделить всё</translation>
     </message>
 </context>
 <context>

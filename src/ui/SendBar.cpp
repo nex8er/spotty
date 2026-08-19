@@ -169,7 +169,7 @@ void SendBar::setInterfaceAvailability(bool interfaceA, bool interfaceB)
 void SendBar::setSendTarget(SendTarget target)
 {
     if (target != SendTarget::InterfaceA && target != SendTarget::InterfaceB
-        && target != SendTarget::Both) {
+        && target != SendTarget::Both && target != SendTarget::FirstAvailable) {
         target = SendTarget::InterfaceA;
     }
     if (m_sendTarget == target)
@@ -325,6 +325,11 @@ void SendBar::showInputContextMenu(const QPoint &globalPosition)
         addTarget(tr("Interface B"), SendTarget::InterfaceB, m_interfaceBAvailable);
         addTarget(tr("Both"), SendTarget::Both,
                   m_interfaceAAvailable && m_interfaceBAvailable);
+        // Какой из двух открыт сейчас — решается на отправке (MainWindow), не здесь: пункт
+        // остаётся верным и после того, как A закроют, а B откроют, не заставляя выбирать
+        // заново.
+        addTarget(tr("First available"), SendTarget::FirstAvailable,
+                  m_interfaceAAvailable || m_interfaceBAvailable);
     }
 
     menu->addSeparator();

@@ -58,6 +58,7 @@ private:
     QWidget *createEditor(const SettingsField &field, const QVariant &value);
 
     SettingsSchema m_schema;
+    QVariantMap m_initialValues;
     QHash<QString, QWidget *> m_editors;
 };
 

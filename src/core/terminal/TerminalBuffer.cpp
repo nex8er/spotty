@@ -41,8 +41,10 @@ public:
     {
         // Строка закрывается, следующая создастся при первой же записи. Так завершающий
         // перевод строки не порождает лишнюю пустую строку в конце вывода.
-        if (Line *line = m_buffer.currentLine())
+        if (Line *line = m_buffer.currentLine()) {
             line->complete = true;
+            Q_EMIT m_buffer.lineFinalized(m_buffer.nextLineNumber() - 1);
+        }
         m_buffer.m_hasOpenLine = false;
         m_buffer.m_cursorColumn = 0;
     }
@@ -150,8 +152,10 @@ void TerminalBuffer::append(const QByteArray &data, DataDirection direction,
     // Смена направления закрывает текущую строку: иначе отправленное и принятое слиплись
     // бы в одну строку и метка направления перестала бы что-либо значить.
     if (m_hasOpenLine && (direction != m_currentDirection || source != m_currentSource)) {
-        if (Line *line = currentLine())
+        if (Line *line = currentLine()) {
             line->complete = true;
+            Q_EMIT lineFinalized(nextLineNumber() - 1);
+        }
         m_hasOpenLine = false;
         m_cursorColumn = 0;
     }
@@ -206,8 +210,10 @@ void TerminalBuffer::append(const QByteArray &data, DataDirection direction,
         if (!m_hasOpenLine && !m_pendingRaw.isEmpty())
             startLine(direction, monotonicNs);
 
-        if (Line *line = currentLine())
+        if (Line *line = currentLine()) {
             line->complete = true;
+            Q_EMIT lineFinalized(nextLineNumber() - 1);
+        }
         m_hasOpenLine = false;
         m_cursorColumn = 0;
     }
@@ -225,8 +231,10 @@ void TerminalBuffer::append(const QByteArray &data, DataDirection direction,
 void TerminalBuffer::appendSystemMessage(const QString &message, quint8 source)
 {
     if (m_hasOpenLine) {
-        if (Line *line = currentLine())
+        if (Line *line = currentLine()) {
             line->complete = true;
+            Q_EMIT lineFinalized(nextLineNumber() - 1);
+        }
         m_hasOpenLine = false;
         m_cursorColumn = 0;
     }
@@ -250,6 +258,7 @@ void TerminalBuffer::appendSystemMessage(const QString &message, quint8 source)
     m_lines.push_back(std::move(line));
 
     Q_EMIT linesAppended(lineNumber, 1);
+    Q_EMIT lineFinalized(lineNumber);
     trimToLimit();
 }
 

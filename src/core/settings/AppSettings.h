@@ -81,6 +81,12 @@ struct AppSettings
     /// \brief Разделитель полей для распознавания телеметрии.
     QString csvSeparator = QStringLiteral(",");
 
+    /// \brief Скрывать нечитаемые символы (управляющие коды, битая кодировка) при показе.
+    bool hideUnreadable = false;
+
+    /// \brief Как показывать нечитаемые символы: `"dots"`, `"hide"` или `"line"`.
+    QString hideUnreadableMode = QStringLiteral("dots");
+
     /// \brief Отражать отправленное в терминал.
     bool localEcho = true;
 

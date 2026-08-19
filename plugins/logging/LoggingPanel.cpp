@@ -23,13 +23,19 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHBoxLayout>
+#include <QHeaderView>
 #include <QKeyEvent>
+#include <QItemSelectionModel>
 #include <QLabel>
 #include <QMimeData>
+#include <QMouseEvent>
 #include <QSignalBlocker>
 #include <QToolButton>
 #include <QUrl>
 #include <QVBoxLayout>
+
+#include <limits>
+#include <utility>
 
 namespace spotty {
 
@@ -42,6 +48,7 @@ constexpr auto kKeyDirectory = "directory";
 constexpr auto kKeyTemplate = "fileNameTemplate";
 constexpr auto kKeyFilterAnsi = "filterAnsi";
 constexpr auto kKeyIncludeTx = "includeTx";
+constexpr auto kKeyIncludeGutter = "includeGutter";
 constexpr auto kKeyAutoStart = "autoStart";
 
 constexpr auto kKeyCsvMode = "csvMode";
@@ -56,13 +63,30 @@ constexpr int kUsageScanLimit = 500;
 /// \brief Ниже этого остатка на диске показывается предупреждение.
 constexpr qint64 kLowDiskSpaceBytes = 512LL * 1024 * 1024;
 
+QString directionMark(DataDirection direction)
+{
+    switch (direction) {
+    case DataDirection::Tx:
+        return QStringLiteral("< ");
+    case DataDirection::System:
+        return QStringLiteral("* ");
+    case DataDirection::Rx:
+        return QStringLiteral("> ");
+    }
+    return {};
+}
+
 } // namespace
 
 // --- LogFileList --------------------------------------------------------------------
 
 LogFileList::LogFileList(QWidget *parent)
-    : QListWidget(parent)
+    : QTreeWidget(parent)
 {
+    setColumnCount(2);
+    setRootIsDecorated(false);
+    setItemsExpandable(false);
+    setSelectionBehavior(QAbstractItemView::SelectRows);
     setSelectionMode(QAbstractItemView::ExtendedSelection);
     setDragEnabled(true);
     setDragDropMode(QAbstractItemView::DragOnly);
@@ -71,11 +95,11 @@ LogFileList::LogFileList(QWidget *parent)
 QMimeData *LogFileList::mimeDataForSelection() const
 {
     QList<QUrl> urls;
-    const QList<QListWidgetItem *> items = selectedItems();
+    const QList<QTreeWidgetItem *> items = selectedItems();
     urls.reserve(items.size());
 
-    for (const QListWidgetItem *item : items) {
-        const QString path = item->data(Qt::UserRole).toString();
+    for (const QTreeWidgetItem *item : items) {
+        const QString path = item->data(0, Qt::UserRole).toString();
         if (!path.isEmpty())
             urls.append(QUrl::fromLocalFile(path));
     }
@@ -120,6 +144,58 @@ void LogFileList::copySelectedFiles()
         QApplication::clipboard()->setMimeData(mime);
 }
 
+void LogFileList::setFileSize(const QString &path, const QString &size)
+{
+    for (int row = 0; row < topLevelItemCount(); ++row) {
+        QTreeWidgetItem *item = topLevelItem(row);
+        if (item->data(0, Qt::UserRole).toString() == path) {
+            item->setText(1, size);
+            return;
+        }
+    }
+}
+
+void LogFileList::mousePressEvent(QMouseEvent *event)
+{
+    const QList<QTreeWidgetItem *> before = selectedItems();
+    QTreeWidget::mousePressEvent(event);
+    restoreGroupSelectionAfterRightClick(event, before);
+}
+
+void LogFileList::mouseReleaseEvent(QMouseEvent *event)
+{
+    // Qt схлопывает групповое выделение до одного пункта под курсором при щелчке правой
+    // кнопкой — Shift/Ctrl тут не помогают, у самого щелчка их нет, — но неизвестно
+    // заранее, на каком именно из двух событий: QAbstractItemView откладывает решение до
+    // отпускания кнопки специально ради перетаскивания уже выделенной группы, и левая
+    // кнопка схлопывает выделение только здесь, а не по нажатию. Оба обработчика поэтому
+    // одинаковы: снять с базового класса винить некого, какой бы из двух он ни выбрал —
+    // после него выделение просто возвращается на место.
+    const QList<QTreeWidgetItem *> before = selectedItems();
+    QTreeWidget::mouseReleaseEvent(event);
+    restoreGroupSelectionAfterRightClick(event, before);
+}
+
+void LogFileList::restoreGroupSelectionAfterRightClick(QMouseEvent *event,
+                                                        const QList<QTreeWidgetItem *> &before)
+{
+    // Восстанавливать есть смысл только настоящую группу: единственный выделенный пункт —
+    // это уже то самое поведение, которое ожидают от щелчка мимо группы.
+    if (event->button() != Qt::RightButton || before.size() <= 1)
+        return;
+
+    QTreeWidgetItem *clicked = itemAt(event->pos());
+    // Клик мимо группы (по невыделенному пункту или в пустое место) — начало нового
+    // выделения, а не продолжение старого; его трогать нельзя.
+    if (!clicked || !before.contains(clicked))
+        return;
+
+    const QSignalBlocker blocker(this);
+    for (QTreeWidgetItem *item : before)
+        item->setSelected(true);
+    selectionModel()->setCurrentIndex(indexFromItem(clicked), QItemSelectionModel::NoUpdate);
+}
+
 void LogFileList::keyPressEvent(QKeyEvent *event)
 {
     if (event->matches(QKeySequence::Copy)) {
@@ -127,7 +203,7 @@ void LogFileList::keyPressEvent(QKeyEvent *event)
         event->accept();
         return;
     }
-    QListWidget::keyPressEvent(event);
+    QTreeWidget::keyPressEvent(event);
 }
 
 // --- LoggingPanel -------------------------------------------------------------------
@@ -141,12 +217,22 @@ LoggingPanel::LoggingPanel(IPanelHost *panelHost, QWidget *parent)
     // --- Управление записью ----------------------------------------------------------
 
     auto *controlRow = new QHBoxLayout;
-    controlRow->setSpacing(6);
+    // Тот же шаг, что и у остальных рядов с кнопками-значками в приложении — общий
+    // IPanelHost::Metric::Gap, а не свой отдельный номер.
+    controlRow->setSpacing(host()->metric(IPanelHost::Metric::Gap));
 
     m_recordButton = new QToolButton(this);
+    m_recordButton->setObjectName(QStringLiteral("recordButton"));
     m_recordButton->setAutoRaise(true);
     m_recordButton->setCheckable(true);
     m_recordButton->setIconSize(QSize(kToolGlyphSize, kToolGlyphSize));
+
+    m_saveBufferButton = new QToolButton(this);
+    m_saveBufferButton->setObjectName(QStringLiteral("saveBufferButton"));
+    m_saveBufferButton->setAutoRaise(true);
+    m_saveBufferButton->setIcon(host()->icon(mdi::ContentSave, kToolGlyphSize));
+    m_saveBufferButton->setIconSize(QSize(kToolGlyphSize, kToolGlyphSize));
+    m_saveBufferButton->setToolTip(tr("Save current buffer"));
 
     // Рядом с кнопкой прежде было пусто, и полоса выглядела недоделанной: кружок в углу
     // ничего не сообщал ни о состоянии, ни о том, что произойдёт по нажатию.
@@ -156,6 +242,7 @@ LoggingPanel::LoggingPanel(IPanelHost *panelHost, QWidget *parent)
     m_sizeLabel->setObjectName(QStringLiteral("hintLabel"));
 
     controlRow->addWidget(m_recordButton);
+    controlRow->addWidget(m_saveBufferButton);
     controlRow->addWidget(m_captionLabel, 1);
     controlRow->addWidget(m_sizeLabel);
     layout->addLayout(controlRow);
@@ -173,9 +260,15 @@ LoggingPanel::LoggingPanel(IPanelHost *panelHost, QWidget *parent)
            "searching through it."));
 
     m_includeTx = new QCheckBox(tr("Include sent data"), this);
+    m_includeGutter = new QCheckBox(tr("Informational messages"), this);
+    m_includeGutter->setObjectName(QStringLiteral("includeGutter"));
+    m_includeGutter->setToolTip(
+        tr("Write the line number, source, timestamp and direction currently shown in the "
+           "terminal gutter."));
 
     layout->addWidget(m_filterAnsi);
     layout->addWidget(m_includeTx);
+    layout->addWidget(m_includeGutter);
 
     // Настройка своя, не общая с терминалом: там телеметрию прячут, чтобы читать
     // сообщения, а в журнал её как раз чаще всего и пишут — и наоборот.
@@ -196,6 +289,10 @@ LoggingPanel::LoggingPanel(IPanelHost *panelHost, QWidget *parent)
     layout->addWidget(listTitle);
 
     m_files = new LogFileList(this);
+    m_files->setHeaderLabels({tr("File"), tr("Size")});
+    m_files->header()->setStretchLastSection(false);
+    m_files->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    m_files->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     m_files->setToolTip(tr("Use the context menu to view in the terminal. Drag out or press "
                            "Ctrl+C to copy the file itself."));
     m_files->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -208,6 +305,7 @@ LoggingPanel::LoggingPanel(IPanelHost *panelHost, QWidget *parent)
     // --- Связывание ------------------------------------------------------------------
 
     connect(m_recordButton, &QToolButton::clicked, this, &LoggingPanel::toggleRecording);
+    connect(m_saveBufferButton, &QToolButton::clicked, this, &LoggingPanel::saveCurrentBuffer);
 
     // Флажки дублируют поля диалога настроек, поэтому правка отсюда пишется в те же
     // ключи: иначе панель и диалог показывали бы разное.
@@ -219,15 +317,29 @@ LoggingPanel::LoggingPanel(IPanelHost *panelHost, QWidget *parent)
     };
     connect(m_filterAnsi, &QCheckBox::toggled, this, onOptionToggled);
     connect(m_includeTx, &QCheckBox::toggled, this, onOptionToggled);
+    connect(m_includeGutter, &QCheckBox::toggled, this, [this](bool enabled) {
+        host()->setValue(QLatin1String(kKeyIncludeGutter), enabled);
+    });
 
-    // Сырые байты обоих направлений — то, что было на проводе.
-    connect(host(), &IPanelHost::dataLogged, &m_writer, &LogWriter::write);
+    // Без gutter журнал остаётся точной записью провода. С gutter пишутся завершённые
+    // строки терминала: только тогда у них есть все служебные поля, которые видит человек.
+    connect(host(), &IPanelHost::dataLogged, this,
+            [this](const QByteArray &data, DataDirection direction) {
+                if (!m_includeGutter->isChecked())
+                    m_writer.write(data, direction);
+            });
+    connect(host(), &IPanelHost::terminalLineFinalized, this, [this](qint64 number) {
+        if (m_includeGutter->isChecked() && m_writer.isRecording())
+            writeGutterLine(number, m_writer);
+    });
 
     connect(&m_writer, &LogWriter::bytesWrittenChanged, this, [this](qint64 bytes) {
         m_sizeLabel->setText(Formatting::byteCount(bytes));
+        m_files->setFileSize(m_writer.currentFilePath(), Formatting::byteCount(bytes));
     });
     connect(&m_writer, &LogWriter::recordingStarted, this, [this](const QString &path) {
         host()->showStatusMessage(tr("Recording to %1").arg(QFileInfo(path).fileName()));
+        refreshFileList();
         updateRecordingUi();
     });
     connect(&m_writer, &LogWriter::recordingStopped, this, [this] {
@@ -238,11 +350,15 @@ LoggingPanel::LoggingPanel(IPanelHost *panelHost, QWidget *parent)
         host()->showStatusMessage(message);
         updateRecordingUi();
     });
+    connect(&m_snapshotWriter, &LogWriter::errorOccurred, this,
+            [this](const QString &message) { host()->showStatusMessage(message); });
 
     connect(m_csvMode, &QComboBox::currentIndexChanged, this, [this] {
         m_writer.setCsvMode(LogWriter::CsvMode(m_csvMode->currentData().toInt()));
         host()->setValue(QLatin1String(kKeyCsvMode), m_csvMode->currentData().toInt());
     });
+    connect(host(), &IPanelHost::terminalLinesAppended, this,
+            [this](qint64, qint64) { updateRecordingUi(); });
     connect(m_files, &QWidget::customContextMenuRequested, this, &LoggingPanel::showFileMenu);
 
     // Точки в надписи бегут, пока идёт запись. Статичная надпись «Идёт запись» не
@@ -282,6 +398,7 @@ void LoggingPanel::reloadFromSettings()
 
     const bool filterAnsi = host()->value(QLatin1String(kKeyFilterAnsi), true).toBool();
     const bool includeTx = host()->value(QLatin1String(kKeyIncludeTx), true).toBool();
+    const bool includeGutter = host()->value(QLatin1String(kKeyIncludeGutter), false).toBool();
     m_writer.setFilterAnsi(filterAnsi);
     m_writer.setIncludeTx(includeTx);
     m_autoStart = host()->value(QLatin1String(kKeyAutoStart), false).toBool();
@@ -290,8 +407,10 @@ void LoggingPanel::reloadFromSettings()
     // установка состояния тут же перезаписала бы настройку значением флажка.
     const QSignalBlocker filterBlocker(m_filterAnsi);
     const QSignalBlocker txBlocker(m_includeTx);
+    const QSignalBlocker gutterBlocker(m_includeGutter);
     m_filterAnsi->setChecked(filterAnsi);
     m_includeTx->setChecked(includeTx);
+    m_includeGutter->setChecked(includeGutter);
 
     const int csvMode = host()->value(QLatin1String(kKeyCsvMode),
                                       int(LogWriter::CsvMode::All)).toInt();
@@ -334,6 +453,113 @@ void LoggingPanel::toggleRecording()
         m_recordButton->setChecked(false);
 }
 
+void LoggingPanel::saveCurrentBuffer()
+{
+    QList<LogWriter::WriteRequest> requests;
+    const qint64 first = host()->firstLineNumber();
+    const qint64 next = host()->nextLineNumber();
+    requests.reserve(int(qMin(next - first, qint64(std::numeric_limits<int>::max()))));
+
+    for (qint64 number = first; number < next; ++number) {
+        if (m_includeGutter->isChecked()) {
+            LogWriter::WriteRequest request = gutterRequest(number);
+            if (!request.data.isEmpty())
+                requests.append(std::move(request));
+            continue;
+        }
+
+        TerminalLine line;
+        if (host()->line(number, &line)) {
+            QByteArray data = line.raw;
+            if (data.isEmpty()) {
+                data = line.text.toUtf8();
+                if (line.complete)
+                    data.append('\n');
+            }
+            if (!data.isEmpty())
+                requests.append({std::move(data), line.direction});
+        }
+    }
+
+    if (requests.isEmpty()) {
+        host()->showStatusMessage(tr("The terminal buffer is empty."));
+        updateRecordingUi();
+        return;
+    }
+
+    m_snapshotWriter.setDirectory(m_writer.directory());
+    m_snapshotWriter.setFileNameTemplate(m_writer.fileNameTemplate());
+    m_snapshotWriter.setFilterAnsi(m_filterAnsi->isChecked());
+    m_snapshotWriter.setIncludeTx(m_includeTx->isChecked());
+    m_snapshotWriter.setCsvMode(LogWriter::CsvMode(m_csvMode->currentData().toInt()));
+
+    const QString name = host()->interfaceName().isEmpty() ? tr("terminal")
+                                                            : host()->interfaceName();
+    const QString alias = host()->interfaceAlias().isEmpty() ? name : host()->interfaceAlias();
+    if (!m_snapshotWriter.start(name, alias))
+        return;
+
+    const QString path = m_snapshotWriter.currentFilePath();
+    m_snapshotWriter.writeMany(requests);
+    if (!m_snapshotWriter.isRecording()) {
+        refreshFileList();
+        return;
+    }
+    m_snapshotWriter.stop();
+
+    refreshFileList();
+    host()->showStatusMessage(tr("Saved current buffer to %1").arg(QFileInfo(path).fileName()));
+}
+
+void LoggingPanel::writeGutterLine(qint64 number, LogWriter &writer) const
+{
+    const LogWriter::WriteRequest request = gutterRequest(number);
+    if (!request.data.isEmpty())
+        writer.writeMany({request});
+}
+
+LogWriter::WriteRequest LoggingPanel::gutterRequest(qint64 number) const
+{
+    TerminalLine line;
+    if (!host()->line(number, &line))
+        return {};
+
+    const TerminalGutterSettings settings = host()->terminalGutterSettings();
+    QString prefix;
+    if (settings.showLineNumbers)
+        prefix += QString::number(number - settings.lineNumberOrigin) + u' ';
+    if (settings.showSource)
+        prefix += QString(QChar(u'A' + line.source)) + u':';
+    if (settings.showTimestamps && line.wallClock.isValid()) {
+        QString timestamp;
+        if (settings.relativeTimestamps) {
+            TerminalLine previous;
+            if (!host()->line(number - 1, &previous) || !previous.wallClock.isValid()) {
+                timestamp = QStringLiteral("+0.000");
+            } else {
+                const qint64 deltaMs = previous.wallClock.msecsTo(line.wallClock);
+                timestamp = QStringLiteral("%1%2.%3")
+                                .arg(deltaMs < 0 ? u'-' : u'+')
+                                .arg(qAbs(deltaMs) / 1000, 4)
+                                .arg(qAbs(deltaMs) % 1000, 3, 10, QLatin1Char('0'));
+            }
+        } else {
+            timestamp = line.wallClock.toString(settings.timestampFormat);
+        }
+        prefix += timestamp + u' ';
+    }
+    if (settings.showDirection) {
+        prefix += directionMark(line.direction);
+    } else if (!prefix.isEmpty() && !prefix.endsWith(u' ')) {
+        prefix += u' ';
+    }
+
+    QByteArray data = (prefix + line.text).toUtf8();
+    if (line.complete)
+        data.append('\n');
+    return {std::move(data), line.direction, line.text.toUtf8()};
+}
+
 void LoggingPanel::updateRecordingCaption()
 {
     if (!m_writer.isRecording()) {
@@ -349,7 +575,7 @@ void LoggingPanel::updateRecordingCaption()
 
 void LoggingPanel::showFileMenu(const QPoint &position)
 {
-    QListWidgetItem *item = m_files->itemAt(position);
+    QTreeWidgetItem *item = m_files->itemAt(position);
     if (!item)
         return;
 
@@ -360,7 +586,10 @@ void LoggingPanel::showFileMenu(const QPoint &position)
         m_files->clearSelection();
         item->setSelected(true);
     }
-    m_files->setCurrentItem(item);
+    // Текущая строка нужна действиям меню, но setCurrentItem() неявно заменяет всё
+    // выделение ею одной. NoUpdate меняет только точку отсчёта действий, не группу.
+    m_files->selectionModel()->setCurrentIndex(m_files->indexFromItem(item),
+                                               QItemSelectionModel::NoUpdate);
 
     const QString path = selectedFilePath();
     if (path.isEmpty())
@@ -430,17 +659,17 @@ void LoggingPanel::deleteSelectedFiles()
 QStringList LoggingPanel::selectedFilePaths() const
 {
     QStringList paths;
-    const QList<QListWidgetItem *> items = m_files->selectedItems();
+    const QList<QTreeWidgetItem *> items = m_files->selectedItems();
     paths.reserve(items.size());
-    for (const QListWidgetItem *item : items)
-        paths.append(item->data(Qt::UserRole).toString());
+    for (const QTreeWidgetItem *item : items)
+        paths.append(item->data(0, Qt::UserRole).toString());
     return paths;
 }
 
 QString LoggingPanel::selectedFilePath() const
 {
-    const QListWidgetItem *item = m_files->currentItem();
-    return item ? item->data(Qt::UserRole).toString() : QString();
+    const QTreeWidgetItem *item = m_files->currentItem();
+    return item ? item->data(0, Qt::UserRole).toString() : QString();
 }
 
 void LoggingPanel::updateDiskUsage()
@@ -485,6 +714,7 @@ void LoggingPanel::updateRecordingUi()
     // Запись имеет смысл только при открытом канале: писать нечего, и имя файла было бы
     // не из чего составить.
     m_recordButton->setEnabled(recording || m_interfaceOpen);
+    m_saveBufferButton->setEnabled(host()->nextLineNumber() > host()->firstLineNumber());
 
     if (recording && !m_captionTimer->isActive())
         m_captionTimer->start();
@@ -519,11 +749,13 @@ void LoggingPanel::refreshFileList()
     const QStringList logs = m_writer.recentLogs();
     for (const QString &path : logs) {
         const QFileInfo info(path);
-        auto *item = new QListWidgetItem(info.fileName(), m_files);
-        item->setData(Qt::UserRole, path);
-        item->setToolTip(tr("%1\n%2, %3")
-                             .arg(path, Formatting::byteCount(info.size()),
-                                  info.lastModified().toString(Qt::ISODate)));
+        auto *item = new QTreeWidgetItem(m_files);
+        item->setText(0, info.fileName());
+        item->setText(1, Formatting::byteCount(info.size()));
+        item->setData(0, Qt::UserRole, path);
+        item->setToolTip(0, tr("%1\n%2, %3")
+                                .arg(path, Formatting::byteCount(info.size()),
+                                     info.lastModified().toString(Qt::ISODate)));
     }
 
     updateDiskUsage();

@@ -217,6 +217,26 @@ TEST(LogWriter, BytesWrittenCounts)
     writer.stop();
 }
 
+TEST(LogWriter, WritesBufferSnapshotInOneSession)
+{
+    TempDir dir;
+    LogWriter writer;
+    writer.setDirectory(dir.path());
+    writer.setFilterAnsi(false);
+    writer.setIncludeTx(false);
+    ASSERT_TRUE(writer.start(QStringLiteral("tty"), QString()));
+
+    writer.writeMany({
+        {QByteArrayLiteral("received\n"), DataDirection::Rx},
+        {QByteArrayLiteral("sent\n"), DataDirection::Tx},
+        {QByteArrayLiteral("again\n"), DataDirection::Rx},
+    });
+    const QString path = writer.currentFilePath();
+    writer.stop();
+
+    EXPECT_EQ(readAll(path), QByteArrayLiteral("received\nagain\n"));
+}
+
 TEST(LogWriter, StopIsIdempotent)
 {
     TempDir dir;

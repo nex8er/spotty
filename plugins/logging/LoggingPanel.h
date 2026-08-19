@@ -7,14 +7,15 @@
 #include <spotty/data/LogWriter.h>
 #include <spotty/ui/PanelWidget.h>
 
-#include <QListWidget>
 #include <QStringList>
+#include <QTreeWidget>
 
 class QCheckBox;
 class QComboBox;
 class QTimer;
 class QLabel;
 class QMimeData;
+class QMouseEvent;
 class QToolButton;
 
 namespace spotty {
@@ -23,11 +24,11 @@ namespace spotty {
  * \class LogFileList
  * \brief Список файлов логов, из которого файл можно вытащить наружу.
  *
- * Обычный QListWidget отдал бы при перетаскивании текст. Нужен `text/uri-list`: только с
+ * Обычный QTreeWidget отдал бы при перетаскивании текст. Нужен `text/uri-list`: только с
  * ним система понимает, что переносится файл, и почтовый клиент делает из него вложение,
  * а проводник — копию.
  */
-class LogFileList : public QListWidget
+class LogFileList : public QTreeWidget
 {
     Q_OBJECT
 
@@ -37,13 +38,30 @@ public:
     /// \brief Положить выделенные файлы в буфер обмена.
     void copySelectedFiles();
 
+    /// \brief Обновить показанный размер файла, не перестраивая и не сбрасывая выделение.
+    void setFileSize(const QString &path, const QString &size);
+
 protected:
     void startDrag(Qt::DropActions supportedActions) override;
     void keyPressEvent(QKeyEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
 
 private:
     /// \return Данные для переноса или `nullptr`, если выделять нечего.
     QMimeData *mimeDataForSelection() const;
+
+    /**
+     * \brief Вернуть групповое выделение, если базовый класс его схлопнул.
+     * \param event Событие мыши, уже обработанное базовым классом.
+     * \param before Выделение непосредственно перед вызовом базового обработчика.
+     *
+     * Общий код для mousePressEvent() и mouseReleaseEvent() — щелчок правой кнопкой по
+     * уже выделенной группе не должен сужать её до одного пункта, а Qt делает это на одном
+     * из двух событий в зависимости от платформы и версии.
+     */
+    void restoreGroupSelectionAfterRightClick(QMouseEvent *event,
+                                              const QList<QTreeWidgetItem *> &before);
 };
 
 /**
@@ -76,6 +94,9 @@ protected:
 
 private:
     void toggleRecording();
+    void saveCurrentBuffer();
+    void writeGutterLine(qint64 number, LogWriter &writer) const;
+    LogWriter::WriteRequest gutterRequest(qint64 number) const;
     void updateRecordingUi();
     void refreshFileList();
 
@@ -101,8 +122,10 @@ private:
     QString selectedFilePath() const;
 
     LogWriter m_writer;
+    LogWriter m_snapshotWriter;
 
     QToolButton *m_recordButton = nullptr;
+    QToolButton *m_saveBufferButton = nullptr;
     QLabel *m_captionLabel = nullptr;  ///< «Начать запись» / «Идёт запись…».
     QComboBox *m_csvMode = nullptr;    ///< Что делать с телеметрией.
     QLabel *m_usageLabel = nullptr;    ///< Общий объём логов на диске.
@@ -114,6 +137,7 @@ private:
     QLabel *m_sizeLabel = nullptr;
     QCheckBox *m_filterAnsi = nullptr;
     QCheckBox *m_includeTx = nullptr;
+    QCheckBox *m_includeGutter = nullptr;
     LogFileList *m_files = nullptr;
 
     bool m_interfaceOpen = false;

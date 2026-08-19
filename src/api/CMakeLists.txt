@@ -31,7 +31,16 @@ target_sources(spotty-api
         HighlightRules.cpp
         IInterfaceChannel.cpp
         LogWriter.cpp
+        Decimator.cpp
         MacroStore.cpp
+        PlotFormat.cpp
+        PlotMath.cpp
+        PlotModel.cpp
+        PlotProfile.cpp
+        PlotTransform.cpp
+        PlotViewState.cpp
+        SampleBuffer.cpp
+        SampleParser.cpp
         # Заголовки перечислены, чтобы AUTOMOC обработал классы с Q_OBJECT: они лежат вне
         # каталога цели, и без явного указания moc до них не доберётся.
         "${CMAKE_SOURCE_DIR}/include/spotty/api/IInterfaceChannel.h"
@@ -51,6 +60,15 @@ target_sources(spotty-api
         "${CMAKE_SOURCE_DIR}/include/spotty/data/HighlightRules.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/LogWriter.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/MacroStore.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/Decimator.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotFormat.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotMath.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotModel.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotProfile.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotTransform.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/PlotViewState.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/SampleBuffer.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/SampleParser.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/TextStyle.h"
 )
 

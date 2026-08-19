@@ -1,17 +1,20 @@
 /**
- * \file CsvChartPlugin.h
+ * \file PlotterPlugin.h
  * \brief Плагин: график из CSV поверх терминала.
  */
 #pragma once
 
 #include <spotty/ui/IPanelPlugin.h>
 
+#include <QPointer>
+
 namespace spotty {
 
-class CsvSeries;
+class PlotModel;
+class PlotViewState;
 
 /**
- * \class CsvChartPlugin
+ * \class PlotterPlugin
  * \brief Две панели: настройки в рейке и сам график слоем поверх вывода.
  *
  * \par Что он показывает про API
@@ -29,21 +32,25 @@ class CsvSeries;
  * line(), firstLineNumber(), nextLineNumber() и сигнал terminalLinesAppended(). Без этого
  * плагина API остался бы «байтовым».
  */
-class CsvChartPlugin : public QObject, public IPanelPlugin
+class PlotterPlugin : public QObject, public IPanelPlugin
 {
     Q_OBJECT
-    Q_PLUGIN_METADATA(IID SPOTTY_PANEL_PLUGIN_IID FILE "csvchart.json")
+    Q_PLUGIN_METADATA(IID SPOTTY_PANEL_PLUGIN_IID FILE "plotter.json")
     Q_INTERFACES(spotty::IPanelPlugin)
 
 public:
-    CsvChartPlugin();
-    ~CsvChartPlugin() override;
+    PlotterPlugin();
+    ~PlotterPlugin() override;
 
-    QString pluginId() const override { return QStringLiteral("csvchart"); }
-    QString displayName() const override { return tr("CSV chart"); }
+    QString pluginId() const override { return QStringLiteral("plotter"); }
+    QString displayName() const override { return tr("Plotter"); }
 
     QList<PanelDescriptor> panels() const override;
     QWidget *createPanel(const QString &panelId, IPanelHost *host, QWidget *parent) override;
+    SettingsSchema settingsSchema() const override;
+
+    /// \brief Показать плоттер отдельным окном либо поднять уже открытое.
+    void openInWindow(IPanelHost *host);
 
 private:
     /**
@@ -52,7 +59,13 @@ private:
      * Владеет плагин, а не панель: график должен продолжать накапливать данные, даже
      * когда страница настроек не выбрана в рейке и её виджет не на экране.
      */
-    CsvSeries *m_series = nullptr;
+    PlotModel *m_model = nullptr;
+
+    /// \brief Состояние вида, общее на все три холста: миниатюру, полосу и окно.
+    PlotViewState *m_view = nullptr;
+
+    /// \brief Единственное отдельное окно плоттера; создаётся по требованию.
+    QPointer<QWidget> m_window;
 
     /// \brief Хост, с которым связана подписка на строки; один на плагин.
     IPanelHost *m_host = nullptr;

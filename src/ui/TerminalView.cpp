@@ -43,6 +43,18 @@ constexpr int kMaxFontPointSize = 48;
 /// \brief Частота перерисовки, мс. Примерно 60 кадров в секунду.
 constexpr int kRepaintIntervalMs = 16;
 
+/// \brief Символ-заменитель битой кодировки: QStringDecoder ставит его вместо байтов,
+/// которые не удалось декодировать. QChar::isPrint() его не ловит — по категории Unicode
+/// это обычный символ, — поэтому сравнивается отдельно.
+constexpr char16_t kReplacementChar = 0xFFFD;
+
+/// \brief Управляющий код, не распознанный ANSI-парсером, либо символ-заменитель битой
+/// кодировки. Общий признак для всех трёх режимов #TerminalView::UnreadableMode.
+bool isUnreadableChar(QChar ch)
+{
+    return !ch.isPrint() || ch.unicode() == kReplacementChar;
+}
+
 /// \brief Отступ содержимого от левого края, px.
 constexpr int kLeftMargin = 6;
 
@@ -74,6 +86,9 @@ constexpr int kMarkerRefreshMs = 250;
 
 /// \brief Насколько приглушается цвет правила подсветки под текстом.
 constexpr int kHighlightAlpha = 64;
+
+/// \brief Непрозрачность подложки под служебные колонки — 2%, то есть 98% прозрачности.
+constexpr int kGutterBackgroundAlpha = 224;
 
 /**
  * \brief Отметка направления обмена.
@@ -356,6 +371,10 @@ void TerminalView::setShowTimestamps(bool show)
     if (m_showTimestamps == show)
         return;
     m_showTimestamps = show;
+    // Меняет ширину колонки меток времени, а значит и gutterWidth(): без пересчёта
+    // диапазона горизонтальная полоса осталась бы со старым значением, и на прокрученной
+    // вбок строке текст съезжал бы под служебные колонки (см. AGENTS.md).
+    updateScrollBars();
     viewport()->update();
 }
 
@@ -364,12 +383,14 @@ void TerminalView::setRelativeTimestamps(bool relative)
     if (m_relativeTimestamps == relative)
         return;
     m_relativeTimestamps = relative;
+    updateScrollBars();
     viewport()->update();
 }
 
 void TerminalView::setTimestampFormat(const QString &format)
 {
     m_timestampFormat = format;
+    updateScrollBars();
     viewport()->update();
 }
 
@@ -378,6 +399,7 @@ void TerminalView::setShowDirection(bool show)
     if (m_showDirection == show)
         return;
     m_showDirection = show;
+    updateScrollBars();
     viewport()->update();
 }
 
@@ -513,6 +535,34 @@ void TerminalView::setCsvSeparator(QChar separator)
     }
 }
 
+void TerminalView::setHideUnreadableEnabled(bool enabled)
+{
+    if (m_hideUnreadable == enabled)
+        return;
+    m_hideUnreadable = enabled;
+    // В режиме HideLine включение и выключение меняют сам список видимых строк, а не
+    // только их отрисовку — как и переключение csvFilterEnabled.
+    if (m_unreadableMode == UnreadableMode::HideLine)
+        rebuildVisible();
+    viewport()->update();
+}
+
+void TerminalView::setUnreadableMode(UnreadableMode mode)
+{
+    if (m_unreadableMode == mode)
+        return;
+    // Список видимых строк пересобирается, только если смена режима меняет то, что в нём
+    // должно быть: переход в HideLine или из него при включённом фильтре. Переключение
+    // между Dots и Hide меняет лишь отрисовку уже показанных строк.
+    const bool visibilitySwitched = m_hideUnreadable
+        && (m_unreadableMode == UnreadableMode::HideLine || mode == UnreadableMode::HideLine);
+    m_unreadableMode = mode;
+    if (visibilitySwitched)
+        rebuildVisible();
+    if (m_hideUnreadable)
+        viewport()->update();
+}
+
 bool TerminalView::passesFilter(const TerminalBuffer::Line &line) const
 {
     // Системные сообщения не скрываются ни одним из фильтров: «порт открыт», «устройство
@@ -524,6 +574,15 @@ bool TerminalView::passesFilter(const TerminalBuffer::Line &line) const
     // Скрытые здесь, они остаются в буфере и достаются графику, поиску и журналу.
     if (m_csvFilterEnabled && m_csvDetector.isDataLine(line.text))
         return false;
+
+    // Как и телеметрия: строка остаётся в буфере, её видят график, поиск и журнал —
+    // прячется только показ в терминале.
+    if (m_hideUnreadable && m_unreadableMode == UnreadableMode::HideLine) {
+        for (const QChar ch : line.text) {
+            if (isUnreadableChar(ch))
+                return false;
+        }
+    }
 
     if (!m_filterEnabled || !m_searchActive)
         return true;
@@ -671,8 +730,35 @@ TerminalView::Position TerminalView::positionAtRow(qint64 rowIndex) const
 
 QString TerminalView::rowText(const TerminalBuffer::Line &line, int row) const
 {
-    if (m_viewMode == ViewMode::Text)
-        return line.text;
+    if (m_viewMode == ViewMode::Text) {
+        // В HideLine строка с нечитаемым символом сюда не попадает вовсе — passesFilter()
+        // не пускает её в список видимых, — а без единого такого символа менять нечего.
+        if (!m_hideUnreadable || m_unreadableMode == UnreadableMode::HideLine)
+            return line.text;
+
+        if (m_unreadableMode == UnreadableMode::Hide) {
+            // Байт не просто не рисуется — его нет и в строке: место под него не остаётся.
+            // Индексы после такой правки уже не совпадают с исходным line.text, и отрезки
+            // StyleRun, посчитанные под него, пересчитывает mapStyleRuns() — единственное
+            // место, где они читаются напрямую.
+            QString stripped;
+            stripped.reserve(line.text.size());
+            for (const QChar ch : line.text) {
+                if (!isUnreadableChar(ch))
+                    stripped.append(ch);
+            }
+            return stripped;
+        }
+
+        // Dots: замена посимвольная и той же длины, поэтому индексы StyleRun, выделения и
+        // совпадений поиска не съезжают и пересчёта не требуют.
+        QString filtered = line.text;
+        for (QChar &ch : filtered) {
+            if (isUnreadableChar(ch))
+                ch = u'.';
+        }
+        return filtered;
+    }
 
     if (line.raw.isEmpty())
         return line.text;
@@ -710,6 +796,36 @@ QString TerminalView::rowText(const TerminalBuffer::Line &line, int row) const
     }
 
     return result + hexPart + u' ' + asciiPart;
+}
+
+QList<TerminalBuffer::StyleRun> TerminalView::styleRunsForRow(const TerminalBuffer::Line &line) const
+{
+    if (!m_hideUnreadable || m_unreadableMode != UnreadableMode::Hide)
+        return line.runs;
+
+    // Префиксная сумма уцелевших символов: у отрезка исходного текста [a, b) остаётся ровно
+    // counts[b] - counts[a] символов, и вырезание не переставляет их местами — значит, они
+    // занимают непрерывный кусок урезанной строки, начиная с counts[a].
+    QList<int> counts;
+    counts.reserve(line.text.size() + 1);
+    counts.append(0);
+    int kept = 0;
+    for (const QChar ch : line.text) {
+        if (!isUnreadableChar(ch))
+            ++kept;
+        counts.append(kept);
+    }
+
+    QList<TerminalBuffer::StyleRun> mapped;
+    mapped.reserve(line.runs.size());
+    for (const TerminalBuffer::StyleRun &run : line.runs) {
+        const int start = qBound(0, run.start, int(counts.size()) - 1);
+        const int end = qBound(start, run.start + run.length, int(counts.size()) - 1);
+        const int length = counts[end] - counts[start];
+        if (length > 0)
+            mapped.append({counts[start], length, run.style});
+    }
+    return mapped;
 }
 
 QString TerminalView::timestampText(const TerminalBuffer::Line &line, qint64 lineNumber) const
@@ -771,13 +887,28 @@ int TerminalView::lineNumberColumns() const
 int TerminalView::gutterWidth() const
 {
     int columns = lineNumberColumns();
-    if (m_showSource)
+
+    // Последнее поле само решает, нужен ли kGutterGap: у номера строк, метки времени и
+    // отметки направления уже встроен завершающий пробел (rightJustified() внутри
+    // lineNumberColumns(), «+1» в timestampColumns(), сам вид «> »/«< »/«* »), и добавлять
+    // ещё один поверх — растягивать gutter шире минимально необходимого. У отметки
+    // транспорта («A:») пробела нет, и если она последняя из показанных, разделитель нужен
+    // по-настоящему: без него следующий за ней текст слипся бы с двоеточием.
+    bool lastFieldHasTrailingSpace = m_showLineNumbers;
+
+    if (m_showSource) {
         columns += kSourceWidth;
-    if (m_showTimestamps)
+        lastFieldHasTrailingSpace = false;
+    }
+    if (m_showTimestamps) {
         columns += timestampColumns();
-    if (m_showDirection)
+        lastFieldHasTrailingSpace = true;
+    }
+    if (m_showDirection) {
         columns += kDirectionWidth;
-    if (columns > 0)
+        lastFieldHasTrailingSpace = true;
+    }
+    if (columns > 0 && !lastFieldHasTrailingSpace)
         columns += kGutterGap;
     return columns * m_charWidth;
 }
@@ -1030,52 +1161,6 @@ void TerminalView::paintEvent(QPaintEvent *event)
             painter.fillRect(0, y, viewport()->width(), m_lineHeight, tint);
         }
 
-        // Колонки слева не прокручиваются вбок: метка времени и направление должны
-        // оставаться на виду при горизонтальной прокрутке длинной строки.
-        if (row == 0) {
-            int gutterX = kLeftMargin;
-            painter.setPen(colors.textMuted);
-
-            if (m_showLineNumbers) {
-                const int columns = lineNumberColumns();
-                // Номер прижат вправо внутри своей колонки: у выключенного по левому краю
-                // столбца разной длины единицы не выстраиваются друг под другом, и
-                // сравнить два номера глазами становится нельзя.
-                const QString number = QString::number(lineNumber - m_lineNumberOrigin)
-                                           .rightJustified(columns - 1, u' ');
-                painter.drawText(gutterX, textY, number);
-                gutterX += columns * m_charWidth;
-            }
-
-            if (m_showSource) {
-                // Буква, а не цвет: цветом уже размечено направление, и второй цветовой
-                // признак в той же колонке спорил бы с первым. Буква читается и на
-                // чёрно-белом снимке экрана.
-                painter.drawText(gutterX, textY,
-                                 QString(QChar(u'A' + line->source)) + u':');
-                gutterX += kSourceWidth * m_charWidth;
-            }
-
-            if (m_showTimestamps) {
-                painter.drawText(gutterX, textY, timestampText(*line, lineNumber));
-                gutterX += timestampColumns() * m_charWidth;
-            }
-            if (m_showDirection) {
-                switch (line->direction) {
-                case DataDirection::Tx:
-                    painter.setPen(colors.txText);
-                    break;
-                case DataDirection::System:
-                    painter.setPen(colors.accent);
-                    break;
-                case DataDirection::Rx:
-                    painter.setPen(colors.textMuted);
-                    break;
-                }
-                painter.drawText(gutterX, textY, directionMark(line->direction));
-            }
-        }
-
         const int contentX = kLeftMargin + gutter + xOffset;
 
         // Совпадения поиска — под текстом, но над подсветкой правил.
@@ -1138,11 +1223,14 @@ void TerminalView::paintEvent(QPaintEvent *event)
             painter.drawText(contentX, textY, content);
             painter.setFont(m_font);
         } else {
-            // Текстовый режим: рисуем отрезками, у каждого своё оформление.
+            // Текстовый режим: рисуем отрезками, у каждого своё оформление. Отрезки берём
+            // не из line->runs напрямую, а через styleRunsForRow(): в режиме Hide content
+            // короче исходного текста, и без пересчёта окраска съехала бы на чужие байты.
             const QColor defaultForeground =
                 line->direction == DataDirection::Tx ? colors.txText : colors.rxText;
 
-            for (const TerminalBuffer::StyleRun &styleRun : line->runs) {
+            const QList<TerminalBuffer::StyleRun> runs = styleRunsForRow(*line);
+            for (const TerminalBuffer::StyleRun &styleRun : runs) {
                 if (styleRun.start >= content.size())
                     break;
                 const int length = qMin(styleRun.length, int(content.size()) - styleRun.start);
@@ -1184,6 +1272,65 @@ void TerminalView::paintEvent(QPaintEvent *event)
             painter.setPen(colors.accentText);
             painter.drawText(matchX, textY,
                              content.mid(currentRange.first, currentRange.second));
+        }
+
+        // Колонки слева не прокручиваются вбок: метка времени и направление должны
+        // оставаться на виду при горизонтальной прокрутке длинной строки. Рисуются
+        // последними в ряду, а не первыми: при узком окне contentX может оказаться внутри
+        // их собственной area (полоса прокрутки не гасится до нуля, пока сама ширина
+        // gutterWidth() не помещается в viewport, а не только когда не помещается текст) —
+        // и без подложки под ними полезная нагрузка наползала бы на буквы служебных меток.
+        // Заливка рисуется здесь же, поверх уже нарисованного payload этого ряда, поэтому
+        // маскирует его в области gutter'а вне зависимости от того, куда он уехал. Цвет —
+        // фон терминала (colors.base), а не отдельный оттенок: при 98% прозрачности заметна
+        // только сама альфа, и чужой цвет здесь ничего бы не добавил, кроме риска не
+        // совпасть с темой.
+        if (row == 0) {
+            QColor gutterBackground = colors.base;
+            gutterBackground.setAlpha(kGutterBackgroundAlpha);
+            painter.fillRect(0, y, kLeftMargin + gutter, m_lineHeight, gutterBackground);
+
+            int gutterX = kLeftMargin;
+            painter.setPen(colors.textMuted);
+
+            if (m_showLineNumbers) {
+                const int columns = lineNumberColumns();
+                // Номер прижат вправо внутри своей колонки: у выключенного по левому краю
+                // столбца разной длины единицы не выстраиваются друг под другом, и
+                // сравнить два номера глазами становится нельзя.
+                const QString number = QString::number(lineNumber - m_lineNumberOrigin)
+                                           .rightJustified(columns - 1, u' ');
+                painter.drawText(gutterX, textY, number);
+                gutterX += columns * m_charWidth;
+            }
+
+            if (m_showSource) {
+                // Буква, а не цвет: цветом уже размечено направление, и второй цветовой
+                // признак в той же колонке спорил бы с первым. Буква читается и на
+                // чёрно-белом снимке экрана.
+                painter.drawText(gutterX, textY,
+                                 QString(QChar(u'A' + line->source)) + u':');
+                gutterX += kSourceWidth * m_charWidth;
+            }
+
+            if (m_showTimestamps) {
+                painter.drawText(gutterX, textY, timestampText(*line, lineNumber));
+                gutterX += timestampColumns() * m_charWidth;
+            }
+            if (m_showDirection) {
+                switch (line->direction) {
+                case DataDirection::Tx:
+                    painter.setPen(colors.txText);
+                    break;
+                case DataDirection::System:
+                    painter.setPen(colors.accent);
+                    break;
+                case DataDirection::Rx:
+                    painter.setPen(colors.textMuted);
+                    break;
+                }
+                painter.drawText(gutterX, textY, directionMark(line->direction));
+            }
         }
 
         y += m_lineHeight;
@@ -1322,6 +1469,22 @@ TerminalView::Position TerminalView::positionAt(const QPoint &point) const
     return position;
 }
 
+void TerminalView::selectRowAt(const QPoint &viewportPoint)
+{
+    if (!m_buffer)
+        return;
+
+    const Position at = positionAt(viewportPoint);
+    const TerminalBuffer::Line *line = at.isValid() ? m_buffer->line(at.lineNumber) : nullptr;
+    if (!line)
+        return;
+
+    // Тот же ряд, что выделяет двойной щелчок словом, — не вся логическая строка буфера: в
+    // HEX один ряд экрана и есть её осмысленная единица, а не весь дамп в несколько рядов.
+    m_selectionAnchor = Position{at.lineNumber, at.row, 0};
+    m_selectionCursor = Position{at.lineNumber, at.row, int(rowText(*line, at.row).size())};
+}
+
 bool TerminalView::selectionRange(Position *from, Position *to) const
 {
     if (!m_selectionAnchor.isValid() || !m_selectionCursor.isValid())
@@ -1339,6 +1502,78 @@ bool TerminalView::selectionRange(Position *from, Position *to) const
     return true;
 }
 
+qint64 TerminalView::absoluteRowOf(const Position &position) const
+{
+    if (!position.isValid())
+        return 0;
+    const int index = visibleIndexOf(position.lineNumber);
+    if (index < 0)
+        return 0;
+    return rowOfVisibleIndex(index) + position.row;
+}
+
+QString TerminalView::rowTextAt(const Position &position) const
+{
+    if (!m_buffer || !position.isValid())
+        return {};
+    const TerminalBuffer::Line *line = m_buffer->line(position.lineNumber);
+    return line ? rowText(*line, position.row) : QString();
+}
+
+TerminalView::Position TerminalView::moveCursor(const Position &from, Qt::Key key) const
+{
+    if (!m_buffer || m_visible.empty() || !from.isValid())
+        return from;
+
+    if (key == Qt::Key_Left || key == Qt::Key_Right) {
+        if (key == Qt::Key_Right) {
+            const int length = int(rowTextAt(from).size());
+            if (from.column < length)
+                return Position{from.lineNumber, from.row, from.column + 1};
+
+            const qint64 nextRow = absoluteRowOf(from) + 1;
+            if (nextRow >= m_totalRows)
+                return from; // Уже конец последнего ряда — дальше идти некуда.
+            Position next = positionAtRow(nextRow);
+            next.column = 0;
+            return next;
+        }
+
+        if (from.column > 0)
+            return Position{from.lineNumber, from.row, from.column - 1};
+
+        const qint64 previousRow = absoluteRowOf(from) - 1;
+        if (previousRow < 0)
+            return from;
+        Position previous = positionAtRow(previousRow);
+        previous.column = int(rowTextAt(previous).size());
+        return previous;
+    }
+
+    // Вверх/вниз: тот же столбец, если ряд достаточно длинный, иначе — его конец. Сброс
+    // столбца в 0 при каждом переходе заставлял бы набирать его заново на каждой строке.
+    const qint64 delta = (key == Qt::Key_Up) ? -1 : 1;
+    const qint64 targetRow = absoluteRowOf(from) + delta;
+    if (targetRow < 0 || targetRow >= m_totalRows)
+        return from;
+
+    Position next = positionAtRow(targetRow);
+    next.column = qBound(0, from.column, int(rowTextAt(next).size()));
+    return next;
+}
+
+void TerminalView::ensureRowVisible(qint64 absoluteRow)
+{
+    if (absoluteRow < verticalScrollBar()->value()) {
+        verticalScrollBar()->setValue(int(absoluteRow));
+        return;
+    }
+
+    const int visibleRows = qMax(1, viewport()->height() / m_lineHeight);
+    if (absoluteRow >= verticalScrollBar()->value() + visibleRows)
+        verticalScrollBar()->setValue(int(absoluteRow - visibleRows + 1));
+}
+
 bool TerminalView::hasSelection() const
 {
     Position from;
@@ -1352,6 +1587,21 @@ void TerminalView::mousePressEvent(QMouseEvent *event)
         QAbstractScrollArea::mousePressEvent(event);
         return;
     }
+
+    // Третий щелчок подряд — выделение всего ряда. Qt сам порождает событие двойного
+    // щелчка, но не тройного: это нажатие снова приходит обычным mousePressEvent(), и от
+    // нового, не связанного клика его отличают время и расстояние от того самого двойного
+    // (см. mouseDoubleClickEvent()).
+    if (m_lastDoubleClickTimer.isValid()
+        && m_lastDoubleClickTimer.elapsed() <= QApplication::doubleClickInterval()
+        && (event->pos() - m_lastDoubleClickPos).manhattanLength()
+               <= QApplication::startDragDistance()) {
+        m_lastDoubleClickTimer.invalidate();
+        selectRowAt(event->pos());
+        viewport()->update();
+        return;
+    }
+    m_lastDoubleClickTimer.invalidate();
 
     m_selectionAnchor = positionAt(event->pos());
     m_selectionCursor = m_selectionAnchor;
@@ -1391,6 +1641,12 @@ void TerminalView::mouseDoubleClickEvent(QMouseEvent *event)
         QAbstractScrollArea::mouseDoubleClickEvent(event);
         return;
     }
+
+    // Запоминается сразу, а не после успешного выделения слова: тройной щелчок должен
+    // распознаваться и на пустом ряду, где выделять словом нечего (ветки ниже выходят
+    // раньше, но третье нажатие всё равно обязано сработать).
+    m_lastDoubleClickTimer.restart();
+    m_lastDoubleClickPos = event->pos();
 
     // Двойной щелчок выделяет слово: разделителями считаем всё, что не буква, не цифра и
     // не подчёркивание.
@@ -1444,6 +1700,31 @@ void TerminalView::keyPressEvent(QKeyEvent *event)
         event->accept();
         return;
     }
+
+    // Курсор — тот же m_selectionCursor, которым уже пользуется протаскивание мышью:
+    // стрелка без Shift переносит его и схлопывает выделение в точку, Shift двигает только
+    // его, оставляя якорь на месте, — обычное поведение любого текстового поля. Другие
+    // сочетания со стрелками (Ctrl, Alt) не трогаем — их не просили.
+    if ((event->key() == Qt::Key_Left || event->key() == Qt::Key_Right
+         || event->key() == Qt::Key_Up || event->key() == Qt::Key_Down)
+        && m_buffer && !m_visible.empty()) {
+        const Qt::KeyboardModifiers mods = event->modifiers() & ~Qt::KeypadModifier;
+        if (mods == Qt::NoModifier || mods == Qt::ShiftModifier) {
+            if (!m_selectionCursor.isValid())
+                m_selectionAnchor = m_selectionCursor = positionAtRow(verticalScrollBar()->value());
+
+            const Position moved = moveCursor(m_selectionCursor, Qt::Key(event->key()));
+            if (mods != Qt::ShiftModifier)
+                m_selectionAnchor = moved;
+            m_selectionCursor = moved;
+
+            ensureRowVisible(absoluteRowOf(moved));
+            viewport()->update();
+            event->accept();
+            return;
+        }
+    }
+
     QAbstractScrollArea::keyPressEvent(event);
 }
 

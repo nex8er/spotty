@@ -8,6 +8,7 @@
 #include <spotty/ui/PanelWidget.h>
 
 class QCheckBox;
+class QEvent;
 class QLabel;
 class QLineEdit;
 class QTableWidget;
@@ -50,6 +51,7 @@ public:
 protected:
     void themeChanged() override;
     void settingsReset() override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     /// \brief Собрать образец из полей и передать его терминалу.
@@ -102,6 +104,9 @@ private:
     QTableWidget *m_rules = nullptr;
     QToolButton *m_addRule = nullptr;
     QToolButton *m_removeRule = nullptr;
+
+    /// \brief Завести правило подсветки из текущего образца поиска. Случайный цвет.
+    QToolButton *m_addRuleFromSearch = nullptr;
 
     /// \brief Признак программного заполнения таблицы — гасит обработчик изменений.
     bool m_populating = false;

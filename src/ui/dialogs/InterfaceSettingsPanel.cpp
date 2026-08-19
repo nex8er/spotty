@@ -21,13 +21,30 @@
 #include <QLineEdit>
 #include <QSignalBlocker>
 #include <QSpinBox>
+#include <QEvent>
 #include <QStringListModel>
 #include <QStyle>
+#include <QTimer>
 #include <QVBoxLayout>
 
+#include <algorithm>
 #include <climits>
+#include <utility>
 
 namespace spotty {
+
+namespace {
+
+/**
+ * \brief Как часто спрашивать плагин о найденном для полей SettingsField::live.
+ *
+ * Ровно тот же период, с каким ядро перечисляет устройства. Чаще нет смысла: человек не
+ * различает появление пункта за 200 мс и за секунду, а каждый вызов ещё и продлевает
+ * опрос на стороне плагина.
+ */
+constexpr int kLiveOptionsIntervalMs = 1000;
+
+} // namespace
 
 InterfaceSettingsPanel::InterfaceSettingsPanel(InterfaceRegistry *registry,
                                                PluginManager *plugins, QWidget *parent)
@@ -100,6 +117,10 @@ InterfaceSettingsPanel::InterfaceSettingsPanel(InterfaceRegistry *registry,
     // переоткрытия панели, чтобы стать видны здесь.
     if (m_registry)
         connect(m_registry, &InterfaceRegistry::changed, this, &InterfaceSettingsPanel::rebuildList);
+
+    m_liveTimer = new QTimer(this);
+    m_liveTimer->setInterval(kLiveOptionsIntervalMs);
+    connect(m_liveTimer, &QTimer::timeout, this, &InterfaceSettingsPanel::refreshLiveOptions);
 
     rebuildList();
 }
@@ -215,6 +236,11 @@ void InterfaceSettingsPanel::showEntry(const QString &id)
                 if (!editor)
                     continue;
 
+                // Имя редактору дают не ради красоты: у панели несколько списков подряд
+                // (переключатель устройств и поля схемы), и отличить их снаружи — из
+                // таблицы стилей или из теста — иначе можно только по порядку следования,
+                // который меняется от плагина к плагину.
+                editor->setObjectName(QStringLiteral("schemaField_") + field.key);
                 m_editors.insert(field.key, editor);
 
                 if (field.suffix.isEmpty()) {
@@ -242,11 +268,126 @@ void InterfaceSettingsPanel::showEntry(const QString &id)
         m_currentSchema = SettingsSchema{};
     }
 
+    m_liveFields.clear();
+    for (const SettingsField &field : m_currentSchema.fields()) {
+        if (field.live && m_editors.contains(field.key))
+            m_liveFields.append(field.key);
+    }
+
     // Редакторы только что пересозданы — старое свойство fieldInvalid на них не сохранилось
     // (это новые виджеты), даже если m_invalidFields осталась той же (то же устройство).
     applyInvalidFieldStyling();
 
     m_populating = false;
+
+    // Первый запрос — сразу, не дожидаясь тика таймера: он и показывает уже найденное (при
+    // возврате к тому же устройству список обычно непустой), и запускает у плагина опрос,
+    // результаты которого появятся через секунду-другую.
+    updateLiveTimer();
+    if (!m_liveFields.isEmpty())
+        refreshLiveOptions();
+}
+
+void InterfaceSettingsPanel::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    updateLiveTimer();
+    if (!m_liveFields.isEmpty())
+        refreshLiveOptions();
+}
+
+void InterfaceSettingsPanel::hideEvent(QHideEvent *event)
+{
+    QWidget::hideEvent(event);
+    updateLiveTimer();
+}
+
+void InterfaceSettingsPanel::updateLiveTimer()
+{
+    if (!m_liveTimer)
+        return;
+
+    // isVisible(), а не isHidden(): панель, встроенная страницей в закрытый диалог общих
+    // настроек, не скрыта сама по себе, но и не видна — опрашивать шину ради неё незачем.
+    if (m_liveFields.isEmpty() || !isVisible())
+        m_liveTimer->stop();
+    else if (!m_liveTimer->isActive())
+        m_liveTimer->start();
+}
+
+void InterfaceSettingsPanel::refreshLiveOptions()
+{
+    if (m_currentId.isEmpty() || !m_registry || !m_plugins || m_liveFields.isEmpty())
+        return;
+
+    const InterfaceEntry *entry = m_registry->entry(m_currentId);
+    if (!entry)
+        return;
+
+    IInterfacePlugin *plugin = m_plugins->plugin(entry->descriptor.pluginId);
+    if (!plugin)
+        return;
+
+    const QVariantMap settings = m_registry->settingsFor(m_currentId);
+    for (const QString &key : std::as_const(m_liveFields))
+        applyLiveOptions(key, plugin->liveOptions(entry->descriptor, key, settings));
+}
+
+void InterfaceSettingsPanel::applyLiveOptions(const QString &key,
+                                              const QList<SettingsOption> &options)
+{
+    auto *combo = qobject_cast<QComboBox *>(m_editors.value(key));
+    if (!combo)
+        return;
+
+    const SettingsField *field = m_currentSchema.field(key);
+    if (!field)
+        return;
+
+    // Объявленные схемой пункты остаются первыми: у поля может быть и постоянная часть
+    // («любой узел»), и найденная опросом.
+    QList<SettingsOption> merged = field->options;
+    for (const SettingsOption &option : options) {
+        const auto known = std::find_if(merged.cbegin(), merged.cend(),
+                                        [&option](const SettingsOption &existing) {
+                                            return existing.value == option.value;
+                                        });
+        if (known == merged.cend())
+            merged.append(option);
+    }
+
+    bool same = merged.size() == combo->count();
+    for (int i = 0; same && i < merged.size(); ++i)
+        same = combo->itemText(i) == merged.at(i).label && combo->itemData(i) == merged.at(i).value;
+    if (same)
+        return;
+
+    // Что именно восстанавливать, зависит от того, выбран пункт списка или набран свой
+    // номер: у редактируемого списка с набранным текстом currentData() невалиден, и
+    // единственное, что несёт выбор пользователя, — сам текст.
+    const QVariant selected = combo->currentData();
+    const QString typed = combo->currentText();
+
+    // Сохранение прежнего значения флага, а не сброс в false: refreshLiveOptions() зовётся
+    // и из showEntry(), где перестроение полей ещё идёт, и обнулить флаг здесь значило бы
+    // снять защиту с остатка чужой работы.
+    const bool wasPopulating = m_populating;
+    m_populating = true;
+    {
+        const QSignalBlocker blocker(combo);
+        combo->clear();
+        for (const SettingsOption &option : std::as_const(merged))
+            combo->addItem(option.label, option.value);
+
+        const int index = selected.isValid() ? combo->findData(selected) : -1;
+        if (index >= 0)
+            combo->setCurrentIndex(index);
+        else if (combo->isEditable())
+            combo->setCurrentText(typed);
+        else
+            combo->setCurrentIndex(combo->findText(typed));
+    }
+    m_populating = wasPopulating;
 }
 
 void InterfaceSettingsPanel::clearSchemaEditors()

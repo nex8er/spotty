@@ -16,6 +16,7 @@
 #include <SingleInstanceGuard.h>
 #include <settings/AppSettings.h>
 #include <settings/Paths.h>
+#include <settings/SettingsMigration.h>
 #include <settings/SettingsStore.h>
 #include <spotty/api/ChannelState.h>
 
@@ -56,55 +57,6 @@ void installTranslations(QApplication &app, const QString &language)
                          QStringLiteral(":/i18n"))) {
         app.installTranslator(translator);
     }
-}
-
-/**
- * \brief Перенести настройки, переехавшие к плагинам, под их пространство имён.
- * \param store Общие настройки.
- *
- * Макросы, поиск и журналирование стали плагинами, и их ключи переехали из корня
- * `settings.json` под `plugins/<id>/`. Без переноса пользователь после обновления получил
- * бы сброшенные правила подсветки и потерянный выбранный набор макросов — настройки,
- * которые задают один раз и рассчитывают, что они останутся.
- *
- * Перенос делает приложение, а не сами плагины: старые ключи — факт истории программы, и
- * знать о нём каждому плагину незачем. Одно место, которое в следующей версии удаляется
- * целиком.
- *
- * \note Ключ переносится только если на новом месте ничего нет: иначе повторный запуск
- *       затирал бы то, что человек успел изменить уже в новой версии.
- */
-void migrateLegacyPluginSettings(spotty::SettingsStore &store)
-{
-    static const QList<QPair<QString, QString>> moved = {
-        {QStringLiteral("macros/preset"), QStringLiteral("plugins/macros/preset")},
-        {QStringLiteral("search/highlightRules"),
-         QStringLiteral("plugins/search/highlightRules")},
-        {QStringLiteral("search/regularExpression"),
-         QStringLiteral("plugins/search/regularExpression")},
-        {QStringLiteral("search/caseSensitive"),
-         QStringLiteral("plugins/search/caseSensitive")},
-        {QStringLiteral("search/wholeWords"), QStringLiteral("plugins/search/wholeWords")},
-        {QStringLiteral("logging/directory"), QStringLiteral("plugins/logging/directory")},
-        {QStringLiteral("logging/fileNameTemplate"),
-         QStringLiteral("plugins/logging/fileNameTemplate")},
-        {QStringLiteral("logging/filterAnsi"), QStringLiteral("plugins/logging/filterAnsi")},
-        {QStringLiteral("logging/includeTx"), QStringLiteral("plugins/logging/includeTx")},
-        {QStringLiteral("logging/autoStart"), QStringLiteral("plugins/logging/autoStart")},
-    };
-
-    bool changed = false;
-    for (const auto &[from, to] : moved) {
-        if (!store.contains(from))
-            continue;
-        if (!store.contains(to))
-            store.setValue(to, store.value(from));
-        store.remove(from);
-        changed = true;
-    }
-
-    if (changed)
-        store.save();
 }
 
 } // namespace
@@ -157,7 +109,7 @@ int main(int argc, char *argv[])
 
     // До первого чтения настроек плагинами: они начнут читать своё пространство имён из
     // конструкторов панелей, то есть уже при построении окна.
-    migrateLegacyPluginSettings(settings);
+    spotty::SettingsMigration::apply(settings);
 
     const spotty::AppSettings appSettings = spotty::AppSettings::load(settings);
 

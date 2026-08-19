@@ -13,7 +13,9 @@
 #include <terminal/TerminalBuffer.h>
 
 #include <QAbstractScrollArea>
+#include <QElapsedTimer>
 #include <QFont>
+#include <QPoint>
 #include <QRegularExpression>
 #include <QString>
 
@@ -70,6 +72,14 @@ public:
     };
     Q_ENUM(ViewMode)
 
+    /// \brief Что делать с нечитаемым символом, пока включён фильтр; см. setUnreadableMode().
+    enum class UnreadableMode {
+        Dots,     ///< Заменять точкой на его месте — видно, что байт был, но не что в нём.
+        Hide,     ///< Вырезать символ из строки совсем: он не рисуется и не занимает места.
+        HideLine, ///< Прятать всю строку, если в ней есть хоть один такой символ.
+    };
+    Q_ENUM(UnreadableMode)
+
     explicit TerminalView(QWidget *parent = nullptr);
     ~TerminalView() override;
 
@@ -111,6 +121,20 @@ public:
     void setCsvSeparator(QChar separator);
 
     /**
+     * \brief Включить фильтр нечитаемых символов; что именно он делает — см. #UnreadableMode.
+     *
+     * Фильтр показа, как и #setCsvFilterEnabled: строка в буфере не меняется. Управляющие
+     * коды, не распознанные ANSI-парсером как последовательность, и символ-заменитель битой
+     * кодировки иначе рисовались бы как есть.
+     */
+    void setHideUnreadableEnabled(bool enabled);
+    bool hideUnreadableEnabled() const { return m_hideUnreadable; }
+
+    /// \brief Способ показа нечитаемых символов, пока фильтр включён. По умолчанию — точками.
+    void setUnreadableMode(UnreadableMode mode);
+    UnreadableMode unreadableMode() const { return m_unreadableMode; }
+
+    /**
      * \brief Показывать метку транспорта в колонке слева.
      *
      * Включается, когда открыт второй интерфейс: строки идут в общий буфер вперемешку по
@@ -118,6 +142,7 @@ public:
      * колонка не нужна и только отнимала бы ширину.
      */
     void setShowSource(bool show);
+    bool showSource() const { return m_showSource; }
 
     /**
      * \brief Показывать метку времени относительно предыдущей строки, а не абсолютную.
@@ -130,6 +155,7 @@ public:
 
     /// \brief Формат абсолютной метки времени в записи QDateTime::toString().
     void setTimestampFormat(const QString &format);
+    QString timestampFormat() const { return m_timestampFormat; }
 
     /// \brief Показывать отметку направления обмена.
     void setShowDirection(bool show);
@@ -143,6 +169,7 @@ public:
      * посреди уже накопленного журнала, не теряя контекст до него.
      */
     void setLineNumberOrigin(qint64 lineNumber);
+    qint64 lineNumberOrigin() const { return m_lineNumberOrigin; }
 
     /// \brief Байтов в ряду HEX-дампа.
     void setHexBytesPerRow(int bytes);
@@ -356,6 +383,16 @@ private:
     /// \brief Текст одного экранного ряда без колонок слева.
     QString rowText(const TerminalBuffer::Line &line, int row) const;
 
+    /**
+     * \brief Отрезки оформления строки, годные для текста, отданного rowText().
+     *
+     * В режиме UnreadableMode::Hide нечитаемые байты физически вырезаны из текста, и
+     * #TerminalBuffer::Line::runs, посчитанные под исходный line.text, красили бы не то и
+     * не там. В остальных случаях (включая Dots — там замена посимвольная и той же длины)
+     * возвращает line.runs без изменений.
+     */
+    QList<TerminalBuffer::StyleRun> styleRunsForRow(const TerminalBuffer::Line &line) const;
+
     /// \brief Ширина колонки меток времени в знакоместах, вместе с отбивкой.
     int timestampColumns() const;
 
@@ -390,8 +427,29 @@ private:
     /// \brief Положение содержимого по точке в области просмотра.
     Position positionAt(const QPoint &viewportPoint) const;
 
+    /// \brief Выделить целиком ряд под точкой — тройной щелчок.
+    void selectRowAt(const QPoint &viewportPoint);
+
     /// \brief Нормализованные границы выделения.
     bool selectionRange(Position *from, Position *to) const;
+
+    /// \brief Сквозной номер ряда (как в positionAtRow()), на который указывает position.
+    qint64 absoluteRowOf(const Position &position) const;
+
+    /// \brief Текст ряда, на который указывает position; пустая строка вне буфера.
+    QString rowTextAt(const Position &position) const;
+
+    /**
+     * \brief Курсор на одну позицию в сторону стрелки.
+     *
+     * Влево/вправо переходят через границу ряда — конец одного и начало следующего
+     * склеены, как в любом текстовом поле. Вверх/вниз по возможности сохраняют столбец, а
+     * не сбрасывают его: перебор строк колонкой вниз — обычное дело при чтении лога.
+     */
+    Position moveCursor(const Position &from, Qt::Key key) const;
+
+    /// \brief Прокрутить так, чтобы ряд с курсором был виден.
+    void ensureRowVisible(qint64 absoluteRow);
 
     /// \brief Запросить перерисовку не чаще, чем позволяет частота обновления.
     void scheduleRepaint();
@@ -409,6 +467,8 @@ private:
     bool m_showTimestamps = false;
     bool m_showLineNumbers = false;
     bool m_csvFilterEnabled = false;
+    bool m_hideUnreadable = false;
+    UnreadableMode m_unreadableMode = UnreadableMode::Dots;
     bool m_showSource = false;
     CsvDetector m_csvDetector;
 
@@ -466,6 +526,18 @@ private:
     Position m_selectionAnchor;
     Position m_selectionCursor;
     bool m_selecting = false;
+
+    /**
+     * \name Тройной щелчок
+     *
+     * Qt сам порождает событие двойного щелчка, но не тройного: третье нажатие снова
+     * приходит обычным mousePressEvent(). Отличить его от нового, не связанного клика
+     * помогают время и расстояние от только что случившегося двойного щелчка.
+     */
+    /// @{
+    QElapsedTimer m_lastDoubleClickTimer;
+    QPoint m_lastDoubleClickPos;
+    /// @}
 
     QTimer *m_repaintTimer = nullptr;
 };

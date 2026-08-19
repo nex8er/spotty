@@ -18,7 +18,7 @@
  * \note Всё, что сказано в #SPOTTY_API_VERSION про ломающие изменения, действует и здесь,
  *       включая добавление виртуального метода в конец класса.
  */
-#define SPOTTY_UI_API_VERSION 2
+#define SPOTTY_UI_API_VERSION 6
 
 /**
  * \def SPOTTY_PANEL_PLUGIN_IID
@@ -33,6 +33,11 @@
 // ChannelState, DataDirection, IDataFilter. Ломающее изменение там ломает и панели, но
 // заметить это без напоминания невозможно — версии-то разные. Ассерт срабатывает при
 // компиляции у того, кто поднял основную версию, а не у пользователя при загрузке.
-static_assert(SPOTTY_API_VERSION == 1,
+// Ровно этот случай уже наступил при переходе на SPOTTY_API_VERSION 2: поле
+// SettingsField::live изменило раскладку SettingsSchema, а её панельные плагины возвращают
+// из IPanelPlugin::settingsSchema() — то есть чужая правка дотянулась до панельного ABI, и
+// SPOTTY_UI_API_VERSION пришлось поднять вместе с основной. Виртуальный метод, добавленный
+// в IInterfacePlugin, сам по себе панелей бы не задел.
+static_assert(SPOTTY_API_VERSION == 2,
               "SPOTTY_API_VERSION changed: review the panel SDK, bump "
               "SPOTTY_UI_API_VERSION if the change reaches it, and update this assert");

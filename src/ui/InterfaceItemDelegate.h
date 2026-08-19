@@ -28,7 +28,9 @@ enum InterfaceItemRole {
  *
  * Общая для spotty::InterfaceItemDelegate (раскрывшийся список) и spotty::InterfaceCombo
  * (закрытый комбобокс) отрисовка — раскладка должна быть одна и та же, иначе выбранный
- * пункт выглядел бы по-разному до и после открытия списка.
+ * пункт выглядел бы по-разному до и после открытия списка. Служебные сведения прижаты
+ * к правому краю rect максимально — вплоть до самого края поля, а не куда-то ближе к
+ * имени.
  */
 void paintInterfaceRow(QPainter *painter, const QRect &rect, const QString &primary,
                        const QString &secondary, const QColor &primaryColor,

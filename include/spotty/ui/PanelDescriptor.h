@@ -58,7 +58,7 @@ struct PanelDescriptor
      * Уникален среди **всех** панельных плагинов, а не только внутри своего: попадает в
      * настройки как выбранная панель и служит адресом для
      * spotty::IPanelHost::activatePanel(). Принято составлять из идентификатора плагина:
-     * `"macros"`, `"csvchart.plot"`.
+     * `"macros"`, `"plotter.plot"`.
      *
      * \warning Переименование сбрасывает пользователю выбранную панель и её настройки.
      */
@@ -154,7 +154,27 @@ struct TerminalLine
     qint64 monotonicNs = 0;                      ///< Отметка чтения монотонными часами.
     QDateTime wallClock;                         ///< Время по системным часам.
     DataDirection direction = DataDirection::Rx;
+    quint8 source = 0;                           ///< Номер транспорта для метки `A:` / `B:`.
     bool complete = false;                       ///< Строка завершена переводом строки.
+};
+
+/**
+ * \struct TerminalGutterSettings
+ * \brief Какие служебные поля терминал рисует слева от текста.
+ *
+ * Панели получают снимок параметров, а не TerminalView: виджет принадлежит приложению и
+ * не входит в SDK. Это также позволяет журналу воспроизвести контекст строки без доступа
+ * к приватной реализации терминала.
+ */
+struct TerminalGutterSettings
+{
+    bool showLineNumbers = false;
+    bool showSource = false;
+    bool showTimestamps = false;
+    bool relativeTimestamps = false;
+    bool showDirection = false;
+    qint64 lineNumberOrigin = -1;
+    QString timestampFormat = QStringLiteral("HH:mm:ss.zzz");
 };
 
 } // namespace spotty

@@ -21,6 +21,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QIntValidator>
+#include <QItemSelectionModel>
 #include <QMessageBox>
 
 #include <algorithm>
@@ -108,7 +109,9 @@ MacrosPanel::MacrosPanel(IPanelHost *panelHost, QWidget *parent)
     // --- Наборы ----------------------------------------------------------------------
 
     auto *presetRow = new QHBoxLayout;
-    presetRow->setSpacing(4);
+    // Тот же шаг, что и у остальных рядов с кнопками-значками в приложении — общий
+    // IPanelHost::Metric::Gap, а не свой отдельный номер.
+    presetRow->setSpacing(host()->metric(IPanelHost::Metric::Gap));
 
     m_presetCombo = new QComboBox(this);
     m_presetCombo->setToolTip(tr("Macro preset; each preset is a separate file"));
@@ -156,7 +159,7 @@ MacrosPanel::MacrosPanel(IPanelHost *panelHost, QWidget *parent)
     // --- Кнопки под таблицей, выровненные вправо ---------------------------------------
 
     auto *buttonRow = new QHBoxLayout;
-    buttonRow->setSpacing(4);
+    buttonRow->setSpacing(host()->metric(IPanelHost::Metric::Gap));
     buttonRow->addStretch(1);
 
     const auto makeButton = [this, buttonRow](const QString &tip) {
@@ -175,7 +178,7 @@ MacrosPanel::MacrosPanel(IPanelHost *panelHost, QWidget *parent)
 
     // --- Периодическая отправка --------------------------------------------------------
 
-    auto *periodicBox = new QGroupBox(tr("Repeat"), this);
+    auto *periodicBox = new QGroupBox(tr("Auto-send"), this);
     // Без этого групбокс — единственный виджет с политикой Preferred среди соседей
     // растянутой таблицы — забирал себе долю лишней высоты панели вместо неё: таблица
     // соседствует с ним в одном QVBoxLayout, и Qt отдавал остаток не только ей. Fixed
@@ -194,10 +197,12 @@ MacrosPanel::MacrosPanel(IPanelHost *panelHost, QWidget *parent)
     // «каждые 1700 мс под цикл опроса устройства» в список не впишешь — таких значений
     // столько же, сколько устройств.
     m_periodInterval->setEditable(true);
+    m_periodInterval->setObjectName(QStringLiteral("autoSendInterval"));
     m_periodInterval->setInsertPolicy(QComboBox::NoInsert);
     m_periodInterval->setValidator(
         new QIntValidator(kMinPeriodMs, kMaxPeriodMs, m_periodInterval));
-    m_periodInterval->setToolTip(tr("Pick a preset or type the period in milliseconds"));
+    m_periodInterval->setToolTip(
+        tr("Pick a preset or type a custom period in milliseconds"));
 
     m_periodicButton = new QToolButton(periodicBox);
     m_periodicButton->setCheckable(true);
@@ -205,7 +210,7 @@ MacrosPanel::MacrosPanel(IPanelHost *panelHost, QWidget *parent)
     m_periodicButton->setIconSize(QSize(kSendGlyphSize, kSendGlyphSize));
 
     auto *periodRow = new QHBoxLayout;
-    periodRow->setSpacing(4);
+    periodRow->setSpacing(host()->metric(IPanelHost::Metric::Gap));
     periodRow->addWidget(m_periodInterval, 1);
     periodRow->addWidget(m_periodicButton);
 
@@ -654,7 +659,9 @@ void MacrosPanel::showContextMenu(const QPoint &position)
     if (row >= m_store.macros().size())
         return;
 
-    m_table->setCurrentCell(row, index.column());
+    // Правый клик по уже выбранной строке открывает действия для всей группы. Обычный
+    // setCurrentCell() очищает эту группу, поэтому меняем только current index.
+    m_table->selectionModel()->setCurrentIndex(index, QItemSelectionModel::NoUpdate);
     const Macro &macro = m_store.macros().at(row);
 
     menu.addAction(tr("Send now"), this, [this, row] { sendMacro(row); });
