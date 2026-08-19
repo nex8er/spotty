@@ -7,6 +7,8 @@
 #include "PlatformChrome.h"
 
 #include <QAbstractButton>
+#include <QAbstractItemView>
+#include <QAbstractSpinBox>
 #include <QAction>
 #include <QApplication>
 #include <QComboBox>
@@ -79,6 +81,35 @@ public:
         if (hint == SH_ComboBox_Popup)
             return 0;
         return QProxyStyle::styleHint(hint, option, widget, returnData);
+    }
+
+    void polish(QWidget *widget) override
+    {
+        QProxyStyle::polish(widget);
+
+        auto *spin = qobject_cast<QAbstractSpinBox *>(widget);
+        if (!spin || isTableEditor(spin))
+            return;
+
+        const ThemeMetrics &metrics = ThemeManager::metrics();
+        // QSS задаёт минимум содержимого, но Fusion добавляет к нему собственный
+        // minimumSizeHint встроенного QLineEdit. Из-за этого QFormLayout выбирает для
+        // счётчика высоту больше, чем для соседнего поля. Фиксируем полную высоту здесь,
+        // до расчёта раскладок, тем же минимумом, что у QLineEdit/QComboBox.
+        const int contentHeight = qMax(metrics.controlHeight, spin->fontMetrics().height());
+        spin->setFixedHeight(contentHeight + 2 * metrics.padV + 2);
+    }
+
+private:
+    /// \brief Возвращает true для редактора, живущего в ячейке таблицы.
+    static bool isTableEditor(const QWidget *widget)
+    {
+        for (const QWidget *ancestor = widget->parentWidget(); ancestor;
+             ancestor = ancestor->parentWidget()) {
+            if (qobject_cast<const QAbstractItemView *>(ancestor))
+                return true;
+        }
+        return false;
     }
 };
 
@@ -307,6 +338,8 @@ QString resolveStylesheet(QString sheet, const ThemeColors &c, const ThemeMetric
         {QStringLiteral("@gap"), px(m.gap)},
         {QStringLiteral("@scrollBar"), px(m.scrollBarWidth)},
         {QStringLiteral("@spinButton"), px(m.spinButtonHeight)},
+        {QStringLiteral("@spinButtonWidth"), px(m.spinButtonWidth)},
+        {QStringLiteral("@spinRightPadding"), px(m.spinRightPadding)},
         {QStringLiteral("@fontTitle"), pt(m.titlePointSize)},
         {QStringLiteral("@fontSmall"), pt(m.smallPointSize)},
     };
