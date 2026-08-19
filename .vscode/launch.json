@@ -15,12 +15,12 @@
             "request": "launch",
             // На macOS исполняемый файл лежит внутри бандла. Запускать нужно именно его,
             // а не сам бандл: плагины ищутся относительно каталога с исполняемым файлом.
-            "program": "${workspaceFolder}/build-debug/spotty.app/Contents/MacOS/spotty",
+            "program": "${workspaceFolder}/build/debug-dynamic/spotty.app/Contents/MacOS/spotty",
             "linux": {
-                "program": "${workspaceFolder}/build-debug/spotty"
+                "program": "${workspaceFolder}/build/debug-dynamic/spotty"
             },
             "windows": {
-                "program": "${workspaceFolder}/build-debug/spotty.exe"
+                "program": "${workspaceFolder}/build/debug-dynamic/spotty.exe"
             },
             "args": [],
             "cwd": "${workspaceFolder}",
@@ -31,7 +31,7 @@
                 }
             ],
             "MIMode": "lldb",
-            "preLaunchTask": "build",
+            "preLaunchTask": "$(tools) Debug",
             "setupCommands": [
                 {
                     "description": "Красивый вывод контейнеров",
@@ -44,12 +44,12 @@
             "name": "Spotty: без журнала",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build-debug/spotty.app/Contents/MacOS/spotty",
+            "program": "${workspaceFolder}/build/debug-dynamic/spotty.app/Contents/MacOS/spotty",
             "linux": {
-                "program": "${workspaceFolder}/build-debug/spotty"
+                "program": "${workspaceFolder}/build/debug-dynamic/spotty"
             },
             "windows": {
-                "program": "${workspaceFolder}/build-debug/spotty.exe"
+                "program": "${workspaceFolder}/build/debug-dynamic/spotty.exe"
             },
             "args": [],
             "cwd": "${workspaceFolder}",
@@ -57,18 +57,18 @@
             // поток сообщений о плагинах и реестре только мешает.
             "environment": [],
             "MIMode": "lldb",
-            "preLaunchTask": "build"
+            "preLaunchTask": "$(tools) Debug"
         },
         {
             "name": "Spotty: статические плагины",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build-static/spotty.app/Contents/MacOS/spotty",
+            "program": "${workspaceFolder}/build/release-static/spotty.app/Contents/MacOS/spotty",
             "linux": {
-                "program": "${workspaceFolder}/build-static/spotty"
+                "program": "${workspaceFolder}/build/release-static/spotty"
             },
             "windows": {
-                "program": "${workspaceFolder}/build-static/spotty.exe"
+                "program": "${workspaceFolder}/build/release-static/spotty.exe"
             },
             "args": [],
             "cwd": "${workspaceFolder}",
@@ -81,21 +81,21 @@
             "MIMode": "lldb",
             // Вторая половина гибридной сборки: здесь плагины вкомпилированы, и путь их
             // загрузки принципиально другой.
-            "preLaunchTask": "static"
+            "preLaunchTask": "$(layers) Static"
         },
         {
             "name": "Тесты: все",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build-debug/tests/spotty-tests",
+            "program": "${workspaceFolder}/build/debug-dynamic/tests/spotty-tests",
             "windows": {
-                "program": "${workspaceFolder}/build-debug/tests/spotty-tests.exe"
+                "program": "${workspaceFolder}/build/debug-dynamic/tests/spotty-tests.exe"
             },
             "args": [],
-            "cwd": "${workspaceFolder}/build-debug",
+            "cwd": "${workspaceFolder}/build/debug-dynamic",
             "environment": [],
             "MIMode": "lldb",
-            "preLaunchTask": "build",
+            "preLaunchTask": "$(tools) Debug",
             "setupCommands": [
                 {
                     "description": "Красивый вывод контейнеров",
@@ -108,27 +108,27 @@
             "name": "Тесты: выбранные",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build-debug/tests/spotty-tests",
+            "program": "${workspaceFolder}/build/debug-dynamic/tests/spotty-tests",
             "windows": {
-                "program": "${workspaceFolder}/build-debug/tests/spotty-tests.exe"
+                "program": "${workspaceFolder}/build/debug-dynamic/tests/spotty-tests.exe"
             },
             // Образец в стиле gtest: «AnsiParser.*», «*Packetizer*», «Session.SendReaches*».
             "args": ["--gtest_filter=${input:testFilter}"],
-            "cwd": "${workspaceFolder}/build-debug",
+            "cwd": "${workspaceFolder}/build/debug-dynamic",
             "environment": [],
             "MIMode": "lldb",
-            "preLaunchTask": "build"
+            "preLaunchTask": "$(tools) Debug"
         },
         {
             "name": "Spotty: присоединиться к процессу",
             "type": "cppdbg",
             "request": "attach",
-            "program": "${workspaceFolder}/build-debug/spotty.app/Contents/MacOS/spotty",
+            "program": "${workspaceFolder}/build/debug-dynamic/spotty.app/Contents/MacOS/spotty",
             "linux": {
-                "program": "${workspaceFolder}/build-debug/spotty"
+                "program": "${workspaceFolder}/build/debug-dynamic/spotty"
             },
             "windows": {
-                "program": "${workspaceFolder}/build-debug/spotty.exe"
+                "program": "${workspaceFolder}/build/debug-dynamic/spotty.exe"
             },
             // Нужен, когда программа уже запущена и воспроизводить состояние заново
             // долго: подключиться к живому процессу дешевле, чем повторять сценарий.

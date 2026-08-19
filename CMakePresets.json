@@ -4,76 +4,100 @@
     {
       "name": "base",
       "hidden": true,
+      "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     },
     {
-      "name": "debug",
+      "name": "debug-dynamic",
       "inherits": "base",
-      "displayName": "Debug",
-      "description": "Debug build",
+      "displayName": "Debug — dynamic plugins",
+      "description": "Debug build and tests; plugins are loaded from the plugins directory.",
+      "binaryDir": "${sourceDir}/build/debug-dynamic",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SPOTTY_BUILD_TESTS": "ON",
+        "SPOTTY_STATIC_PLUGINS": "OFF"
       }
     },
     {
-      "name": "release",
+      "name": "release-dynamic",
       "inherits": "base",
-      "displayName": "Release",
-      "description": "Release build",
+      "displayName": "Release — dynamic plugins",
+      "description": "Release build; plugins remain separately loadable modules.",
+      "binaryDir": "${sourceDir}/build/release-dynamic",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_BUILD_TYPE": "Release",
+        "SPOTTY_STATIC_PLUGINS": "OFF"
       }
     },
     {
-      "name": "tests",
-      "inherits": "debug",
-      "displayName": "Tests",
-      "description": "Debug build with tests enabled",
+      "name": "release-static",
+      "inherits": "base",
+      "displayName": "Release — static plugins",
+      "description": "Release build; Spotty plugins and SDKs are linked into the executable.",
+      "binaryDir": "${sourceDir}/build/release-static",
       "cacheVariables": {
-        "SPOTTY_BUILD_TESTS": "ON"
+        "CMAKE_BUILD_TYPE": "Release",
+        "SPOTTY_STATIC_PLUGINS": "ON"
       }
+    },
+    {
+      "name": "package-dynamic",
+      "inherits": "release-dynamic",
+      "displayName": "Package — dynamic plugins",
+      "description": "Release package with separately loaded Spotty plugin modules.",
+      "binaryDir": "${sourceDir}/build/package-dynamic"
+    },
+    {
+      "name": "package-static",
+      "inherits": "release-static",
+      "displayName": "Package — static plugins",
+      "description": "Release package with Spotty plugins built into the application.",
+      "binaryDir": "${sourceDir}/build/package-static"
     },
     {
       "name": "coverage",
-      "inherits": "tests",
+      "inherits": "base",
       "displayName": "Coverage",
-      "description": "Debug build with tests and coverage enabled",
+      "description": "Debug tests instrumented for coverage; static plugins are required for one profile.",
+      "binaryDir": "${sourceDir}/build/coverage",
       "cacheVariables": {
-        "SPOTTY_ENABLE_COVERAGE": "ON"
-      }
-    },
-    {
-      "name": "static-plugins",
-      "inherits": "debug",
-      "displayName": "Debug with Static Plugins",
-      "description": "Debug build with static plugins enabled",
-      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SPOTTY_BUILD_TESTS": "ON",
+        "SPOTTY_ENABLE_COVERAGE": "ON",
         "SPOTTY_STATIC_PLUGINS": "ON"
       }
     }
   ],
   "buildPresets": [
     {
-      "name": "debug",
-      "configurePreset": "debug"
+      "name": "debug-dynamic",
+      "configurePreset": "debug-dynamic"
     },
     {
-      "name": "release",
-      "configurePreset": "release"
+      "name": "release-dynamic",
+      "configurePreset": "release-dynamic"
     },
     {
-      "name": "tests",
-      "configurePreset": "tests"
+      "name": "release-static",
+      "configurePreset": "release-static"
+    },
+    {
+      "name": "package-dynamic",
+      "configurePreset": "package-dynamic",
+      "targets": ["spotty-package"]
+    },
+    {
+      "name": "package-static",
+      "configurePreset": "package-static",
+      "targets": ["spotty-package"]
     },
     {
       "name": "coverage",
-      "configurePreset": "coverage"
-    },
-    {
-      "name": "static-plugins",
-      "configurePreset": "static-plugins"
+      "configurePreset": "coverage",
+      "targets": ["coverage"]
     }
   ]
 }

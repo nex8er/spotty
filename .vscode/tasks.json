@@ -1,243 +1,339 @@
 {
-    // Задачи сборки Spotty для Qt 6.11.1 / MinGW 13.1 в Windows.
-    //
-    // Пути к Qt и компилятору задаются в settings.json: при обновлении Qt достаточно
-    // поменять их там, а не в каждой конфигурации ниже.
+    // Основной вход в сборку для VS Code. Задачи не используют CMake Presets: весь
+    // необходимый вариант виден в названии и собирается в свой каталог.
     "version": "2.0.0",
-    "options": {
-        "env": {
-            // Нужен не только компилятору: test и отладчик запускают программы, которым
-            // требуются DLL Qt и рантайм MinGW.
-            "PATH": "${config:spotty.qtRoot}/bin;${config:spotty.mingwBin};${env:PATH}"
-        }
-    },
     "tasks": [
         {
-            "label": "cfg",
+            "label": "$(gear) cfg debug",
             "type": "process",
             "command": "cmake",
             "args": [
                 "-S", "${workspaceFolder}",
-                "-B", "${workspaceFolder}/build-debug",
+                "-B", "${workspaceFolder}/build/debug-dynamic",
                 "-G", "Ninja",
-                "-DCMAKE_PREFIX_PATH=${config:spotty.qtRoot}",
-                "-DCMAKE_CXX_COMPILER=${config:spotty.mingwCompiler}",
                 "-DCMAKE_BUILD_TYPE=Debug",
-                "-DSPOTTY_BUILD_TESTS=ON"
+                "-DSPOTTY_BUILD_TESTS=ON",
+                "-DSPOTTY_STATIC_PLUGINS=OFF"
             ],
+            "windows": {
+                "options": {
+                    "env": {
+                        "CMAKE_PREFIX_PATH": "${config:spotty.qtRoot};${env:CMAKE_PREFIX_PATH}",
+                        "CXX": "${config:spotty.mingwCompiler}",
+                        "PATH": "${config:spotty.qtRoot}/bin;${config:spotty.mingwBin};${env:PATH}"
+                    }
+                }
+            },
+            "osx": {
+                "options": {
+                    "env": {
+                        "CMAKE_PREFIX_PATH": "${config:spotty.macosQtPrefix}:${env:CMAKE_PREFIX_PATH}"
+                    }
+                }
+            },
+            "hide": true,
             "problemMatcher": [],
-            "detail": "Настроить отладочную сборку с тестами",
-            "options": {
-                "statusbar": { "hide": true }
-            }
+            "detail": "Внутренняя настройка для отладки и тестов"
         },
         {
-            "label": "cfg:rel",
+            "label": "$(gear) cfg release",
             "type": "process",
             "command": "cmake",
             "args": [
                 "-S", "${workspaceFolder}",
-                "-B", "${workspaceFolder}/build",
+                "-B", "${workspaceFolder}/build/release-dynamic",
                 "-G", "Ninja",
-                "-DCMAKE_PREFIX_PATH=${config:spotty.qtRoot}",
-                "-DCMAKE_CXX_COMPILER=${config:spotty.mingwCompiler}",
                 "-DCMAKE_BUILD_TYPE=Release",
-                "-DSPOTTY_BUILD_TESTS=ON"
+                "-DSPOTTY_STATIC_PLUGINS=OFF"
             ],
+            "windows": {
+                "options": {
+                    "env": {
+                        "CMAKE_PREFIX_PATH": "${config:spotty.qtRoot};${env:CMAKE_PREFIX_PATH}",
+                        "CXX": "${config:spotty.mingwCompiler}",
+                        "PATH": "${config:spotty.qtRoot}/bin;${config:spotty.mingwBin};${env:PATH}"
+                    }
+                }
+            },
+            "osx": {
+                "options": {
+                    "env": {
+                        "CMAKE_PREFIX_PATH": "${config:spotty.macosQtPrefix}:${env:CMAKE_PREFIX_PATH}"
+                    }
+                }
+            },
+            "hide": true,
             "problemMatcher": [],
-            "detail": "Настроить обычную сборку",
-            "options": {
-                "statusbar": { "hide": true }
-            }
+            "detail": "Внутренняя настройка релизной сборки с загружаемыми плагинами"
         },
         {
-            "label": "build",
-            "type": "process",
-            "command": "cmake",
-            "args": ["--build", "${workspaceFolder}/build-debug"],
-            "group": { "kind": "build", "isDefault": true },
-            // Настройка запускается каждый раз: CMake сам понимает, что делать нечего,
-            // а забытый ненастроенный каталог после правки CMakeLists стоит дороже.
-            "dependsOn": "cfg",
-            "problemMatcher": ["$gcc"],
-            "detail": "Собрать отладочную конфигурацию",
-            "options": {
-                "statusbar": { "label": "$(tools) build" }
-            }
-        },
-        {
-            "label": "build:rel",
-            "type": "process",
-            "command": "cmake",
-            "args": ["--build", "${workspaceFolder}/build"],
-            "dependsOn": "cfg:rel",
-            "problemMatcher": ["$gcc"],
-            "detail": "Собрать обычную конфигурацию",
-            "options": {
-                "statusbar": { "hide": true }
-            }
-        },
-        {
-            "label": "cfg:static",
+            "label": "$(gear) cfg static",
             "type": "process",
             "command": "cmake",
             "args": [
                 "-S", "${workspaceFolder}",
-                "-B", "${workspaceFolder}/build-static",
+                "-B", "${workspaceFolder}/build/release-static",
                 "-G", "Ninja",
-                "-DCMAKE_PREFIX_PATH=${config:spotty.qtRoot}",
-                "-DCMAKE_CXX_COMPILER=${config:spotty.mingwCompiler}",
-                "-DCMAKE_BUILD_TYPE=Debug",
+                "-DCMAKE_BUILD_TYPE=Release",
                 "-DSPOTTY_STATIC_PLUGINS=ON"
             ],
+            "windows": {
+                "options": {
+                    "env": {
+                        "CMAKE_PREFIX_PATH": "${config:spotty.qtRoot};${env:CMAKE_PREFIX_PATH}",
+                        "CXX": "${config:spotty.mingwCompiler}",
+                        "PATH": "${config:spotty.qtRoot}/bin;${config:spotty.mingwBin};${env:PATH}"
+                    }
+                }
+            },
+            "osx": {
+                "options": {
+                    "env": {
+                        "CMAKE_PREFIX_PATH": "${config:spotty.macosQtPrefix}:${env:CMAKE_PREFIX_PATH}"
+                    }
+                }
+            },
+            "hide": true,
             "problemMatcher": [],
-            "detail": "Настроить сборку со статическими плагинами",
-            "options": {
-                "statusbar": { "hide": true }
-            }
+            "detail": "Внутренняя настройка релизной сборки со вкомпилированными плагинами"
         },
         {
-            "label": "static",
-            "type": "process",
-            "command": "cmake",
-            "args": ["--build", "${workspaceFolder}/build-static"],
-            "dependsOn": "cfg:static",
-            "problemMatcher": ["$gcc"],
-            // Вторая половина гибридной сборки. Ломается она молча — динамическая
-            // продолжает работать, — поэтому проверять её нужно осознанно.
-            "detail": "Собрать с вкомпилированными плагинами",
-            "options": {
-                "statusbar": { "label": "$(layers) static" }
-            }
-        },
-        {
-            "label": "test",
-            "type": "process",
-            "command": "ctest",
-            "args": [
-                "--test-dir", "${workspaceFolder}/build-debug",
-                "--output-on-failure"
-            ],
-            "dependsOn": "build",
-            "group": { "kind": "test", "isDefault": true },
-            "problemMatcher": [],
-            "detail": "Прогнать все тесты",
-            "options": {
-                "env": {
-                    "QT_QPA_PLATFORM": "offscreen",
-                    "PATH": "${config:spotty.qtRoot}/bin;${config:spotty.mingwBin};${env:PATH}"
-                },
-                "statusbar": { "label": "$(beaker) test" }
-            }
-        },
-        {
-            "label": "cfg:cov",
+            "label": "$(gear) cfg pack dyn",
             "type": "process",
             "command": "cmake",
             "args": [
                 "-S", "${workspaceFolder}",
-                "-B", "${workspaceFolder}/build-cov",
+                "-B", "${workspaceFolder}/build/package-dynamic",
                 "-G", "Ninja",
-                "-DCMAKE_PREFIX_PATH=${config:spotty.qtRoot}",
-                "-DCMAKE_CXX_COMPILER=${config:spotty.mingwCompiler}",
+                "-DCMAKE_BUILD_TYPE=Release",
+                "-DSPOTTY_STATIC_PLUGINS=OFF"
+            ],
+            "windows": {
+                "options": {
+                    "env": {
+                        "CMAKE_PREFIX_PATH": "${config:spotty.qtRoot};${env:CMAKE_PREFIX_PATH}",
+                        "CXX": "${config:spotty.mingwCompiler}",
+                        "PATH": "${config:spotty.qtRoot}/bin;${config:spotty.mingwBin};${env:PATH}"
+                    }
+                }
+            },
+            "osx": {
+                "options": {
+                    "env": {
+                        "CMAKE_PREFIX_PATH": "${config:spotty.macosQtPrefix}:${env:CMAKE_PREFIX_PATH}"
+                    }
+                }
+            },
+            "hide": true,
+            "problemMatcher": [],
+            "detail": "Внутренняя настройка пакета с загружаемыми плагинами"
+        },
+        {
+            "label": "$(gear) cfg pack static",
+            "type": "process",
+            "command": "cmake",
+            "args": [
+                "-S", "${workspaceFolder}",
+                "-B", "${workspaceFolder}/build/package-static",
+                "-G", "Ninja",
+                "-DCMAKE_BUILD_TYPE=Release",
+                "-DSPOTTY_STATIC_PLUGINS=ON"
+            ],
+            "windows": {
+                "options": {
+                    "env": {
+                        "CMAKE_PREFIX_PATH": "${config:spotty.qtRoot};${env:CMAKE_PREFIX_PATH}",
+                        "CXX": "${config:spotty.mingwCompiler}",
+                        "PATH": "${config:spotty.qtRoot}/bin;${config:spotty.mingwBin};${env:PATH}"
+                    }
+                }
+            },
+            "osx": {
+                "options": {
+                    "env": {
+                        "CMAKE_PREFIX_PATH": "${config:spotty.macosQtPrefix}:${env:CMAKE_PREFIX_PATH}"
+                    }
+                }
+            },
+            "hide": true,
+            "problemMatcher": [],
+            "detail": "Внутренняя настройка пакета со вкомпилированными плагинами"
+        },
+        {
+            "label": "$(gear) cfg coverage",
+            "type": "process",
+            "command": "cmake",
+            "args": [
+                "-S", "${workspaceFolder}",
+                "-B", "${workspaceFolder}/build/coverage",
+                "-G", "Ninja",
                 "-DCMAKE_BUILD_TYPE=Debug",
                 "-DSPOTTY_BUILD_TESTS=ON",
                 "-DSPOTTY_ENABLE_COVERAGE=ON"
             ],
+            "windows": {
+                "options": {
+                    "env": {
+                        "CMAKE_PREFIX_PATH": "${config:spotty.qtRoot};${env:CMAKE_PREFIX_PATH}",
+                        "CXX": "${config:spotty.mingwCompiler}",
+                        "PATH": "${config:spotty.qtRoot}/bin;${config:spotty.mingwBin};${env:PATH}"
+                    }
+                }
+            },
+            "osx": {
+                "options": {
+                    "env": {
+                        "CMAKE_PREFIX_PATH": "${config:spotty.macosQtPrefix}:${env:CMAKE_PREFIX_PATH}"
+                    }
+                }
+            },
+            "hide": true,
             "problemMatcher": [],
-            "detail": "Настроить сборку с измерением покрытия",
-            "options": {
-                "statusbar": { "hide": true }
-            }
+            "detail": "Внутренняя настройка тестов с покрытием"
         },
         {
-            "label": "cov",
+            "label": "$(tools) Debug",
             "type": "process",
             "command": "cmake",
-            "args": ["--build", "${workspaceFolder}/build-cov", "--target", "coverage"],
-            "dependsOn": "cfg:cov",
-            "problemMatcher": [],
-            "detail": "Прогнать тесты с измерением покрытия (требуется gcovr)",
+            "args": ["--build", "${workspaceFolder}/build/debug-dynamic"],
+            "dependsOn": "$(gear) cfg debug",
+            "group": {"kind": "build", "isDefault": true},
+            "problemMatcher": ["$gcc"],
             "options": {
-                "statusbar": { "label": "$(graph) cov" }
-            }
+                "statusbar": {"label": "$(tools) Debug"}
+            },
+            "detail": "Отладочная сборка и тесты с загружаемыми плагинами"
         },
         {
-            "label": "i18n:update",
+            "label": "$(tools) Release",
             "type": "process",
             "command": "cmake",
-            "args": ["--build", "${workspaceFolder}/build-debug", "--target", "update_translations"],
-            "dependsOn": "cfg",
-            "problemMatcher": [],
-            "detail": "Обновить исходные файлы переводов",
+            "args": ["--build", "${workspaceFolder}/build/release-dynamic"],
+            "dependsOn": "$(gear) cfg release",
+            "problemMatcher": ["$gcc"],
             "options": {
-                "statusbar": { "hide": true }
-            }
+                "statusbar": {"hide": true}
+            },
+            "detail": "Релизная сборка с загружаемыми плагинами"
         },
         {
-            "label": "i18n",
+            "label": "$(layers) Static",
             "type": "process",
-            "command": "python",
+            "command": "cmake",
+            "args": ["--build", "${workspaceFolder}/build/release-static"],
+            "dependsOn": "$(gear) cfg static",
+            "problemMatcher": ["$gcc"],
+            "options": {
+                "statusbar": {"label": "$(layers) Static"}
+            },
+            "detail": "Релизная сборка со вкомпилированными плагинами"
+        },
+        {
+            "label": "$(beaker) Test",
+            "type": "process",
+            "command": "ctest",
+            "args": [
+                "--test-dir", "${workspaceFolder}/build/debug-dynamic",
+                "--output-on-failure"
+            ],
+            "dependsOn": "$(tools) Debug",
+            "group": {"kind": "test", "isDefault": true},
+            "problemMatcher": [],
+            "options": {
+                "env": {"QT_QPA_PLATFORM": "offscreen"},
+                "statusbar": {"label": "$(beaker) Test"}
+            },
+            "windows": {
+                "options": {
+                    "env": {
+                        "QT_QPA_PLATFORM": "offscreen",
+                        "PATH": "${config:spotty.qtRoot}/bin;${config:spotty.mingwBin};${env:PATH}"
+                    }
+                }
+            },
+            "detail": "Прогнать все тесты"
+        },
+        {
+            "label": "$(package) Pack dyn",
+            "type": "process",
+            "command": "cmake",
+            "args": [
+                "--build", "${workspaceFolder}/build/package-dynamic",
+                "--target", "spotty-package"
+            ],
+            "dependsOn": "$(gear) cfg pack dyn",
+            "problemMatcher": ["$gcc"],
+            "options": {
+                "statusbar": {"label": "$(package) Pack dyn"}
+            },
+            "detail": "Пакет с загружаемыми модулями плагинов"
+        },
+        {
+            "label": "$(package) Pack static",
+            "type": "process",
+            "command": "cmake",
+            "args": [
+                "--build", "${workspaceFolder}/build/package-static",
+                "--target", "spotty-package"
+            ],
+            "dependsOn": "$(gear) cfg pack static",
+            "problemMatcher": ["$gcc"],
+            "options": {
+                "statusbar": {"label": "$(package) Pack static"}
+            },
+            "detail": "Пакет со вкомпилированными плагинами"
+        },
+        {
+            "label": "$(graph) Coverage",
+            "type": "process",
+            "command": "cmake",
+            "args": [
+                "--build", "${workspaceFolder}/build/coverage",
+                "--target", "coverage"
+            ],
+            "dependsOn": "$(gear) cfg coverage",
+            "problemMatcher": [],
+            "options": {
+                "statusbar": {"hide": true}
+            },
+            "windows": {
+                "options": {
+                    "env": {
+                        "PATH": "${config:spotty.qtRoot}/bin;${config:spotty.mingwBin};${env:PATH}"
+                    },
+                    "statusbar": {"hide": true}
+                }
+            },
+            "detail": "Прогнать тесты и создать отчёт покрытия"
+        },
+        {
+            "label": "$(globe) i18n update",
+            "type": "process",
+            "command": "cmake",
+            "args": [
+                "--build", "${workspaceFolder}/build/debug-dynamic",
+                "--target", "update_translations"
+            ],
+            "dependsOn": "$(gear) cfg debug",
+            "hide": true,
+            "problemMatcher": [],
+            "detail": "Обновить исходные файлы переводов"
+        },
+        {
+            "label": "$(globe) i18n",
+            "type": "process",
+            "command": "python3",
             "args": ["${workspaceFolder}/tools/fill_ru_translations.py"],
-            "dependsOn": "i18n:update",
+            "windows": {
+                "command": "python"
+            },
+            "dependsOn": "$(globe) i18n update",
             "dependsOrder": "sequence",
             "problemMatcher": [],
-            // Скрипт печатает список строк без перевода — единственный способ заметить,
-            // что в интерфейсе появился новый текст.
-            "detail": "lupdate и заполнение словаря переводов",
             "options": {
-                "statusbar": { "label": "$(globe) i18n" }
-            }
-        },
-        {
-            "label": "cfg:dist",
-            "type": "process",
-            "command": "cmake",
-            "args": [
-                "-S", "${workspaceFolder}",
-                "-B", "${workspaceFolder}/build-pkg",
-                "-G", "Ninja",
-                "-DCMAKE_PREFIX_PATH=${config:spotty.qtRoot}",
-                "-DCMAKE_CXX_COMPILER=${config:spotty.mingwCompiler}",
-                "-DCMAKE_BUILD_TYPE=Release",
-                "-DSPOTTY_STATIC_PLUGINS=ON"
-            ],
-            "problemMatcher": [],
-            "detail": "Настроить сборку распространяемого комплекта",
-            "options": {
-                "statusbar": { "hide": true }
-            }
-        },
-        {
-            "label": "dist",
-            "type": "process",
-            "command": "cmake",
-            "args": ["--build", "${workspaceFolder}/build-pkg", "--target", "spotty-package"],
-            "dependsOn": "cfg:dist",
-            "problemMatcher": [],
-            "detail": "Собрать распространяемый комплект",
-            "options": {
-                "statusbar": { "label": "$(package) dist" }
-            }
-        },
-        {
-            "label": "reset",
-            "type": "process",
-            "command": "powershell.exe",
-            "args": [
-                "-NoProfile",
-                "-Command",
-                "$spottyConfig = Join-Path $env:APPDATA 'Spotty\\Spotty'; if (Test-Path -LiteralPath $spottyConfig) { Remove-Item -LiteralPath $spottyConfig -Recurse -Force }; Write-Output 'Settings removed'"
-            ],
-            "problemMatcher": [],
-            // Проверить поведение при первом запуске иначе невозможно: программа помнит
-            // слишком много.
-            "detail": "Удалить настройки Spotty",
-            "options": {
-                // Единственная задача с цветом: она удаляет данные, и её стоит отличать
-                // от остальных боковым зрением.
-                "statusbar": { "label": "$(trash) reset" }
-            }
+                "statusbar": {"hide": true}
+            },
+            "detail": "lupdate и заполнение словаря переводов"
         }
     ]
 }

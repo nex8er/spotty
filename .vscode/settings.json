@@ -13,25 +13,21 @@
     // База берётся из compile_commands.json отладочной сборки: там настоящие флаги и
     // пути к заголовкам Qt, поэтому переходы по коду и подсказки работают без ручного
     // перечисления каталогов.
-    "C_Cpp.default.compileCommands": "${workspaceFolder}/build-debug/compile_commands.json",
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/debug-dynamic/compile_commands.json",
     "C_Cpp.default.cppStandard": "c++20",
-    "C_Cpp.default.intelliSenseMode": "windows-gcc-x64",
 
-    // Единственный источник путей для задач. Версии Qt и MinGW должны совпадать:
-    // Qt, собранный MinGW 13.1, нельзя безопасно смешивать с найденным в PATH GCC 15.
+    // Пути читают только задачи соответствующей платформы. Версии Qt и MinGW должны
+    // совпадать: Qt, собранный MinGW 13.1, нельзя смешивать с найденным в PATH GCC 15.
     "spotty.qtRoot": "C:/Users/nex8er/AppData/Local/Qt/6.11.1/mingw_64",
     "spotty.mingwBin": "C:/Users/nex8er/AppData/Local/Qt/Tools/mingw1310_64/bin",
     "spotty.mingwCompiler": "C:/Users/nex8er/AppData/Local/Qt/Tools/mingw1310_64/bin/g++.exe",
+    // На Intel Mac с Homebrew обычно нужен /usr/local. Задачи macOS добавляют этот
+    // префикс только на macOS, поэтому Windows-конфигурации он не касается.
+    "spotty.macosQtPrefix": "/opt/homebrew",
 
-    // CMake Tools не должен настраивать проект сам: сборкой управляют задачи из
-    // tasks.json, и вторая настройка в другом каталоге только запутывала бы.
+    // Сборкой управляют задачи из tasks.json: CMake Tools не создаёт второй каталог с
+    // неясными флагами при открытии рабочей папки.
     "cmake.configureOnOpen": false,
-    "cmake.buildDirectory": "${workspaceFolder}/build-debug",
-    "cmake.configureArgs": [
-        "-DCMAKE_PREFIX_PATH=${config:spotty.qtRoot}",
-        "-DCMAKE_CXX_COMPILER=${config:spotty.mingwCompiler}",
-        "-DSPOTTY_BUILD_TESTS=ON"
-    ],
 
     // --- Соответствия типов файлов ----------------------------------------------------
     "files.associations": {
