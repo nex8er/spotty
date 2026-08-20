@@ -12,10 +12,12 @@
 #include <QObject>
 #include <QString>
 
+class QThread;
 class QTimer;
 
 namespace spotty {
 
+class InterfaceEnumerationWorker;
 class PluginManager;
 class SettingsStore;
 
@@ -82,6 +84,17 @@ struct InterfaceEntry
  * `devicesChanged()`. Плагины без уведомителя обслуживаются опросом раз в секунду.
  * Оба механизма сводятся к одному методу refresh(), поэтому остальной программе всё
  * равно, каким способом узнали об изменении.
+ *
+ * \par Опрос по таймеру — не в потоке UI
+ *
+ * refresh() зовёт enumerate() всех плагинов синхронно и остаётся так для прямых
+ * вызовов (uведомители устройств, ручной refresh(), самый первый обход в start()) — эти
+ * происходят редко, и синхронный результат тут же нужен вызывающей стороне. Периодический
+ * же таймер раз в секунду направляет тот же перебор в InterfaceEnumerationWorker, в
+ * отдельном потоке: enumerate() — сторонний код, и цена одного медленного плагина не
+ * должна доставаться всем остальным (см. \note у InterfaceEnumerationWorker). Итог
+ * приходит обратно тем же путём, что и результат синхронного refresh() — через
+ * applyDiscovered().
  *
  * \par Что сохраняется
  *
@@ -167,6 +180,18 @@ public:
      */
     void resetAll();
 
+    /**
+     * \brief Отложить фоновый опрос до окончания активного действия пользователя.
+     * \param quietPeriodMs Сколько мс не должно быть новых действий перед опросом.
+     *
+     * Сам опрос больше не блокирует поток UI (см. \par выше), но обращение к драйверу
+     * транспорта — реальная работа на реальном USB/последовательном стеке, и раз в секунду
+     * дёргать его посреди прокрутки всё ещё смысла нет. Пропущенный тик не теряет hotplug —
+     * сразу после паузы выполняется один свежий обход, а периодический таймер запускается
+     * снова.
+     */
+    void deferPolling(int quietPeriodMs = 250);
+
 public Q_SLOTS:
     /**
      * \brief Опросить все плагины и сообщить об изменениях.
@@ -210,10 +235,53 @@ private:
     /// \brief Записать одну запись в хранилище.
     void persist(const QString &id) const;
 
+    /**
+     * \brief Направить перебор плагинов в фоновый поток, если он ещё не занят.
+     *
+     * Если предыдущий обход ещё не вернулся (у clican на Windows он может занимать
+     * секунды, см. InterfaceEnumerationWorker), новый запрос не запускает второй проход
+     * параллельно — он просто отмечается #m_rescanRequested и выполнится сразу вслед за
+     * текущим. Подключено к #m_pollTimer и к возобновлению после deferPolling().
+     */
+    void pollAsync();
+
+    /**
+     * \brief Разобрать результат, пришедший из InterfaceEnumerationWorker.
+     * \param descriptors Дескрипторы всех плагинов вместе, как их собрал worker.
+     */
+    void onEnumerationFinished(const QList<InterfaceDescriptor> &descriptors);
+
+    /**
+     * \brief Свести дескрипторы с #m_entries: появления, пропажи, persist(), сигналы.
+     * \param seen Дескрипторы по идентификатору — результат текущего обхода.
+     *
+     * Общий хвост для синхронного refresh() и асинхронного пути через
+     * InterfaceEnumerationWorker: сам перебор плагинов у них разный (в своём потоке или в
+     * чужом), а свод результата — одна и та же логика, которая не должна разойтись на
+     * две копии.
+     */
+    void applyDiscovered(const QHash<QString, InterfaceDescriptor> &seen);
+
     PluginManager *m_plugins;       ///< Источник плагинов.
     SettingsStore *m_store;         ///< Хранилище `interfaces.json`.
     QTimer *m_pollTimer = nullptr;  ///< Таймер опроса; nullptr, если все плагины с уведомителями.
+    QTimer *m_pollResumeTimer = nullptr; ///< Возвращает опрос после активности пользователя.
     QHash<QString, InterfaceEntry> m_entries; ///< Известные устройства по идентификатору.
+
+    /**
+     * \name Фоновый опрос
+     * \brief Поток, в котором работает InterfaceEnumerationWorker, и состояние его занятости.
+     *
+     * Создаются лениво, при первом обращении к pollAsync() — платить за поток стоит
+     * только тем сборкам, где вообще есть плагин без уведомителя устройств (#m_pollTimer
+     * не nullptr).
+     */
+    /// @{
+    QThread *m_pollThread = nullptr;
+    InterfaceEnumerationWorker *m_worker = nullptr;
+    bool m_scanInFlight = false;
+    bool m_rescanRequested = false;
+    /// @}
 
     /**
      * \brief Уже был хотя бы один refresh().

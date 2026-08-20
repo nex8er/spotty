@@ -15,7 +15,7 @@
 #define VCRedistName "vc_redist.x64.exe"
 
 [Setup]
-AppId={{#MyAppId}
+AppId={{{#MyAppId}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher=Spotty

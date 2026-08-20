@@ -214,8 +214,31 @@ private:
     /// \brief Сменить состояние и известить, если оно действительно изменилось.
     void setState(ChannelState state, const QString &detail = {});
 
-    /// \brief Принятые байты: пакетизация и укладка в буфер.
+    /// \brief Принятые байты: складывает порцию в очередь и просит её разобрать.
     void handleIncoming(const QByteArray &data, qint64 monotonicNs);
+
+    /**
+     * \brief Разобрать всё накопленное в #m_pendingIncoming одним проходом.
+     *
+     * handleIncoming() вызывается из потока интерфейса через очередь Qt и сам по себе
+     * недорог — только кладёт порцию в список. Дорогая часть (dataLogged/dataReceived
+     * наружу, цепочка фильтров, Packetizer::feed(), TerminalBuffer::append()) собрана
+     * здесь и запускается не чаще, чем раз в #kIncomingBatchIntervalMs: при потоке в
+     * тысячу мелких порций в секунду каждая раньше тянула за собой этот проход целиком,
+     * и очередь событий UI-потока забивалась быстрее, чем откладывалась перерисовка
+     * терминала. Каждая порция при этом проходит через Packetizer::feed() отдельно и со
+     * своей исходной меткой monotonicNs — иначе межбайтовые паузы для пакетизации
+     * исказились бы.
+     */
+    void processPendingIncoming();
+
+    /**
+     * \brief Разобрать #m_pendingIncoming немедленно, не дожидаясь таймера.
+     *
+     * Перед close() (иначе последняя порция потерялась бы за уничтоженным потоком) и
+     * перед сменой #m_buffer в setSharedBuffer() (иначе она попала бы уже в другой буфер).
+     */
+    void flushPendingIncoming();
 
     /// \brief Истекла межбайтовая пауза — завершить накопленный пакет.
     void handlePacketTimeout();
@@ -229,6 +252,16 @@ private:
         int order = 0;
         QString name;
         IDataFilter *filter = nullptr;
+    };
+
+    /**
+     * \struct IncomingChunk
+     * \brief Непакетизированная порция вместе со своей меткой времени; см. #m_pendingIncoming.
+     */
+    struct IncomingChunk
+    {
+        QByteArray data;
+        qint64 monotonicNs = 0;
     };
 
     PluginManager *m_plugins;
@@ -267,6 +300,19 @@ private:
 
     /// \brief Таймер межбайтовой паузы для Packetizer::Mode::InterByteTimeout.
     QTimer *m_packetTimer = nullptr;
+
+    /**
+     * \brief Порции, дожидающиеся processPendingIncoming(); см. её описание.
+     *
+     * \warning Обязана быть пустой к моменту, когда меняется #m_buffer или уничтожается
+     *          поток ввода-вывода — иначе накопленные порции либо уедут в чужой буфер,
+     *          либо пропадут молча. Слив — flushPendingIncoming(), а не сам таймер: ждать
+     *          кадра в 16 мс в этот момент незачем и рискованно.
+     */
+    QList<IncomingChunk> m_pendingIncoming;
+
+    /// \brief Откладывает processPendingIncoming(); см. её описание.
+    QTimer *m_incomingBatchTimer = nullptr;
 
     /// \brief Скользящий счётчик скорости приёма.
     QTimer *m_rateTimer = nullptr;

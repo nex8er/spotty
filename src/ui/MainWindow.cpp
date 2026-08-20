@@ -201,6 +201,10 @@ void MainWindow::buildUi()
     m_terminal->setObjectName(QStringLiteral("terminalView"));
     m_terminal->setBuffer(m_context.session ? m_context.session->buffer() : nullptr);
     m_terminal->setThemeManager(m_context.theme);
+    if (m_context.registry) {
+        connect(m_terminal, &TerminalView::scrollInteraction, m_context.registry,
+                [registry = m_context.registry] { registry->deferPolling(); });
+    }
 
     m_sendBar = new SendBar(m_context.history, this);
 

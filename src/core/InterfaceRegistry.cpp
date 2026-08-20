@@ -4,12 +4,14 @@
  */
 #include "InterfaceRegistry.h"
 
+#include "InterfaceEnumerationWorker.h"
 #include "PluginManager.h"
 #include "settings/SettingsStore.h"
 
 #include <spotty/api/IInterfacePlugin.h>
 
 #include <QLoggingCategory>
+#include <QThread>
 #include <QTimer>
 
 #include <algorithm>
@@ -40,7 +42,17 @@ InterfaceRegistry::InterfaceRegistry(PluginManager *plugins, SettingsStore *stor
     Q_ASSERT(m_store);
 }
 
-InterfaceRegistry::~InterfaceRegistry() = default;
+InterfaceRegistry::~InterfaceRegistry()
+{
+    if (m_pollThread) {
+        // wait() без таймаута: worker не держит ничего, что не освободилось бы само —
+        // максимум придётся дождаться, пока сторонний enumerate() вернётся из уже
+        // идущего вызова, прервать который всё равно нечем.
+        m_pollThread->quit();
+        m_pollThread->wait();
+        delete m_pollThread;
+    }
+}
 
 void InterfaceRegistry::start()
 {
@@ -66,11 +78,39 @@ void InterfaceRegistry::start()
     if (needsPolling) {
         m_pollTimer = new QTimer(this);
         m_pollTimer->setInterval(kPollIntervalMs);
-        connect(m_pollTimer, &QTimer::timeout, this, &InterfaceRegistry::refresh);
+        connect(m_pollTimer, &QTimer::timeout, this, &InterfaceRegistry::pollAsync);
         m_pollTimer->start();
     }
 
+    // Самый первый обход — синхронно и напрямую через refresh(), не через pollAsync():
+    // вызывающая сторона (MainWindow) должна увидеть уже подключённые устройства сразу по
+    // возврату из start(), а не через неопределённое время после того, как отработает
+    // фоновый поток. Разовая цена одного медленного плагина на старте программы того
+    // стоит — периодический опрос после неё уже уходит в фон.
     refresh();
+}
+
+void InterfaceRegistry::deferPolling(int quietPeriodMs)
+{
+    // Если все плагины дают уведомления сами, останавливать нечего и лишний таймер не
+    // нужен. Это также сохраняет прежнее поведение явного refresh() от hotplugNotifier().
+    if (!m_pollTimer)
+        return;
+
+    m_pollTimer->stop();
+    if (!m_pollResumeTimer) {
+        m_pollResumeTimer = new QTimer(this);
+        m_pollResumeTimer->setSingleShot(true);
+        connect(m_pollResumeTimer, &QTimer::timeout, this, [this] {
+            pollAsync();
+            m_pollTimer->start();
+        });
+    }
+
+    // start() у однократного таймера переносит срок. Пока пользователь крутит колесо,
+    // enumerate() не попадает между кадрами; остановился — состояние устройств тут же
+    // актуализируется, без ожидания следующей полной секунды.
+    m_pollResumeTimer->start(qMax(0, quietPeriodMs));
 }
 
 void InterfaceRegistry::restorePersisted(InterfaceEntry &entry, const QString &id) const
@@ -87,12 +127,6 @@ void InterfaceRegistry::restorePersisted(InterfaceEntry &entry, const QString &i
 
 void InterfaceRegistry::refresh()
 {
-    // Захватывается до первого изменения состояния этим самым вызовом: появления,
-    // найденные НИЖЕ в этом refresh(), должны узнать, что они — самое первое обнаружение
-    // программы, а не отличить его от собственной же правки m_firstRefreshDone.
-    const bool isFirstRefresh = !m_firstRefreshDone;
-    m_firstRefreshDone = true;
-
     QHash<QString, InterfaceDescriptor> seen;
     for (IInterfacePlugin *plugin : m_plugins->plugins()) {
         const QList<InterfaceDescriptor> descriptors = plugin->enumerate();
@@ -107,6 +141,68 @@ void InterfaceRegistry::refresh()
             seen.insert(descriptor.id, descriptor);
         }
     }
+    applyDiscovered(seen);
+}
+
+void InterfaceRegistry::pollAsync()
+{
+    if (m_scanInFlight) {
+        // Предыдущий обход ещё не вернулся — новый запрос не запускает второй проход
+        // параллельно (второй вызов enumerate() того же PCAN-канала конкурентно с первым
+        // ничем хорошим не кончится), а просто помечает, что нужно повторить сразу вслед
+        // за текущим.
+        m_rescanRequested = true;
+        return;
+    }
+
+    if (!m_pollThread) {
+        // Поток заводится лениво, при первом обращении: платить за него должны только те
+        // сборки, где вообще есть плагин без уведомителя устройств (иначе pollAsync()
+        // никогда не вызывается).
+        m_pollThread = new QThread;
+        m_pollThread->setObjectName(QStringLiteral("spotty-enum"));
+
+        m_worker = new InterfaceEnumerationWorker;
+        m_worker->setPlugins(m_plugins->plugins());
+        m_worker->moveToThread(m_pollThread);
+        connect(m_pollThread, &QThread::finished, m_worker, &QObject::deleteLater);
+        connect(m_worker, &InterfaceEnumerationWorker::finished,
+                this, &InterfaceRegistry::onEnumerationFinished);
+
+        m_pollThread->start();
+    }
+
+    m_scanInFlight = true;
+    QMetaObject::invokeMethod(m_worker, &InterfaceEnumerationWorker::run, Qt::QueuedConnection);
+}
+
+void InterfaceRegistry::onEnumerationFinished(const QList<InterfaceDescriptor> &descriptors)
+{
+    m_scanInFlight = false;
+
+    QHash<QString, InterfaceDescriptor> seen;
+    for (const InterfaceDescriptor &descriptor : descriptors) {
+        if (!descriptor.isValid()) {
+            qCWarning(lcRegistry) << descriptor.pluginId << "returned a descriptor with no id";
+            continue;
+        }
+        seen.insert(descriptor.id, descriptor);
+    }
+    applyDiscovered(seen);
+
+    if (m_rescanRequested) {
+        m_rescanRequested = false;
+        pollAsync();
+    }
+}
+
+void InterfaceRegistry::applyDiscovered(const QHash<QString, InterfaceDescriptor> &seen)
+{
+    // Захватывается до первого изменения состояния этим самым вызовом: появления,
+    // найденные НИЖЕ, должны узнать, что они — самое первое обнаружение программы, а не
+    // отличить его от собственной же правки m_firstRefreshDone.
+    const bool isFirstRefresh = !m_firstRefreshDone;
+    m_firstRefreshDone = true;
 
     QStringList appeared;
     QStringList disappeared;
