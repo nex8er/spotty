@@ -96,8 +96,10 @@ spotty_add_test(spotty-ui-tests
         # библиотеку. Проще взять его исходник сюда напрямую, чем заводить библиотеку
         # ради одного класса.
         "${CMAKE_SOURCE_DIR}/src/ui/PanelPluginRegistry.cpp"
-        # Делегат таблицы рядов — из плагина плоттера, по той же причине.
+        # Делегат таблицы рядов — из плагина плоттера, по той же причине. Заголовок с
+        # флажком «показать или скрыть все» — оттуда же: панель без него не собирается.
         "${CMAKE_SOURCE_DIR}/plugins/plotter/SeriesSwatchDelegate.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/plotter/SeriesHeaderView.cpp"
         # Панель настроек интерфейса: живые списки (SettingsField::live) — её проводка, и
         # проверить их можно только вместе с ней.
         "${CMAKE_SOURCE_DIR}/src/ui/dialogs/InterfaceSettingsPanel.cpp"

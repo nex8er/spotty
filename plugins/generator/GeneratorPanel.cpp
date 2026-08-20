@@ -364,6 +364,29 @@ GeneratorPanel::GeneratorPanel(IPanelHost *panelHost, QWidget *parent)
     m_interval->setValidator(new QIntValidator(1, kMaxIntervalMs, m_interval));
     m_interval->setToolTip(tr("Interval between packets while streaming"));
     commonForm->addRow(formLabel(tr("Send frequency"), this, &parameterLabels), m_interval);
+
+    // Получатель потока — тот же выбор, что в строке отправки, но свой: поток не обязан
+    // идти туда же, куда только что ушло что-то набранное вручную. Видна только в режиме
+    // двух интерфейсов — updateStreamTargetVisibility().
+    m_streamTarget = new QComboBox(this);
+    m_streamTarget->addItem(tr("Interface A"), int(SendTarget::InterfaceA));
+    m_streamTarget->addItem(tr("Interface B"), int(SendTarget::InterfaceB));
+    m_streamTarget->addItem(tr("Both"), int(SendTarget::Both));
+    m_streamTarget->addItem(tr("First available"), int(SendTarget::FirstAvailable));
+    m_streamTarget->setToolTip(tr("Where the stream goes"));
+    m_streamTargetLabel = formLabel(tr("Send to"), this, &parameterLabels);
+    commonForm->addRow(m_streamTargetLabel, m_streamTarget);
+    {
+        const int stored = host()->value(QLatin1String("streamTarget"),
+                                         int(SendTarget::FirstAvailable))
+                               .toInt();
+        const int index = m_streamTarget->findData(stored);
+        m_streamTarget->setCurrentIndex(index >= 0 ? index : m_streamTarget->count() - 1);
+    }
+    connect(m_streamTarget, qOverload<int>(&QComboBox::currentIndexChanged), this, [this] {
+        host()->setValue(QLatin1String("streamTarget"), int(selectedStreamTarget()));
+    });
+
     layout->addLayout(commonForm);
 
     int labelWidth = 0;
@@ -438,7 +461,7 @@ GeneratorPanel::GeneratorPanel(IPanelHost *panelHost, QWidget *parent)
 
     m_timer = new QTimer(this);
     m_timer->setTimerType(Qt::PreciseTimer);
-    connect(m_timer, &QTimer::timeout, this, &GeneratorPanel::sendOnce);
+    connect(m_timer, &QTimer::timeout, this, [this] { sendOnce(/*userInitiated=*/false); });
 
     const auto parametersChanged = [this] {
         applySettingsToGenerator();
@@ -526,12 +549,18 @@ GeneratorPanel::GeneratorPanel(IPanelHost *panelHost, QWidget *parent)
     connect(m_playPause, &QToolButton::clicked, this,
             [this] { setStreaming(!m_timer->isActive()); });
     connect(m_reset, &QToolButton::clicked, this, &GeneratorPanel::resetRuntime);
-    connect(m_sendOnce, &QToolButton::clicked, this, &GeneratorPanel::sendOnce);
+    connect(m_sendOnce, &QToolButton::clicked, this, [this] { sendOnce(/*userInitiated=*/true); });
     connect(m_hexView, &QToolButton::clicked, this, [this] {
         m_previewHex = !m_previewHex;
         updatePreview();
         saveSettings();
     });
+
+    connect(host(), &IPanelHost::secondInterfaceStateChanged, this,
+            [this](bool dualTransportEnabled, bool) {
+                updateStreamTargetVisibility(dualTransportEnabled);
+            });
+    updateStreamTargetVisibility(host()->dualTransportEnabled());
 
     restoreSettings();
     m_wavePeriodSlider->setValue(m_wavePeriod->value());
@@ -729,15 +758,28 @@ void GeneratorPanel::updateSentLabel()
     m_sentLabel->setText(tr("Sent %1").arg(QLocale().toString(m_sentPackets)));
 }
 
-void GeneratorPanel::sendOnce()
+void GeneratorPanel::sendOnce(bool userInitiated)
 {
     if (!m_sendEnabled)
         return;
 
-    host()->send(withSendTermination(m_generator.generate()));
+    host()->send(withSendTermination(m_generator.generate()),
+                 userInitiated ? SendTarget::FirstAvailable : selectedStreamTarget());
     ++m_sentPackets;
     updateSentLabel();
     updatePreview();
+}
+
+SendTarget GeneratorPanel::selectedStreamTarget() const
+{
+    const QVariant data = m_streamTarget->currentData();
+    return data.isValid() ? SendTarget(data.toInt()) : SendTarget::FirstAvailable;
+}
+
+void GeneratorPanel::updateStreamTargetVisibility(bool dualTransportEnabled)
+{
+    m_streamTarget->setVisible(dualTransportEnabled);
+    m_streamTargetLabel->setVisible(dualTransportEnabled);
 }
 
 void GeneratorPanel::resetRuntime()

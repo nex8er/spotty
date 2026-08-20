@@ -28,7 +28,7 @@ public:
     ChannelState channelState() const override { return ChannelState::Open; }
     QString interfaceId() const override { return QStringLiteral("generator-test"); }
 
-    void send(const QByteArray &data) override { sent.append(data); }
+    void send(const QByteArray &data, SendTarget) override { sent.append(data); }
 
     QList<QByteArray> sent;
 };

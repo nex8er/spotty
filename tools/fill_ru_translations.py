@@ -225,6 +225,7 @@ TRANSLATIONS = {
     "Macro shortcuts are assigned in the Macros panel, on each macro.":
         "Горячие клавиши макросов задаются в панели макросов, у каждого макроса.",
     "actual: %1 ms": "фактически: %1 мс",
+    "Where the repeated macro goes": "Куда уходит повторяемый макрос",
 
     # --- Логирование ---
     # Коротко: подпись стоит в узкой боковой панели и в полном виде не помещается.
@@ -297,6 +298,7 @@ TRANSLATIONS = {
     "To send bar": "В строку отправки",
     "Put the generated data into the send bar without sending":
         "Положить порождённые данные в строку отправки, не отправляя",
+    "Where the stream goes": "Куда уходит поток",
 
     # --- Пакетизация ---
     "Split incoming data by": "Разбивать принимаемое",
@@ -638,6 +640,8 @@ TRANSLATIONS = {
     "What the plot shows": "Что показывает график",
     "Settings saved for a particular device":
         "Настройки, сохранённые под конкретное устройство",
+    # Подсказка в пустом списке профилей: строчная буква отличает её от имени профиля.
+    "unsaved profile": "профиль не сохранён",
     "Save the current settings as a profile": "Сохранить текущие настройки профилем",
     "Delete this profile": "Удалить этот профиль",
     "New profile": "Новый профиль",
@@ -669,6 +673,8 @@ TRANSLATIONS = {
         "Выберите колонку для оси X, чтобы увидеть фазовый портрет",
     "Click to show or hide, double-click to change the colour":
         "Клик — показать или скрыть, двойной клик — сменить цвет",
+    "Hide every series at once; click again to bring back the previous selection":
+        "Скрыть все ряды разом; повторный клик вернёт прежний выбор",
     "Double-click to rename": "Двойной клик — переименовать",
     "Change colour…": "Сменить цвет…",
     "Rename…": "Переименовать…",

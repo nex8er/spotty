@@ -50,9 +50,11 @@ public:
 
     QString pluginId() const override { return m_pluginId; }
 
-    void send(const QByteArray &data) override;
+    void send(const QByteArray &data, SendTarget target) override;
     DataCodec::Termination sendTermination() const override;
     void composeInSendBar(const QString &text, DataCodec::Format format) override;
+    bool dualTransportEnabled() const override;
+    bool secondInterfaceAvailable() const override;
 
     ChannelState channelState() const override;
     QString interfaceId() const override;
@@ -71,6 +73,7 @@ public:
     void appendToTerminal(const QString &text) override;
     void injectReceived(const QByteArray &data) override;
     void clearTerminal() override;
+    void scrollTerminalToBottom() override;
     bool showDocument(const QString &filePath, const QString &title) override;
 
     void setHighlightRules(const HighlightRules &rules) override;
@@ -96,6 +99,7 @@ public:
     /// \name Толкают сигналы хоста; зовёт spotty::MainWindow
     /// @{
     void notifyChannelState(ChannelState state);
+    void notifySecondInterfaceState(bool dualTransportEnabled, bool secondInterfaceAvailable);
     void notifyThemeChanged();
     void notifySettingsReset();
     void notifyAboutToClose();

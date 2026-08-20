@@ -410,28 +410,12 @@ void MainWindow::buildUi()
     });
 
     connect(m_sendBar, &SendBar::sendRequested,
-            this, [this](const QByteArray &data, SendBar::SendTarget target) {
-                // «Первый доступный» разрешается здесь, а не в SendBar: только у окна
-                // есть состояние сессий, чтобы решить, кто сейчас открыт (см.
-                // updateSendAvailability()). A предпочитается B при прочих равных — тот
-                // же порядок, в котором интерфейсы перечислены везде в интерфейсе.
-                if (target == SendBar::SendTarget::FirstAvailable) {
-                    const bool interfaceAOpen =
-                        m_context.session && m_context.session->state() == ChannelState::Open;
-                    target = interfaceAOpen ? SendBar::SendTarget::InterfaceA
-                                            : SendBar::SendTarget::InterfaceB;
-                }
+            this, [this](const QByteArray &data, SendTarget target) {
+                sendToTarget(data, target);
 
-                if (target == SendBar::SendTarget::InterfaceA
-                    || target == SendBar::SendTarget::Both) {
-                    if (m_context.session)
-                        m_context.session->send(data);
-                }
-                if ((target == SendBar::SendTarget::InterfaceB
-                     || target == SendBar::SendTarget::Both)
-                    && m_secondSession) {
-                    m_secondSession->send(data);
-                }
+                // Отправка — личное действие пользователя, вправе оторвать его от
+                // истории, которую он в этот момент листает.
+                m_terminal->scrollToBottom();
             });
 
     // Просьба сохранить набранное рассылается всем хостам: кто умеет её принять, тот и
@@ -449,7 +433,7 @@ void MainWindow::buildUi()
         m_settings.sendTermination = int(m_sendBar->termination());
         m_settings.save(*m_context.settings);
     });
-    connect(m_sendBar, &SendBar::sendTargetChanged, this, [this](SendBar::SendTarget target) {
+    connect(m_sendBar, &SendBar::sendTargetChanged, this, [this](SendTarget target) {
         m_settings.sendTarget = int(target);
         m_settings.save(*m_context.settings);
     });
@@ -1067,7 +1051,7 @@ void MainWindow::applySettings()
 
     m_sendBar->setFormat(DataCodec::Format(m_settings.sendFormat));
     m_sendBar->setTermination(DataCodec::Termination(m_settings.sendTermination));
-    m_sendBar->setSendTarget(SendBar::SendTarget(m_settings.sendTarget));
+    m_sendBar->setSendTarget(SendTarget(m_settings.sendTarget));
 
     applyShortcuts();
 }
@@ -1390,6 +1374,36 @@ void MainWindow::updateSendAvailability()
     const bool interfaceB = m_secondSession
                             && m_secondSession->state() == ChannelState::Open;
     m_sendBar->setInterfaceAvailability(interfaceA, m_dualTransport && interfaceB);
+
+    // Панели, которые сами отправляют данные (макросы, генератор), узнают о втором
+    // интерфейсе тем же путём, что и о первом, — через свои хосты, а не опросом.
+    for (PanelHostImpl *host : std::as_const(m_hosts))
+        host->notifySecondInterfaceState(m_dualTransport, m_dualTransport && interfaceB);
+}
+
+void MainWindow::sendToTarget(const QByteArray &data, SendTarget target)
+{
+    // «Первый доступный» разрешается здесь, а не у отправителя: только у окна есть
+    // состояние сессий, чтобы решить, кто сейчас открыт. A предпочитается B при прочих
+    // равных — тот же порядок, в котором интерфейсы перечислены везде в интерфейсе.
+    if (target == SendTarget::FirstAvailable) {
+        const bool interfaceAOpen =
+            m_context.session && m_context.session->state() == ChannelState::Open;
+        target = interfaceAOpen ? SendTarget::InterfaceA : SendTarget::InterfaceB;
+    }
+
+    if (target == SendTarget::InterfaceA || target == SendTarget::Both) {
+        if (m_context.session)
+            m_context.session->send(data);
+    }
+    if ((target == SendTarget::InterfaceB || target == SendTarget::Both) && m_secondSession)
+        m_secondSession->send(data);
+}
+
+bool MainWindow::secondInterfaceAvailable() const
+{
+    return m_dualTransport && m_secondSession
+        && m_secondSession->state() == ChannelState::Open;
 }
 
 void MainWindow::showStripActions(QWidget *strip)

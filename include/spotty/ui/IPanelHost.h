@@ -125,18 +125,35 @@ public:
     /**
      * \brief Отправить байты в интерфейс.
      *
+     * \param target Куда отправить в режиме двух интерфейсов. Умолчание — первый
+     *        доступный, то есть прежнее поведение для панелей, которым выбор безразличен.
+     *        Не действует, пока dualTransportEnabled() ложно: тогда данные всегда уходят в
+     *        единственный открытый интерфейс, как и раньше.
+     *
      * \note Вызов не блокирующий: байты кладутся в очередь потока ввода-вывода и уходят
      *       позже. Отправляя большой файл, не сваливайте его одним куском — очередь
      *       вырастет на весь объём, а окно перестанет отвечать. Принятый способ: послать
      *       порцию, дождаться её в dataLogged() с DataDirection::Tx, послать следующую.
      */
-    virtual void send(const QByteArray &data) = 0;
+    virtual void send(const QByteArray &data, SendTarget target = SendTarget::FirstAvailable)
+        = 0;
 
     /// \brief Терминация, выбранная в нижней строке отправки в данный момент.
     virtual DataCodec::Termination sendTermination() const = 0;
 
     /// \brief Положить текст в строку отправки, не отправляя: пусть человек посмотрит.
     virtual void composeInSendBar(const QString &text, DataCodec::Format format) = 0;
+
+    /// \brief Включён ли сейчас режим «два интерфейса».
+    virtual bool dualTransportEnabled() const = 0;
+
+    /**
+     * \brief Открыт ли второй интерфейс для отправки прямо сейчас.
+     *
+     * Имеет смысл только вместе с dualTransportEnabled(): второй интерфейс существует как
+     * получатель, только пока режим включён.
+     */
+    virtual bool secondInterfaceAvailable() const = 0;
 
     /// @}
     /// \name Состояние интерфейса
@@ -220,6 +237,16 @@ public:
     virtual void injectReceived(const QByteArray &data) = 0;
 
     virtual void clearTerminal() = 0;
+
+    /**
+     * \brief Прокрутить терминал к последней строке.
+     *
+     * Для действий, которые пользователь совершил лично — отправка из строки ввода,
+     * ручная отправка макроса — и которые вправе оторвать его от истории, которую он
+     * читает. Периодическая или фоновая отправка так не делает: она не должна дёргать
+     * экран, пока человек листает прошлое.
+     */
+    virtual void scrollTerminalToBottom() = 0;
 
     /**
      * \brief Показать файл в области терминала вместо живого вывода.
@@ -318,6 +345,17 @@ Q_SIGNALS:
     void terminalLineFinalized(qint64 lineNumber);
 
     void channelStateChanged(spotty::ChannelState state);
+
+    /**
+     * \brief Режим «два интерфейса» или доступность второго интерфейса изменились.
+     * \param dualTransportEnabled Включён ли сейчас режим «два интерфейса».
+     * \param secondInterfaceAvailable Открыт ли второй интерфейс прямо сейчас.
+     *
+     * Оба числа в одном сигнале по той же причине, что у matchCountChanged(): разнесённые
+     * по двум уведомлениям, они неизбежно показывались бы промежуточным состоянием.
+     */
+    void secondInterfaceStateChanged(bool dualTransportEnabled, bool secondInterfaceAvailable);
+
     void themeChanged();
     /**
      * \brief Набор совпадений или положение в нём изменились.

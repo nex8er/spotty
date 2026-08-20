@@ -13,6 +13,7 @@
 #include <settings/AppSettings.h>
 #include <spotty/api/ChannelState.h>
 #include <spotty/data/DataCodec.h>
+#include <spotty/ui/PanelDescriptor.h>
 
 #include <QDateTime>
 #include <QHash>
@@ -86,6 +87,15 @@ public:
 
     /// \brief Терминация, выбранная пользователем в строке отправки.
     DataCodec::Termination sendTermination() const;
+
+    /// \brief Отправить в выбранный получатель, разрешив FirstAvailable по текущему состоянию.
+    void sendToTarget(const QByteArray &data, SendTarget target);
+
+    /// \brief Включён ли сейчас режим «два интерфейса».
+    bool dualTransportEnabled() const { return m_dualTransport; }
+
+    /// \brief Открыт ли второй интерфейс для отправки прямо сейчас.
+    bool secondInterfaceAvailable() const;
 
     void showStatusMessage(const QString &message);
 

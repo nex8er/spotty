@@ -5,6 +5,7 @@
 #pragma once
 
 #include <spotty/data/DataCodec.h>
+#include <spotty/ui/PanelDescriptor.h>
 
 #include <QWidget>
 
@@ -37,23 +38,6 @@ class SendBar : public QWidget
     Q_OBJECT
 
 public:
-    /// \brief Получатель данных в режиме двух интерфейсов.
-    enum class SendTarget {
-        InterfaceA,
-        InterfaceB,
-        Both,
-
-        /**
-         * \brief Первый из открытых — A, если он доступен, иначе B.
-         *
-         * Полоса отправки не знает, какой интерфейс сейчас открыт, — это состояние
-         * сессий, до которых ей дела нет (см. правило 4 в AGENTS.md). Она лишь помечает
-         * выбор пользователя этим значением; кого именно считать «первым», решает
-         * MainWindow::sendRequested, у которого это состояние есть.
-         */
-        FirstAvailable,
-    };
-
     /**
      * \brief Конструктор.
      * \param history Хранилище истории. Виджет им не владеет; может быть `nullptr`.

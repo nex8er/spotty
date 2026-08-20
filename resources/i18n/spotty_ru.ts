@@ -493,6 +493,30 @@
         <translation>Частота отправки</translation>
     </message>
     <message>
+        <source>Interface A</source>
+        <translation>Интерфейс A</translation>
+    </message>
+    <message>
+        <source>Interface B</source>
+        <translation>Интерфейс B</translation>
+    </message>
+    <message>
+        <source>Both</source>
+        <translation>Оба</translation>
+    </message>
+    <message>
+        <source>First available</source>
+        <translation>Первый доступный</translation>
+    </message>
+    <message>
+        <source>Where the stream goes</source>
+        <translation>Куда уходит поток</translation>
+    </message>
+    <message>
+        <source>Send to</source>
+        <translation>Отправить в</translation>
+    </message>
+    <message>
         <source> Hz</source>
         <translation> Гц</translation>
     </message>
@@ -1017,6 +1041,26 @@
     <message>
         <source>Add macro</source>
         <translation>Добавить макрос</translation>
+    </message>
+    <message>
+        <source>Interface A</source>
+        <translation>Интерфейс A</translation>
+    </message>
+    <message>
+        <source>Interface B</source>
+        <translation>Интерфейс B</translation>
+    </message>
+    <message>
+        <source>Both</source>
+        <translation>Оба</translation>
+    </message>
+    <message>
+        <source>First available</source>
+        <translation>Первый доступный</translation>
+    </message>
+    <message>
+        <source>Where the repeated macro goes</source>
+        <translation>Куда уходит повторяемый макрос</translation>
     </message>
     <message>
         <source>Pick a preset or type a custom period in milliseconds</source>
@@ -1759,6 +1803,10 @@ Double-click to edit, right-click for options</source>
         <translation>Дельта</translation>
     </message>
     <message>
+        <source>Hide every series at once; click again to bring back the previous selection</source>
+        <translation>Скрыть все ряды разом; повторный клик вернёт прежний выбор</translation>
+    </message>
+    <message>
         <source>Click to show or hide, double-click to change the colour</source>
         <translation>Клик — показать или скрыть, двойной клик — сменить цвет</translation>
     </message>
@@ -1793,6 +1841,10 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Clear this series only</source>
         <translation>Очистить только этот ряд</translation>
+    </message>
+    <message>
+        <source>unsaved profile</source>
+        <translation>профиль не сохранён</translation>
     </message>
     <message>
         <source>Profile reset to defaults</source>

@@ -7,6 +7,7 @@
 #include "PlotCanvas.h"
 #include "PlotWidget.h"
 #include "ScaleLimitsDialog.h"
+#include "SeriesHeaderView.h"
 #include "SeriesSwatchDelegate.h"
 #include <spotty/data/PlotFormat.h>
 #include <spotty/data/PlotModel.h>
@@ -326,8 +327,18 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
     // Таблица рядов. Она же легенда: прежде кривые различались только цветом, что и WCAG
     // нарушает, и просто не позволяет понять, какая из них чья.
     m_table = new QTableWidget(0, ColumnCount, this);
+    // Свой заголовок ставится до режимов ширины: setHorizontalHeader() заменяет объект
+    // целиком, и всё заданное прежнему пропало бы вместе с ним.
+    m_header = new SeriesHeaderView(ColumnSwatch, m_table);
+    m_header->onToggled = [this](bool checked) { toggleAllSeriesVisibility(checked); };
+    m_table->setHorizontalHeader(m_header);
     m_table->setHorizontalHeaderLabels(
         {QString(), tr("Series"), tr("Min"), tr("Avg"), tr("Max"), tr("Delta")});
+    // Подсказка живёт на элементе заголовка, а не на виджете: у колонки цвета нет подписи,
+    // и объяснить назначение флажка иначе негде.
+    m_table->horizontalHeaderItem(ColumnSwatch)
+        ->setToolTip(
+            tr("Hide every series at once; click again to bring back the previous selection"));
     m_table->setColumnHidden(ColumnDelta, true);
     // Растягивается только имя ряда; остальные колонки ужимаются под содержимое. Иначе
     // равные доли отдают под галочку и квадратик цвета столько же, сколько под число.
@@ -348,6 +359,7 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
 
     m_swatch = new SeriesSwatchDelegate(m_table);
     m_table->setItemDelegateForColumn(ColumnSwatch, m_swatch);
+
     // Горизонтальная прокрутка запрещена: в узкой панели она появлялась всегда и прятала
     // половину колонок. Числа при нехватке места сокращаются многоточием — увидеть, что
     // значение не поместилось, лучше, чем не увидеть колонку вовсе.
@@ -544,6 +556,14 @@ void PlotterPanel::settingsReset()
     rebuildTable();
 }
 
+void PlotterPanel::channelStateChanged(ChannelState state)
+{
+    Q_UNUSED(state);
+    // Псевдоним устройства, на который опирается подсказка, известен только когда
+    // интерфейс выбран или открыт — сменился он именно сейчас.
+    updateProfilePlaceholder();
+}
+
 void PlotterPanel::syncModeSelection()
 {
     const int index = m_mode->findData(int(m_view->mode()));
@@ -556,6 +576,12 @@ void PlotterPanel::syncModeSelection()
 void PlotterPanel::rebuildTable()
 {
     const Populating populating(m_populating);
+
+    // Состав рядов сменился: индексы в запомненном выборе уже могут указывать не на те
+    // ряды, а флажок заголовка возвращаем в состояние покоя, а не оставляем «снятым».
+    // setChecked() здесь ничего не зовёт обратно — обработчик висит на нажатии мышью.
+    m_rememberedVisibility.clear();
+    m_header->setChecked(true);
 
     m_table->setRowCount(m_model->seriesCount());
     for (int row = 0; row < m_model->seriesCount(); ++row) {
@@ -647,6 +673,27 @@ void PlotterPanel::refreshSwatches()
         item->setData(Qt::CheckStateRole, series.visible ? Qt::Checked : Qt::Unchecked);
         item->setData(SeriesSwatchDelegate::kColorRole, series.color);
     }
+}
+
+void PlotterPanel::toggleAllSeriesVisibility(bool checked)
+{
+    if (!checked) {
+        // Прячем разом, но помним прежнее — второй щелчок обязан вернуть именно его, а
+        // не «включить всё скопом», что стёрло бы ряды, выключенные вручную заранее.
+        m_rememberedVisibility.clear();
+        m_rememberedVisibility.reserve(m_model->seriesCount());
+        for (int i = 0; i < m_model->seriesCount(); ++i) {
+            m_rememberedVisibility.append(m_model->series(i).visible);
+            m_model->setSeriesVisible(i, false);
+        }
+        return;
+    }
+
+    // Ряды, появившиеся уже после скрытия, в запомненный список не попали — их видимость
+    // не трогаем, чтобы не погасить то, что человек ещё не видел скрытым.
+    for (int i = 0; i < m_rememberedVisibility.size() && i < m_model->seriesCount(); ++i)
+        m_model->setSeriesVisible(i, m_rememberedVisibility.at(i));
+    m_rememberedVisibility.clear();
 }
 
 int PlotterPanel::nameColumnNeeds() const
@@ -870,6 +917,15 @@ void PlotterPanel::reloadProfiles()
     } else {
         m_profiles->setCurrentIndex(-1);
     }
+    updateProfilePlaceholder();
+}
+
+void PlotterPanel::updateProfilePlaceholder()
+{
+    // Тот же кандидат, что addProfile() кладёт в диалог по умолчанию: имя устройства,
+    // если оно известно, иначе общая подсказка.
+    const QString alias = host()->interfaceAlias();
+    m_profiles->setPlaceholderText(alias.isEmpty() ? tr("unsaved profile") : alias);
 }
 
 PlotProfile PlotterPanel::currentProfile(const QString &name) const
