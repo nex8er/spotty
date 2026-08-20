@@ -10,6 +10,21 @@
       }
     },
     {
+      "name": "windows-base",
+      "hidden": true,
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "environment": {
+        "CMAKE_PREFIX_PATH": "$env{LOCALAPPDATA}/Qt/6.11.1/mingw_64;$penv{CMAKE_PREFIX_PATH}",
+        "CXX": "$env{LOCALAPPDATA}/Qt/Tools/mingw1310_64/bin/g++.exe",
+        "PATH": "$env{LOCALAPPDATA}/Qt/6.11.1/mingw_64/bin;$env{LOCALAPPDATA}/Qt/Tools/mingw1310_64/bin;$penv{PATH}"
+      }
+    },
+    {
       "name": "debug-dynamic",
       "inherits": "base",
       "displayName": "Debug — dynamic plugins",
@@ -69,6 +84,78 @@
         "SPOTTY_ENABLE_COVERAGE": "ON",
         "SPOTTY_STATIC_PLUGINS": "ON"
       }
+    },
+    {
+      "name": "windows-debug-dynamic",
+      "inherits": ["debug-dynamic", "windows-base"],
+      "displayName": "Windows Debug — dynamic plugins",
+      "description": "Debug build and tests with Qt 6.11.1 / MinGW 13.1 from the Qt Online Installer.",
+      "binaryDir": "${sourceDir}/build/windows-debug-dynamic",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "windows-release-dynamic",
+      "inherits": ["release-dynamic", "windows-base"],
+      "displayName": "Windows Release — dynamic plugins",
+      "description": "Release build with Qt 6.11.1 / MinGW 13.1 and separately loadable plugins.",
+      "binaryDir": "${sourceDir}/build/windows-release-dynamic",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "windows-release-static",
+      "inherits": ["release-static", "windows-base"],
+      "displayName": "Windows Release — static plugins",
+      "description": "Release build with Qt 6.11.1 / MinGW 13.1 and plugins linked into Spotty.",
+      "binaryDir": "${sourceDir}/build/windows-release-static",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "windows-package-dynamic",
+      "inherits": ["package-dynamic", "windows-base"],
+      "displayName": "Windows Package — dynamic plugins",
+      "description": "Windows release package with Qt 6.11.1 / MinGW 13.1 and plugin modules.",
+      "binaryDir": "${sourceDir}/build/windows-package-dynamic",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "windows-package-static",
+      "inherits": ["package-static", "windows-base"],
+      "displayName": "Windows Package — static plugins",
+      "description": "Windows release package with Qt 6.11.1 / MinGW 13.1 and plugins linked into Spotty.",
+      "binaryDir": "${sourceDir}/build/windows-package-static",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "windows-coverage",
+      "inherits": ["coverage", "windows-base"],
+      "displayName": "Windows Coverage",
+      "description": "Instrumented Windows debug tests with Qt 6.11.1 / MinGW 13.1.",
+      "binaryDir": "${sourceDir}/build/windows-coverage",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
     }
   ],
   "buildPresets": [
@@ -97,6 +184,33 @@
     {
       "name": "coverage",
       "configurePreset": "coverage",
+      "targets": ["coverage"]
+    },
+    {
+      "name": "windows-debug-dynamic",
+      "configurePreset": "windows-debug-dynamic"
+    },
+    {
+      "name": "windows-release-dynamic",
+      "configurePreset": "windows-release-dynamic"
+    },
+    {
+      "name": "windows-release-static",
+      "configurePreset": "windows-release-static"
+    },
+    {
+      "name": "windows-package-dynamic",
+      "configurePreset": "windows-package-dynamic",
+      "targets": ["spotty-package"]
+    },
+    {
+      "name": "windows-package-static",
+      "configurePreset": "windows-package-static",
+      "targets": ["spotty-package"]
+    },
+    {
+      "name": "windows-coverage",
+      "configurePreset": "windows-coverage",
       "targets": ["coverage"]
     }
   ]

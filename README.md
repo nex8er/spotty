@@ -3,7 +3,7 @@
 Модульный терминал-монитор портов. Кроссплатформенное десктопное приложение на C++20 и
 Qt 6, в котором плагинами добавляются и транспорты, и панели.
 
-**Версия:** 0.5.1a · **Состояние:** все этапы завершены
+**Версия:** 0.5.2a · **Состояние:** все этапы завершены
 
 ---
 
@@ -133,8 +133,11 @@ cmake --build build
 обычно нужно заменить на `/usr/local`.
 
 `CMakePresets.json` повторяет те же варианты для терминала и CMake Tools, но задачи от него
-не зависят: не нужно выбирать preset перед кнопкой сборки. Например,
-`cmake --preset release-static` эквивалентна задаче `$(layers) Static`.
+не зависят: не нужно выбирать preset перед кнопкой сборки. На macOS и Linux используются
+имена без префикса, например `cmake --preset release-static`. На Windows выбираются
+соответствующие `windows-*` варианты: они берут согласованную пару Qt 6.11.1 и MinGW 13.1
+из Qt Online Installer, не полагаясь на случайный компилятор из `PATH`. Например,
+`cmake --preset windows-release-static` эквивалентна задаче `$(layers) Static`.
 
 ### Профили отладки (F5)
 
@@ -227,6 +230,7 @@ cmake --build build-cov --target coverage
 ### Пакет для распространения
 
 ```bash
+# macOS и Linux
 # Плагины загружаются отдельными модулями.
 cmake --preset package-dynamic
 cmake --build --preset package-dynamic
@@ -236,11 +240,21 @@ cmake --preset package-static
 cmake --build --preset package-static
 ```
 
+```powershell
+# Windows: пресеты выбирают Qt 6.11.1 и MinGW 13.1 из Qt Online Installer.
+cmake --preset windows-package-dynamic
+cmake --build --preset windows-package-dynamic
+
+cmake --preset windows-package-static
+cmake --build --preset windows-package-static
+```
+
 Те же два действия в VS Code — `$(package) Pack dyn` и `$(package) Pack static`.
-Результат лежит соответственно в `build/package-dynamic/package/` и
-`build/package-static/package/`: образ `.dmg` на macOS, архив с библиотеками Qt на Windows
-и `.AppImage` на Linux. Динамический пакет содержит модули Spotty в `plugins/`; статический
-не требует их загрузки во время работы. При сборке релизного тега CI дополнительно кладёт
+Результат лежит в каталоге `package/` выбранного варианта: например,
+`build/package-static/package/` на macOS/Linux и
+`build/windows-package-static/package/` на Windows. Это образ `.dmg` на macOS, архив с
+библиотеками Qt на Windows и `.AppImage` на Linux. Динамический пакет содержит модули
+Spotty в `plugins/`; статический не требует их загрузки во время работы. При сборке релизного тега CI дополнительно кладёт
 для Windows `Spotty-*-Windows-x64-Setup.exe`: это Inno Setup-мастер с ярлыками, деинсталляцией
 и установкой нужного Microsoft Visual C++ Runtime. `.zip` остаётся портативным вариантом.
 

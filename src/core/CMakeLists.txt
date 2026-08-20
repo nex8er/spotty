@@ -9,6 +9,8 @@ add_library(spotty-core STATIC
     ChannelWorker.h
     HistoryStore.cpp
     HistoryStore.h
+    InterfaceEnumerationWorker.cpp
+    InterfaceEnumerationWorker.h
     InterfaceRegistry.cpp
     InterfaceRegistry.h
     PluginManager.cpp

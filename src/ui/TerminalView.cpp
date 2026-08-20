@@ -119,6 +119,14 @@ TerminalView::TerminalView(QWidget *parent)
     viewport()->setCursor(Qt::IBeamCursor);
     viewport()->setMouseTracking(true);
 
+    // paintEvent() рисует поверх viewport(), а не self, но WA_OpaquePaintEvent выше стоит
+    // на self. QAbstractScrollArea включает autoFillBackground именно у viewport(), и без
+    // тех же двух атрибутов на нём самом Qt перед каждым paintEvent() заливает его
+    // палитрой заново — на Windows этот лишний промежуточный кадр виден как мигание при
+    // перерисовке таймером 60 раз в секунду.
+    viewport()->setAttribute(Qt::WA_OpaquePaintEvent);
+    viewport()->setAutoFillBackground(false);
+
     // Своя полоса прокрутки — ради меток найденного в её дорожке.
     m_markerBar = new ScrollMarkerBar(this);
     setVerticalScrollBar(m_markerBar);
@@ -145,6 +153,9 @@ TerminalView::TerminalView(QWidget *parent)
     });
 
     horizontalScrollBar()->setSingleStep(m_charWidth * 4);
+    connect(m_markerBar, &QScrollBar::sliderMoved, this, &TerminalView::scrollInteraction);
+    connect(horizontalScrollBar(), &QScrollBar::sliderMoved, this,
+            &TerminalView::scrollInteraction);
 }
 
 TerminalView::~TerminalView() = default;
@@ -204,8 +215,11 @@ void TerminalView::wheelEvent(QWheelEvent *event)
     // Shift меняет направление прокрутки, как в редакторах: это особенно нужно для
     // длинных не переносящихся строк терминала. Ctrl сохраняет приоритет, чтобы
     // Ctrl+Shift+колесо не переставал менять кегль.
-    if (!event->modifiers().testFlag(Qt::ControlModifier)
-        && event->modifiers().testFlag(Qt::ShiftModifier)) {
+    const bool changesFont = event->modifiers().testFlag(Qt::ControlModifier);
+    if (!changesFont)
+        Q_EMIT scrollInteraction();
+
+    if (!changesFont && event->modifiers().testFlag(Qt::ShiftModifier)) {
         QScrollBar *bar = horizontalScrollBar();
         const QPoint pixelDelta = event->pixelDelta();
         const int pixels = pixelDelta.x() != 0 ? pixelDelta.x() : pixelDelta.y();
@@ -227,7 +241,7 @@ void TerminalView::wheelEvent(QWheelEvent *event)
     // Ctrl (на macOS Qt отображает сюда и Cmd) плюс колесо — общепринятый способ менять
     // кегль в терминалах и редакторах. Проверять раскладку не нужно: модификатор
     // приходит уже разобранным.
-    if (!event->modifiers().testFlag(Qt::ControlModifier)) {
+    if (!changesFont) {
         // Трекпад и «умные» мыши сообщают прокрутку в пикселях, а не щелчками колеса.
         // Штатная обработка переводит их в целые строки и теряет остаток, отчего плавное
         // движение пальцем идёт рывками по три строки. Копим остаток сами.
@@ -574,8 +588,16 @@ bool TerminalView::passesFilter(const TerminalBuffer::Line &line) const
 
     // Данные телеметрии вытесняют из вывода всё остальное — десятки строк в секунду.
     // Скрытые здесь, они остаются в буфере и достаются графику, поиску и журналу.
-    if (m_csvFilterEnabled && m_csvDetector.isDataLine(line.text))
+    //
+    // Решать только по уже завершённой строке поздно: реальный транспорт нередко отдаёт
+    // «12.5» и «,3\\n» разными чтениями. Первый кусок успевал появиться, второй делал его
+    // CSV, и строка исчезала прямо под взглядом. Потенциальное числовое начало держим до
+    // конца строки; сообщение показывается сразу, как только его текст CSV быть не может.
+    if (m_csvFilterEnabled
+        && ((!line.complete && m_csvDetector.isPotentialDataLine(line.text))
+            || m_csvDetector.isDataLine(line.text))) {
         return false;
+    }
 
     // Как и телеметрия: строка остаётся в буфере, её видят график, поиск и журнал —
     // прячется только показ в терминале.

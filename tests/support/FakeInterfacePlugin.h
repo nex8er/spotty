@@ -7,6 +7,8 @@
 #include <spotty/api/IInterfaceChannel.h>
 #include <spotty/api/IInterfacePlugin.h>
 
+#include <QAtomicInteger>
+
 namespace spotty::test {
 
 /**
@@ -108,7 +110,11 @@ public:
     QString pluginId() const override { return QStringLiteral("fake"); }
     QString displayName() const override { return QStringLiteral("Fake"); }
 
-    QList<InterfaceDescriptor> enumerate() const override { return devices; }
+    QList<InterfaceDescriptor> enumerate() const override
+    {
+        ++enumerationCount;
+        return devices;
+    }
 
     SettingsSchema settingsSchema() const override
     {
@@ -157,6 +163,15 @@ public:
 
     /// \brief Список устройств, которые «видит» плагин. Меняется прямо из теста.
     QList<InterfaceDescriptor> devices;
+
+    /**
+     * \brief Сколько раз реестр опросил плагин.
+     *
+     * Атомарный, а не простой int: InterfaceRegistry теперь зовёт enumerate() из
+     * фонового потока (InterfaceEnumerationWorker), а тест читает счётчик из своего —
+     * иначе гонка между инкрементом и чтением.
+     */
+    mutable QAtomicInteger<int> enumerationCount = 0;
 
     /// \brief Последний созданный канал; принадлежит вызывающей стороне.
     FakeChannel *lastChannel = nullptr;

@@ -17,6 +17,7 @@
 #include <QTimer>
 
 #include <algorithm>
+#include <utility>
 
 namespace spotty {
 
@@ -30,6 +31,11 @@ constexpr int kRateIntervalMs = 500;
 
 /// \brief Сколько ждать завершения потока ввода-вывода при закрытии, мс.
 constexpr int kThreadStopTimeoutMs = 3000;
+
+/// \brief Период разбора накопленных порций, мс; см. Session::processPendingIncoming().
+/// Тот же кадр, что и у перерисовки терминала — совпадение не случайно: раньше плотный
+/// поток забивал очередь событий UI-потока мелкими порциями быстрее этого кадра.
+constexpr int kIncomingBatchIntervalMs = 16;
 
 } // namespace
 
@@ -75,6 +81,11 @@ Session::Session(PluginManager *plugins, InterfaceRegistry *registry, QObject *p
         m_bytesAtLastTick = total;
         Q_EMIT statisticsChanged();
     });
+
+    m_incomingBatchTimer = new QTimer(this);
+    m_incomingBatchTimer->setSingleShot(true);
+    m_incomingBatchTimer->setInterval(kIncomingBatchIntervalMs);
+    connect(m_incomingBatchTimer, &QTimer::timeout, this, &Session::processPendingIncoming);
 }
 
 Session::~Session()
@@ -284,7 +295,10 @@ void Session::close()
         return;
     }
 
-    // Остаток пакетизатора выпускаем до закрытия, иначе последнее сообщение пропало бы.
+    // Сперва накопленные, ещё не разобранные порции (иначе они уедут в никуда вместе с
+    // остановленным потоком ввода-вывода), затем остаток пакетизатора — иначе последнее
+    // сообщение пропало бы.
+    flushPendingIncoming();
     handlePacketTimeout();
 
     destroyWorker();
@@ -316,6 +330,9 @@ void Session::send(const QByteArray &data)
 
 void Session::setSharedBuffer(TerminalBuffer *buffer, quint8 source)
 {
+    // Иначе то, что накопилось для старого #m_buffer, разберётся уже после подмены
+    // указателя и попадёт не туда.
+    flushPendingIncoming();
     m_buffer = buffer ? buffer : &m_ownBuffer;
     m_source = buffer ? source : 0;
 }
@@ -371,33 +388,59 @@ void Session::sendBreak(int milliseconds)
 
 void Session::handleIncoming(const QByteArray &data, qint64 monotonicNs)
 {
-    // Наблюдателям отдаём поток до пакетизации и до цепочки: журнал должен получить ровно
-    // то, что пришло по проводу, а не то, что из этого сделали плагины.
-    Q_EMIT dataLogged(data, DataDirection::Rx);
-    Q_EMIT dataReceived(data, monotonicNs);
+    m_pendingIncoming.append({data, monotonicNs});
+    if (!m_incomingBatchTimer->isActive())
+        m_incomingBatchTimer->start();
+}
 
-    QByteArray effective = data;
-    for (const FilterSlot &slot : std::as_const(m_filters)) {
-        effective = slot.filter->filterIncoming(effective, monotonicNs);
-        if (effective.isEmpty())
-            break;
-    }
-
-    // Порция проглочена целиком. Пакетизатору её отдавать нечего, а таймер паузы трогать
-    // нельзя: перезапуск отодвинул бы сброс уже накопленного пакета на лишний таймаут.
-    if (effective.isEmpty())
+void Session::processPendingIncoming()
+{
+    if (m_pendingIncoming.isEmpty())
         return;
 
-    const QList<Packetizer::Packet> packets = m_packetizer.feed(effective, monotonicNs);
-    for (const Packetizer::Packet &packet : packets)
-        m_buffer->append(packet.data, DataDirection::Rx, monotonicNs, packet.terminatesLine,
-                         m_source);
+    // Список освобождается сразу: если разбор одной из порций (через сигналы наружу)
+    // каким-то образом приведёт к новому handleIncoming(), она обязана попасть в
+    // следующий проход, а не потеряться и не разобраться дважды в этом же.
+    const QList<IncomingChunk> pending = std::exchange(m_pendingIncoming, {});
+
+    for (const IncomingChunk &chunk : pending) {
+        // Наблюдателям отдаём поток до пакетизации и до цепочки: журнал должен получить
+        // ровно то, что пришло по проводу, а не то, что из этого сделали плагины. Каждая
+        // порция — отдельным сигналом, как и раньше: LogWriter и подписчики dataReceived()
+        // не должны увидеть чужую склейку вместо границ настоящих чтений.
+        Q_EMIT dataLogged(chunk.data, DataDirection::Rx);
+        Q_EMIT dataReceived(chunk.data, chunk.monotonicNs);
+
+        QByteArray effective = chunk.data;
+        for (const FilterSlot &slot : std::as_const(m_filters)) {
+            effective = slot.filter->filterIncoming(effective, chunk.monotonicNs);
+            if (effective.isEmpty())
+                break;
+        }
+
+        // Порция проглочена целиком — пакетизатору её отдавать нечего.
+        if (effective.isEmpty())
+            continue;
+
+        const QList<Packetizer::Packet> packets = m_packetizer.feed(effective, chunk.monotonicNs);
+        for (const Packetizer::Packet &packet : packets)
+            m_buffer->append(packet.data, DataDirection::Rx, chunk.monotonicNs,
+                             packet.terminatesLine, m_source);
+    }
 
     // Ждать паузу имеет смысл только когда что-то накоплено и правило этого требует.
+    // Перезапуск одним разом на весь проход, а не после каждой порции внутри цикла, ведёт
+    // к тому же результату — таймер всё равно считает от последнего запуска, — но дешевле.
     if (m_packetizer.mode() == Packetizer::Mode::InterByteTimeout
         && m_packetizer.hasPending()) {
         m_packetTimer->start(m_packetizer.timeoutMs());
     }
+}
+
+void Session::flushPendingIncoming()
+{
+    m_incomingBatchTimer->stop();
+    processPendingIncoming();
 }
 
 void Session::handlePacketTimeout()

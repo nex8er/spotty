@@ -143,6 +143,17 @@ TEST(InterfaceRegistry, RepeatedRefreshDoesNotRepeatSignals)
     EXPECT_EQ(appearances, 0);
 }
 
+TEST(InterfaceRegistry, PollingIsDeferredWhileUserIsInteracting)
+{
+    Fixture fixture;
+    fixture.registry.start();
+    ASSERT_EQ(fixture.plugin.enumerationCount, 1);
+
+    fixture.registry.deferPolling(100);
+    EXPECT_FALSE(waitFor([&] { return fixture.plugin.enumerationCount > 1; }, 50));
+    EXPECT_TRUE(waitFor([&] { return fixture.plugin.enumerationCount > 1; }, 500));
+}
+
 TEST(InterfaceRegistry, ReappearanceIsReportedAgain)
 {
     Fixture fixture;

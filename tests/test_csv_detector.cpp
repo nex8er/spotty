@@ -65,3 +65,20 @@ TEST(CsvDetector, ScientificNotationCounts)
     CsvDetector detector;
     EXPECT_TRUE(detector.isDataLine(QStringLiteral("1.5e-3,2E4")));
 }
+
+TEST(CsvDetector, RecognisesIncompleteNumericPrefix)
+{
+    CsvDetector detector;
+    EXPECT_TRUE(detector.isPotentialDataLine(QStringLiteral("12.5")));
+    EXPECT_TRUE(detector.isPotentialDataLine(QStringLiteral("12.5,")));
+    EXPECT_TRUE(detector.isPotentialDataLine(QStringLiteral("12.5,3e-")));
+    EXPECT_TRUE(detector.isPotentialDataLine(QStringLiteral(" -0.5, 2")));
+}
+
+TEST(CsvDetector, RejectsMessagePrefixImmediately)
+{
+    CsvDetector detector;
+    EXPECT_FALSE(detector.isPotentialDataLine(QStringLiteral("sensor")));
+    EXPECT_FALSE(detector.isPotentialDataLine(QStringLiteral("12.5, status")));
+    EXPECT_FALSE(detector.isPotentialDataLine(QStringLiteral("1,,3")));
+}
