@@ -312,6 +312,27 @@ TEST(Session, StatisticsCountTraffic)
     EXPECT_EQ(fixture.session.statistics().bytesReceived, 6);
 }
 
+TEST(Session, DoesNotPublishStatisticsForEveryPacketWhileOpen)
+{
+    Fixture fixture;
+    ASSERT_TRUE(fixture.openDevice());
+
+    int notifications = 0;
+    QObject::connect(&fixture.session, &Session::statisticsChanged,
+                     [&] { ++notifications; });
+
+    // Изменения счётчика видны немедленно через statistics(), но пользовательский
+    // интерфейс получает их с частотой m_rateTimer. Иначе несколько пришедших подряд
+    // пакетов вынуждали бы статусную строку делать столько же отдельных раскладок.
+    fixture.session.buffer()->append(QByteArrayLiteral("first\n"), DataDirection::Rx,
+                                     0, /*terminatesLine=*/true);
+    fixture.session.buffer()->append(QByteArrayLiteral("second\n"), DataDirection::Rx,
+                                     0, /*terminatesLine=*/true);
+
+    EXPECT_EQ(fixture.session.statistics().bytesReceived, 13);
+    EXPECT_EQ(notifications, 0);
+}
+
 TEST(Session, FixedLengthPacketizerSplitsIncomingData)
 {
     Fixture fixture;

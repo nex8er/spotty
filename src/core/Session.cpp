@@ -46,10 +46,19 @@ Session::Session(PluginManager *plugins, InterfaceRegistry *registry, QObject *p
     connect(m_registry, &InterfaceRegistry::interfaceDisappeared,
             this, &Session::onInterfaceDisappeared);
 
-    // Подписка на собственный буфер. Общий, если он появится, принадлежит окну — оно и
-    // связывает его сигналы, иначе две сессии докладывали бы об одном и том же дважды.
+    // Пока канал открыт, статистику уже публикует m_rateTimer раз в полсекунды. Прямая
+    // ретрансляция каждого изменения буфера заставляла строку состояния пересчитывать
+    // раскладку на каждый пакет; на Windows при плотном потоке это отнимало время у
+    // терминала и усиливало дрожание viewport. В неактивном сеансе единственное изменение
+    // (например, загрузка истории) по-прежнему сообщается сразу.
+    //
+    // Подписка только на собственный буфер: общий принадлежит окну, иначе две сессии
+    // докладывали бы об одном и том же дважды.
     connect(&m_ownBuffer, &TerminalBuffer::statisticsChanged,
-            this, &Session::statisticsChanged);
+            this, [this] {
+                if (!m_rateTimer->isActive())
+                    Q_EMIT statisticsChanged();
+            });
 
     m_packetTimer = new QTimer(this);
     m_packetTimer->setSingleShot(true);

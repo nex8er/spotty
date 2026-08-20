@@ -93,16 +93,12 @@ function(_spotty_package_windows target)
     set(staging_root "${CMAKE_BINARY_DIR}/staging")
     set(staging "${staging_root}/Spotty")
 
-    # --no-compiler-runtime верен для MSVC (CI собирает win64_msvc2022_64): на целевой
-    # машине почти всегда уже стоит редистрибутив, и тащить его копию незачем. Для MinGW
-    # это предположение неверно — libgcc/libstdc++/libwinpthread в Windows не входят и
-    # никаким установщиком заранее не кладутся, так что без них exe не запустится вообще,
-    # с тем же эффектом, что отсутствующие Qt6*.dll. windeployqt сам находит и копирует
-    # эти три DLL рядом с исполняемым файлом, если флаг не мешает.
-    set(_deploy_args --release)
-    if(NOT MINGW)
-        list(APPEND _deploy_args --no-compiler-runtime)
-    endif()
+    # Компиляторный runtime кладём в staging явно. В Qt это поведение включено и без
+    # флага, но явный --compiler-runtime защищает выпуск от смены умолчаний windeployqt.
+    # В MSVC это официальный vc_redist.x64.exe, который Inno Setup запускает до первого
+    # старта Spotty; в MinGW — нужные DLL GCC рядом с приложением. Иначе чистая Windows
+    # получала бы тот же "DLL not found", что и при неполном развёртывании Qt.
+    set(_deploy_args --release --compiler-runtime)
 
     add_custom_command(TARGET spotty-package POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${staging}"

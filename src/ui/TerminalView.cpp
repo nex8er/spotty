@@ -139,6 +139,8 @@ TerminalView::TerminalView(QWidget *parent)
     m_repaintTimer->setInterval(kRepaintIntervalMs);
     connect(m_repaintTimer, &QTimer::timeout, this, [this] {
         updateScrollBars();
+        if (m_followTail)
+            verticalScrollBar()->setValue(verticalScrollBar()->maximum());
         viewport()->update();
     });
 
@@ -915,6 +917,18 @@ int TerminalView::gutterWidth() const
 
 void TerminalView::scheduleMarkerUpdate()
 {
+    // Когда ни поиск, ни правила подсветки не включены, у дорожки нет полезных меток.
+    // Не запускать в этом состоянии таймер раз в четверть секунды: на высоком потоке он
+    // будил главный цикл и перерисовывал scrollbar лишь из-за роста общего числа строк.
+    // При выключении последней причины заодно очищаем старые метки один раз.
+    if (!m_searchActive && m_highlightRules.isEmpty()) {
+        if (m_markerTimer)
+            m_markerTimer->stop();
+        if (m_markerBar)
+            m_markerBar->setMarkers({}, 0);
+        return;
+    }
+
     // Отложенно и с объединением: обход буфера дорог, а поводов пересчитать метки много —
     // новые строки, смена образца поиска, правка правил подсветки. Одиночный таймер
     // сводит очередь поводов к одному обходу.
@@ -1030,12 +1044,10 @@ void TerminalView::onLinesAppended(qint64 firstLineNumber, qint64 count)
 
     syncVisible();
 
-    if (m_followTail) {
-        const int visibleRows = qMax(1, viewport()->height() / m_lineHeight);
-        verticalScrollBar()->setRange(0, int(qMax(qint64(0), m_totalRows - visibleRows)));
-        verticalScrollBar()->setValue(verticalScrollBar()->maximum());
-    }
-
+    // Скроллбар и переход в хвост делаются одним кадром в таймере перерисовки. При потоке
+    // отдельных строк прежний путь вызывал scrollContentsBy() для каждой из них: Windows
+    // успевал прокрутить viewport несколько раз до следующего paintEvent(), отчего строки
+    // дрожали на одну-две позиции и интерфейс тратил время на промежуточные кадры.
     scheduleRepaint();
 }
 
@@ -1046,9 +1058,6 @@ void TerminalView::onLineUpdated(qint64 lineNumber)
         return;
 
     syncVisible();
-
-    if (m_followTail)
-        verticalScrollBar()->setValue(verticalScrollBar()->maximum());
 
     scheduleRepaint();
 }

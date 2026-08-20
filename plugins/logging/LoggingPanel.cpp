@@ -358,7 +358,14 @@ LoggingPanel::LoggingPanel(IPanelHost *panelHost, QWidget *parent)
         host()->setValue(QLatin1String(kKeyCsvMode), m_csvMode->currentData().toInt());
     });
     connect(host(), &IPanelHost::terminalLinesAppended, this,
-            [this](qint64, qint64) { updateRecordingUi(); });
+            [this](qint64, qint64) {
+                // После первой строки кнопка снимка становится доступной и больше не
+                // требует работы. updateRecordingUi() меняет иконки, подписи, таймер и
+                // раскладку; звать его на каждой строке скрытой панели означало бы
+                // отнимать кадры у терминала без видимого результата.
+                if (!m_saveBufferButton->isEnabled())
+                    m_saveBufferButton->setEnabled(true);
+            });
     connect(m_files, &QWidget::customContextMenuRequested, this, &LoggingPanel::showFileMenu);
 
     // Точки в надписи бегут, пока идёт запись. Статичная надпись «Идёт запись» не
