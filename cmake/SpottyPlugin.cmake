@@ -49,6 +49,9 @@ function(spotty_add_plugin target)
         qt_add_plugin(${target} SHARED CLASS_NAME ${ARG_CLASS_NAME})
         set_target_properties(${target} PROPERTIES
             LIBRARY_OUTPUT_DIRECTORY "${SPOTTY_PLUGIN_OUTPUT_DIR}")
+        # Упаковщик получает именно цели, а не поиск по маске в каталоге сборки: так в
+        # распространяемый комплект не попадут старые модули от удалённого плагина.
+        set_property(GLOBAL APPEND PROPERTY SPOTTY_DYNAMIC_PLUGIN_TARGETS ${target})
     endif()
 
     target_sources(${target} PRIVATE ${ARG_SOURCES})

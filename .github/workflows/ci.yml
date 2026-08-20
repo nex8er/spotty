@@ -268,6 +268,39 @@ jobs:
         run: cmake --build build --target spotty-package
         shell: bash
 
+      - name: Build installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+          if ($null -eq $iscc) {
+            choco install innosetup --yes --no-progress
+            $fallback = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+            if (-not (Test-Path $fallback)) {
+              throw 'Inno Setup was installed but ISCC.exe was not found.'
+            }
+            $isccPath = $fallback
+          } else {
+            $isccPath = $iscc.Source
+          }
+
+          $sourceDir = (Resolve-Path 'build/staging/Spotty').Path
+          $packageDir = (Resolve-Path 'build/package').Path
+          $vcredist = Join-Path $sourceDir 'vc_redist.x64.exe'
+          if (-not (Test-Path $vcredist)) {
+            if ([string]::IsNullOrEmpty($env:VCToolsRedistDir)) {
+              throw 'windeployqt did not provide vc_redist.x64.exe and VCToolsRedistDir is empty.'
+            }
+            $redist = Get-ChildItem -Path $env:VCToolsRedistDir -Filter 'vc_redist.x64.exe' -Recurse | Select-Object -First 1
+            if ($null -eq $redist) {
+              throw 'vc_redist.x64.exe was not found in the MSVC redistributable directory.'
+            }
+            Copy-Item $redist.FullName $vcredist
+          }
+
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          & $isccPath "/DSourceDir=$sourceDir" "/DMyAppVersion=$version" "/O$packageDir" "/FSpotty-$version-Windows-x64-Setup" 'installer/Spotty.iss'
+
       - uses: actions/upload-artifact@v4
         with:
           name: spotty-${{ matrix.name }}
@@ -344,7 +377,8 @@ jobs:
           body: |
             ## Запуск
 
-            - **Windows** — распаковать `.zip`, запустить `spotty.exe`.
+            - **Windows** — скачать `Spotty-*-Windows-x64-Setup.exe` и пройти мастер
+              установки. `.zip` оставлен как портативный вариант без установки.
             - **macOS** — открыть `.dmg`, перетащить `Spotty.app` в Applications. Подпись
               ad-hoc: Gatekeeper при первом запуске предупредит о неизвестном
               разработчике — открыть через правый клик → «Открыть».

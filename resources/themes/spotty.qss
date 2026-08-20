@@ -273,13 +273,33 @@ QLineEdit > QToolButton {
     margin: 0;
 }
 
-/* Справа — запас под стрелки, как у QComboBox: без него длинное значение уезжает под
-   кнопки увеличения и уменьшения, и последняя цифра оказывается наполовину закрыта.
-   QDoubleSpinBox обязан идти тем же правилом: числовая точность не должна менять вид поля. */
+/* Справа — небольшой просвет перед стрелками: без него длинное значение визуально липнет
+   к кнопкам увеличения и уменьшения. Сама зона стрелок уже исключена Fusion из редактора;
+   повторно резервировать её здесь нельзя — это только отнимает место у текста.
+   QDoubleSpinBox обязан идти тем же правилом: числовая точность не должна менять вид поля.
+
+   Высоту корпуса выравнивает FusionStyle::polish(): в QSS одного min-height недостаточно,
+   потому что QFormLayout читает встроенный minimumSizeHint виджета. */
 QSpinBox,
 QDoubleSpinBox {
-    padding: @padV 18px @padV 6px;
+    padding: @padV @spinRightPadding @padV 6px;
     min-height: @controlHeight;
+}
+
+/* У счётчика свой корпус с рамкой и отступами, но его редактор — тоже QLineEdit. Общее
+   правило QLineEdit выше назначало вложенному редактору вторую минимальную высоту вместе
+   с отступами; Qt складывал её с геометрией счётчика, из-за чего каждый QSpinBox выходил
+   выше обычного поля. Внутренний редактор должен занимать только место, отведённое
+   корпусом: цвет выделения он наследует из общего правила, а рамку и размеры получает
+   исключительно внешний QSpinBox. */
+QSpinBox > QLineEdit,
+QDoubleSpinBox > QLineEdit {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
 }
 
 QComboBox {
@@ -366,14 +386,14 @@ QComboBox::down-arrow:on {
  * появляется приклеенный к краю прямоугольник вместо подсвеченной кнопки. Отсчёт от
  * padding держит заливку строго внутри рамки.
  *
- * Ширина совпадает с правым отступом QSpinBox и QDoubleSpinBox: две кнопки ровно занимают
- * место, которое там для них и отведено. */
+ * Правый отступ редактора отделяет значение от кнопок на 4 px. Ширину самих кнопок Fusion
+ * уже исключает из области редактора, поэтому резервировать её здесь повторно нельзя. */
 QSpinBox::up-button,
 QSpinBox::down-button,
 QDoubleSpinBox::up-button,
 QDoubleSpinBox::down-button {
     subcontrol-origin: padding;
-    width: 20px;
+    width: @spinButtonWidth;
     height: @spinButton;
     border: none;
     background: transparent;
@@ -582,6 +602,8 @@ QAbstractItemView QComboBox {
 QAbstractItemView QSpinBox,
 QAbstractItemView QDoubleSpinBox {
     padding: 0 20px 0 4px;
+    /* Редактор в таблице обязан подчиняться высоте строки, а не обычному полю. */
+    max-height: 16777215px;
 }
 
 QAbstractItemView QToolButton {
