@@ -137,6 +137,75 @@ TEST(PanelRegistry, PluginWithoutPanelsIsStillAccepted)
     EXPECT_TRUE(registry.panels().isEmpty());
 }
 
+// --- Выключение плагинов ------------------------------------------------------------
+
+TEST(PanelRegistryDisable, DisabledPluginIsSkippedWithoutFailure)
+{
+    PanelPluginRegistry registry;
+    registry.setDisabledPlugins({QStringLiteral("fake")});
+
+    FakePanelPlugin plugin;
+    plugin.declaredPanels = {makePanel(QStringLiteral("a"))};
+
+    EXPECT_FALSE(registry.addBuiltin(&plugin));
+    EXPECT_TRUE(registry.plugins().isEmpty());
+
+    // Панели выключенного не существует: её не строили и адреса для activatePanel() у неё
+    // нет. Показывать её в списке значило бы обещать то, чего в программе нет.
+    EXPECT_TRUE(registry.panels().isEmpty());
+
+    // И это не отказ: в failures() ищут причину, по которой плагин пропал сам собой.
+    EXPECT_TRUE(registry.failures().isEmpty());
+}
+
+TEST(PanelRegistryDisable, DisabledPluginIsOfferedForReenabling)
+{
+    PanelPluginRegistry registry;
+    registry.setDisabledPlugins({QStringLiteral("fake")});
+
+    FakePanelPlugin plugin;
+    registry.addBuiltin(&plugin);
+
+    ASSERT_EQ(registry.disabledPanelPlugins().size(), 1);
+    EXPECT_EQ(registry.disabledPanelPlugins().first(), &plugin);
+}
+
+TEST(PanelRegistryDisable, DisabledIdIsFreeForOthers)
+{
+    PanelPluginRegistry registry;
+    registry.setDisabledPlugins({QStringLiteral("off")});
+
+    FakePanelPlugin disabled(QStringLiteral("off"));
+    FakePanelPlugin enabled(QStringLiteral("on"));
+    enabled.declaredPanels = {makePanel(QStringLiteral("a"))};
+
+    EXPECT_FALSE(registry.addBuiltin(&disabled));
+    EXPECT_TRUE(registry.addBuiltin(&enabled));
+    EXPECT_EQ(registry.plugins().size(), 1);
+    EXPECT_EQ(registry.panels().size(), 1);
+}
+
+TEST(PanelRegistryDisable, DisabledPluginIsHonouredOnTheScanPath)
+{
+    PluginManager manager;
+    FakePanelPlugin plugin;
+    plugin.declaredPanels = {makePanel(QStringLiteral("a"))};
+
+    // Менеджер выносит приговор своей роли сразу (панель ему чужая) — но экземпляр всё
+    // равно попадает в instances(), откуда его и берёт реестр. Это тот же путь, которым
+    // идёт настоящая загрузка из каталога.
+    manager.addPlugin(&plugin, QStringLiteral("<test>"));
+
+    PanelPluginRegistry panels(&manager);
+    panels.setDisabledPlugins({QStringLiteral("fake")});
+    panels.load();
+
+    ASSERT_EQ(panels.disabledPanelPlugins().size(), 1);
+    EXPECT_TRUE(panels.plugins().isEmpty());
+    EXPECT_TRUE(panels.panels().isEmpty());
+    EXPECT_TRUE(panels.failures().isEmpty());
+}
+
 // --- Две фазы загрузки --------------------------------------------------------------
 
 TEST(TwoPhaseLoading, InterfacePluginIsNotReportedAsUnrecognized)

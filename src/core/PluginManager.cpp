@@ -13,6 +13,8 @@
 #include <QLoggingCategory>
 #include <QPluginLoader>
 
+#include <algorithm>
+
 namespace spotty {
 
 /// \brief Категория журналирования: `spotty.plugins`.
@@ -25,6 +27,11 @@ PluginManager::PluginManager(QObject *parent)
 
 PluginManager::~PluginManager() = default;
 
+void PluginManager::setDisabledPlugins(const QStringList &pluginIds)
+{
+    m_disabledIds = pluginIds;
+}
+
 void PluginManager::load()
 {
     if (m_loaded)
@@ -35,7 +42,8 @@ void PluginManager::load()
     loadDynamicPlugins();
 
     qCInfo(lcPlugins) << "found" << m_instances.size() << "instance(s),"
-                      << m_plugins.size() << "interface plugin(s)";
+                      << m_plugins.size() << "interface plugin(s),"
+                      << m_disabled.size() << "disabled";
 }
 
 void PluginManager::markRecognized(QObject *instance)
@@ -156,6 +164,26 @@ bool PluginManager::registerInstance(QObject *instance, const QString &origin,
     const QString id = plugin->pluginId();
     if (id.isEmpty()) {
         m_failures.append({origin, tr("Plugin reports an empty id.")});
+        return false;
+    }
+
+    if (m_disabledIds.contains(id)) {
+        // Не отказ и не ошибка: пользователь выключил плагин сам. В failures() ему не
+        // место — там ищут причину, по которой плагин пропал сам собой, и выключенное
+        // вручную только мешало бы. Объект сохраняется, чтобы диалогу настроек было чем
+        // подписать флажок для обратного включения.
+        //
+        // Тот же плагин может лежать в двух каталогах сразу — включённому второй экземпляр
+        // отсекает проверка повтора ниже, до которой выключенный не доходит. Без этой
+        // проверки в диалоге настроек появилась бы вторая строка с тем же флажком.
+        const bool known = std::any_of(m_disabled.cbegin(), m_disabled.cend(),
+                                       [&id](IInterfacePlugin *other) {
+                                           return other->pluginId() == id;
+                                       });
+        if (!known)
+            m_disabled.append(plugin);
+
+        qCInfo(lcPlugins) << "disabled" << id << "from" << origin;
         return false;
     }
 

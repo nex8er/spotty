@@ -70,6 +70,7 @@ TEST(AppSettings, RoundTripThroughStore)
     // остаются в буфере и достаются плагинам.
     original.hiddenSources = 0b10;
     original.shortcuts.insert(QStringLiteral("terminal.clear"), QStringLiteral("Ctrl+K"));
+    original.disabledPlugins = {QStringLiteral("jsongen"), QStringLiteral("plotter")};
 
     {
         SettingsStore store(path);
@@ -107,6 +108,45 @@ TEST(AppSettings, RoundTripThroughStore)
     EXPECT_EQ(restored.packetizerDelimiterHex, original.packetizerDelimiterHex);
     EXPECT_EQ(restored.packetizerFixedLength, original.packetizerFixedLength);
     EXPECT_EQ(restored.shortcuts, original.shortcuts);
+    EXPECT_EQ(restored.disabledPlugins, original.disabledPlugins);
+}
+
+TEST(AppSettings, VirtualSourcesAreDisabledOutOfTheBox)
+{
+    TempDir dir;
+    SettingsStore store(dir.filePath(QStringLiteral("settings.json")));
+
+    const AppSettings settings = AppSettings::load(store);
+
+    // Три виртуальных источника написаны для отладки панелей без железа и стоят в списке
+    // интерфейсов вперемешку с настоящими портами. Кому они нужны, тот включает их сам.
+    EXPECT_TRUE(settings.disabledPlugins.contains(QStringLiteral("loopback")));
+    EXPECT_TRUE(settings.disabledPlugins.contains(QStringLiteral("signalgen")));
+    EXPECT_TRUE(settings.disabledPlugins.contains(QStringLiteral("jsongen")));
+    EXPECT_EQ(settings.disabledPlugins.size(), 3);
+}
+
+TEST(AppSettings, EnablingEveryPluginSurvivesSaving)
+{
+    TempDir dir;
+    const QString path = dir.filePath(QStringLiteral("settings.json"));
+
+    AppSettings settings;
+    settings.disabledPlugins.clear();
+
+    {
+        SettingsStore store(path);
+        settings.save(store);
+        ASSERT_TRUE(store.save());
+    }
+
+    SettingsStore reloaded(path);
+    ASSERT_TRUE(reloaded.load());
+
+    // Пустой список — это решение пользователя «пусть работают все», а не отсутствие
+    // настройки. Подставить сюда умолчание значило бы включать генераторы обратно при
+    // каждом запуске, отменяя снятый флажок.
+    EXPECT_TRUE(AppSettings::load(reloaded).disabledPlugins.isEmpty());
 }
 
 TEST(AppSettings, EmptyPaletteMeansFollowTheme)

@@ -1194,8 +1194,8 @@ void MainWindow::showSettingsDialog()
 
     if (restartNeeded) {
         QMessageBox::information(this, tr("Settings"),
-                                 tr("The language and single-instance settings take effect "
-                                    "after Spotty is restarted."));
+                                 tr("The language, single-instance and enabled-plugin "
+                                    "settings take effect after Spotty is restarted."));
     }
 }
 

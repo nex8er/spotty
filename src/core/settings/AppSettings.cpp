@@ -50,6 +50,12 @@ constexpr auto kPacketizerTimeout = "data/packetizerTimeoutMs";
 constexpr auto kPacketizerDelimiter = "data/packetizerDelimiterHex";
 constexpr auto kPacketizerLength = "data/packetizerFixedLength";
 
+// Не под plugins/: там лежат поддеревья настроек самих плагинов, по одному на
+// идентификатор, и список среди них однажды совпал бы с плагином по имени. Прочитанное
+// тогда оказалось бы картой вместо списка, все плагины молча включились бы, и найти
+// причину было бы не по чему.
+constexpr auto kDisabledPlugins = "general/disabledPlugins";
+
 constexpr auto kShortcuts = "shortcuts";
 
 } // namespace
@@ -112,6 +118,9 @@ AppSettings AppSettings::load(const SettingsStore &store)
     settings.packetizerFixedLength =
         store.value(QLatin1String(kPacketizerLength), settings.packetizerFixedLength).toInt();
 
+    settings.disabledPlugins =
+        store.value(QLatin1String(kDisabledPlugins), settings.disabledPlugins).toStringList();
+
     const QVariantMap shortcuts = store.value(QLatin1String(kShortcuts)).toMap();
     for (auto it = shortcuts.constBegin(); it != shortcuts.constEnd(); ++it)
         settings.shortcuts.insert(it.key(), it.value().toString());
@@ -155,6 +164,8 @@ void AppSettings::save(SettingsStore &store) const
     store.setValue(QLatin1String(kPacketizerTimeout), packetizerTimeoutMs);
     store.setValue(QLatin1String(kPacketizerDelimiter), packetizerDelimiterHex);
     store.setValue(QLatin1String(kPacketizerLength), packetizerFixedLength);
+
+    store.setValue(QLatin1String(kDisabledPlugins), disabledPlugins);
 
     QVariantMap shortcutMap;
     for (auto it = shortcuts.constBegin(); it != shortcuts.constEnd(); ++it)

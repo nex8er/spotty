@@ -40,7 +40,8 @@ void PanelPluginRegistry::load()
     }
 
     qCInfo(lcPanels) << "loaded" << m_plugins.size() << "panel plugin(s),"
-                     << m_panels.size() << "panel(s)," << m_failures.size() << "rejected";
+                     << m_panels.size() << "panel(s)," << m_disabled.size() << "disabled,"
+                     << m_failures.size() << "rejected";
 }
 
 bool PanelPluginRegistry::addBuiltin(IPanelPlugin *plugin, const QString &origin)
@@ -62,6 +63,19 @@ bool PanelPluginRegistry::registerPlugin(IPanelPlugin *plugin, const QString &or
     const QString id = plugin->pluginId();
     if (id.isEmpty()) {
         m_failures.append({origin, tr("Panel plugin reports an empty id.")});
+        return false;
+    }
+
+    if (m_disabledIds.contains(id)) {
+        // Пользователь выключил панель сам — в failures() этому не место, там ищут
+        // причину, по которой плагин пропал без спросу. Объект сохраняется: диалогу
+        // настроек нужно чем-то подписать флажок обратного включения. Проверка повтора
+        // своя: до общей, что ниже, выключенный плагин не доходит, а лежать в двух
+        // каталогах сразу он может — и дал бы в диалоге две строки с одним флажком.
+        if (!disabledPlugin(id))
+            m_disabled.append(plugin);
+
+        qCInfo(lcPanels) << "disabled" << id << "from" << origin;
         return false;
     }
 
@@ -106,6 +120,15 @@ bool PanelPluginRegistry::registerPlugin(IPanelPlugin *plugin, const QString &or
 
     qCInfo(lcPanels) << "loaded" << id << "with" << pending.size() << "panel(s) from" << origin;
     return true;
+}
+
+IPanelPlugin *PanelPluginRegistry::disabledPlugin(const QString &pluginId) const
+{
+    for (IPanelPlugin *plugin : m_disabled) {
+        if (plugin->pluginId() == pluginId)
+            return plugin;
+    }
+    return nullptr;
 }
 
 void PanelPluginRegistry::sortPanels()

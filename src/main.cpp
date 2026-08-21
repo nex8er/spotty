@@ -132,12 +132,16 @@ int main(int argc, char *argv[])
     spotty::EmbeddedFonts::initialize();
 
     spotty::PluginManager plugins;
+    // Список выключенных отдаётся обоим реестрам ролей, и обоим по отдельности: роль
+    // плагина к этому моменту ещё не разобрана, а один объект вправе играть обе.
+    plugins.setDisabledPlugins(appSettings.disabledPlugins);
     plugins.load();
 
     // Вторая фаза: панельную роль разбирает реестр из слоя UI — панельный SDK линкуется с
     // Qt6::Widgets, и ядру он недоступен. Макросы, журнал, поиск и генератор приходят тем
     // же путём, что и сторонние: они обычные плагины и ничем не привилегированы.
     spotty::PanelPluginRegistry panels(&plugins);
+    panels.setDisabledPlugins(appSettings.disabledPlugins);
     panels.load();
 
     // Только теперь отчёт о загрузке полон: до этого момента плагин чужой роли выглядел

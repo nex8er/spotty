@@ -335,8 +335,10 @@ TRANSLATIONS = {
     "Only one running copy of Spotty": "Только одна работающая копия Spotty",
     "Starting Spotty again raises the existing window instead of opening a second one.":
         "Повторный запуск покажет уже открытое окно вместо второго.",
-    "The language and single-instance settings take effect after Spotty is restarted.":
-        "Язык и режим единственного экземпляра вступят в силу после перезапуска Spotty.",
+    "The language, single-instance and enabled-plugin settings take effect after "
+    "Spotty is restarted.":
+        "Язык, режим единственного экземпляра и набор включённых плагинов вступят в силу "
+        "после перезапуска Spotty.",
     "Reset": "Сброс",
     "Erases all settings, remembered interfaces and the send history. Cannot be undone.":
         "Стирает все настройки, запомненные интерфейсы и историю отправки. Действие "
@@ -796,6 +798,12 @@ TRANSLATIONS = {
     "Panels and data": "Панели и обработка данных",
     "Rejected": "Отклонены",
     "Searched directories": "Просмотренные каталоги",
+    "Clearing a checkbox keeps the plugin out of the next start: a disabled interface "
+    "plugin offers no devices, a disabled panel plugin builds no panels. Takes effect "
+    "after restarting Spotty.":
+        "Снятый флажок оставит плагин за бортом следующего запуска: выключенный плагин "
+        "интерфейса не предложит ни одного устройства, выключенный плагин панели не "
+        "построит ни одной панели. Вступает в силу после перезапуска Spotty.",
     "None — plugins are built into the executable.":
         "Нет — плагины вкомпилированы в исполняемый файл.",
     "Not a Spotty plugin of any known kind.": "Не плагин Spotty ни одного известного вида.",
