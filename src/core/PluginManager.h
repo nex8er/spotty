@@ -50,6 +50,17 @@ class IInterfacePlugin;
  * кода из-под живого QObject — гарантированное падение при первом же обращении к
  * виртуальному методу или при доставке отложенного сигнала.
  *
+ * \par Выключенные плагины
+ *
+ * setDisabledPlugins() задаёт идентификаторы, которые не регистрировать. Такой плагин
+ * объект всё равно создаёт — идентификатор известен только у созданного, — но в plugins()
+ * не попадает и отказом не считается: он лежит в disabledInterfacePlugins(), откуда диалог
+ * настроек берёт его имя, чтобы было что включать обратно.
+ *
+ * От проверки версии API выключение не избавляет: она идёт первой, потому что pluginId()
+ * у плагина, собранного против чужой версии, вызывать нельзя — а без идентификатора
+ * сверять список не с чем.
+ *
  * \par Проверки при загрузке
  *
  * Отклоняется всё, что:
@@ -89,6 +100,24 @@ public:
 
     explicit PluginManager(QObject *parent = nullptr);
     ~PluginManager() override;
+
+    /**
+     * \brief Задать плагины, которые не загружать.
+     * \param pluginIds Значения IInterfacePlugin::pluginId(), которые нужно пропустить.
+     *
+     * \note Вызывать до load(): после неё список ни на что не влияет — выгрузить
+     *       загруженный плагин нельзя, и включение выключенного тоже требует перезапуска.
+     */
+    void setDisabledPlugins(const QStringList &pluginIds);
+
+    /// \return Идентификаторы, переданные в setDisabledPlugins().
+    const QStringList &disabledPlugins() const { return m_disabledIds; }
+
+    /**
+     * \return Плагины интерфейсов, пропущенные как выключенные. Владение — как у
+     *         plugins().
+     */
+    const QList<IInterfacePlugin *> &disabledInterfacePlugins() const { return m_disabled; }
 
     /**
      * \brief Найти и загрузить плагины.
@@ -140,7 +169,8 @@ public:
      * \brief Зарегистрировать уже созданный экземпляр плагина.
      * \param instance QObject, реализующий spotty::IInterfacePlugin.
      * \param origin Откуда он взялся — попадает в сообщение об отказе.
-     * \return `false`, если экземпляр отклонён; причина добавляется в failures().
+     * \return `false`, если экземпляр отклонён или выключен; причина отказа добавляется
+     *         в failures(), выключение — нет: это не отказ.
      *
      * Тот же путь, которым регистрируются вкомпилированные плагины: проверки версии API,
      * пустого и повторяющегося идентификатора выполняются полностью. Публичным сделан
@@ -179,7 +209,9 @@ private:
      */
     bool registerInstance(QObject *instance, const QString &origin, bool deferUnrecognized);
 
-    QList<IInterfacePlugin *> m_plugins; ///< Плагины интерфейсов.
+    QList<IInterfacePlugin *> m_plugins;  ///< Плагины интерфейсов.
+    QList<IInterfacePlugin *> m_disabled; ///< Выключенные пользователем.
+    QStringList m_disabledIds;            ///< Идентификаторы выключенных.
     QList<LoadedInstance> m_instances;   ///< Всё загруженное, для разбора ролей.
     QList<LoadFailure> m_failures;       ///< Отклонённые файлы.
     QStringList m_searchedDirs;          ///< Обойденные каталоги.

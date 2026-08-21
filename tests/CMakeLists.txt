@@ -63,6 +63,7 @@ spotty_add_test(spotty-tests
         test_plot_profile.cpp
         test_json_framer.cpp
         test_json_tree_model.cpp
+        test_plugin_manager.cpp
         test_interface_registry.cpp
         test_session.cpp
         test_data_filter.cpp

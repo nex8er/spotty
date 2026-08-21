@@ -11,6 +11,7 @@
 
 #include <QList>
 #include <QString>
+#include <QStringList>
 
 namespace spotty {
 
@@ -24,6 +25,15 @@ namespace spotty {
  * в `spotty-core`, где виджеты запрещены. Поэтому менеджер обходит каталоги и отдаёт
  * созданные объекты через instances(), а роль разбирается здесь — в слое UI, которому
  * виджеты позволены.
+ *
+ * \par Выключенные плагины
+ *
+ * setDisabledPlugins() задаёт идентификаторы, которые не регистрировать. Список тот же,
+ * что у spotty::PluginManager, но задаётся отдельно: реестр не должен наследовать чужую
+ * политику молча, а собранным без менеджера (addBuiltin()) взять её и вовсе неоткуда.
+ *
+ * Выключение — не отказ: такой плагин лежит в disabledPanelPlugins(), откуда диалог
+ * настроек берёт его имя для флажка обратного включения, а его панели не создаются вовсе.
  *
  * \par Проверки
  *
@@ -66,13 +76,28 @@ public:
 
     /**
      * \brief Добавить плагин, вкомпилированный в приложение напрямую.
-     * \return `false`, если плагин отклонён; причина добавляется в failures().
+     * \return `false`, если плагин отклонён или выключен; причина отказа добавляется в
+     *         failures(), выключение — нет: это не отказ.
      *
      * Минует менеджер: встроенной панели незачем притворяться загруженной из файла.
      * Проверки выполняются те же.
      */
     bool addBuiltin(IPanelPlugin *plugin,
                     const QString &origin = QStringLiteral("<builtin>"));
+
+    /**
+     * \brief Задать плагины, которые не регистрировать.
+     * \param pluginIds Значения IPanelPlugin::pluginId(), которые нужно пропустить.
+     *
+     * \note Вызывать до load() и до addBuiltin(): позже список ни на что не влияет.
+     */
+    void setDisabledPlugins(const QStringList &pluginIds) { m_disabledIds = pluginIds; }
+
+    /// \return Идентификаторы, переданные в setDisabledPlugins().
+    const QStringList &disabledPlugins() const { return m_disabledIds; }
+
+    /// \return Панельные плагины, пропущенные как выключенные. Их панели не создавались.
+    const QList<IPanelPlugin *> &disabledPanelPlugins() const { return m_disabled; }
 
     const QList<IPanelPlugin *> &plugins() const { return m_plugins; }
 
@@ -91,11 +116,16 @@ private:
     /// \brief Проверить плагин и разложить его панели по местам.
     bool registerPlugin(IPanelPlugin *plugin, const QString &origin);
 
+    /// \return Выключенный плагин по идентификатору или `nullptr`.
+    IPanelPlugin *disabledPlugin(const QString &pluginId) const;
+
     /// \brief Упорядочить m_panels по (order, id).
     void sortPanels();
 
     PluginManager *m_manager = nullptr;
     QList<IPanelPlugin *> m_plugins;
+    QList<IPanelPlugin *> m_disabled; ///< Выключенные пользователем.
+    QStringList m_disabledIds;        ///< Идентификаторы выключенных.
     QList<PanelEntry> m_panels;
     QList<PluginManager::LoadFailure> m_failures;
     bool m_loaded = false;

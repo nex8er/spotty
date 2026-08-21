@@ -1788,6 +1788,10 @@ Double-click to edit, right-click for options</source>
         <translation>&lt;b&gt;Spotty %1&lt;/b&gt;&lt;br&gt;Модульный терминал-монитор портов.&lt;br&gt;&lt;br&gt;Настройки: %2</translation>
     </message>
     <message>
+        <source>The language, single-instance and enabled-plugin settings take effect after Spotty is restarted.</source>
+        <translation>Язык, режим единственного экземпляра и набор включённых плагинов вступят в силу после перезапуска Spotty.</translation>
+    </message>
+    <message>
         <source>Open</source>
         <translation>Открыт</translation>
     </message>
@@ -1850,10 +1854,6 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Side &amp;panel</source>
         <translation>&amp;Боковая панель</translation>
-    </message>
-    <message>
-        <source>The language and single-instance settings take effect after Spotty is restarted.</source>
-        <translation>Язык и режим единственного экземпляра вступят в силу после перезапуска Spotty.</translation>
     </message>
     <message>
         <source>Settings, interfaces and history have been reset to defaults.</source>
@@ -2869,6 +2869,10 @@ Continue?</source>
     <message>
         <source>Rejected</source>
         <translation>Отклонены</translation>
+    </message>
+    <message>
+        <source>Clearing a checkbox keeps the plugin out of the next start: a disabled interface plugin offers no devices, a disabled panel plugin builds no panels. Takes effect after restarting Spotty.</source>
+        <translation>Снятый флажок оставит плагин за бортом следующего запуска: выключенный плагин интерфейса не предложит ни одного устройства, выключенный плагин панели не построит ни одной панели. Вступает в силу после перезапуска Spotty.</translation>
     </message>
     <message>
         <source>Searched directories</source>

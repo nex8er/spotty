@@ -9,6 +9,8 @@
 
 #include <QAtomicInteger>
 
+#include <utility>
+
 namespace spotty::test {
 
 /**
@@ -107,7 +109,16 @@ class FakeInterfacePlugin : public QObject, public IInterfacePlugin
     Q_INTERFACES(spotty::IInterfacePlugin)
 
 public:
-    QString pluginId() const override { return QStringLiteral("fake"); }
+    /**
+     * \param id Идентификатор плагина. Задаётся из теста там, где плагинов нужно
+     *        несколько: отличить их друг от друга больше нечем.
+     */
+    explicit FakeInterfacePlugin(QString id = QStringLiteral("fake"))
+        : m_id(std::move(id))
+    {
+    }
+
+    QString pluginId() const override { return m_id; }
     QString displayName() const override { return QStringLiteral("Fake"); }
 
     QList<InterfaceDescriptor> enumerate() const override
@@ -155,6 +166,16 @@ public:
         return lastChannel;
     }
 
+    /**
+     * \brief Версия API, которую сообщит плагин.
+     *
+     * Подменяется тестом, чтобы проверить отказ по несовпадению версий: обычный плагин
+     * apiVersion() не переопределяет вовсе.
+     */
+    int apiVersionOverride = SPOTTY_API_VERSION;
+
+    int apiVersion() const override { return apiVersionOverride; }
+
     /// \brief Заставить следующий созданный канал отказать при открытии.
     bool failNextOpen = false;
 
@@ -187,6 +208,9 @@ public:
         descriptor.hiddenByDefault = hiddenByDefault;
         return descriptor;
     }
+
+private:
+    QString m_id;
 };
 
 } // namespace spotty::test

@@ -32,10 +32,14 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QSet>
+#include <QSignalBlocker>
 #include <QSpinBox>
 #include <QStackedWidget>
 #include <QToolButton>
 #include <QVBoxLayout>
+
+#include <algorithm>
 
 namespace spotty {
 
@@ -77,6 +81,30 @@ const char *const kAnsiColorNames[16] = {
     QT_TRANSLATE_NOOP("spotty::SettingsDialog", "Bright cyan"),
     QT_TRANSLATE_NOOP("spotty::SettingsDialog", "Bright white"),
 };
+
+/**
+ * \struct PluginRow
+ * \brief Строка раздела «Plugins»: плагин и состояние его флажка.
+ */
+struct PluginRow
+{
+    QString id;
+    QString name;
+    bool enabled = true;
+};
+
+/**
+ * \brief Упорядочить строки по идентификатору.
+ *
+ * Порядок загрузки для показа не годится: он зависит от обхода каталогов, а выключенные
+ * идут отдельным списком и оказались бы все в конце. Тогда включение плагина переставляло
+ * бы строку через полсписка, и найти её глазами после перезапуска было бы негде.
+ */
+void sortPluginRows(QList<PluginRow> &rows)
+{
+    std::sort(rows.begin(), rows.end(),
+              [](const PluginRow &lhs, const PluginRow &rhs) { return lhs.id < rhs.id; });
+}
 
 /// \brief Закрасить кнопку выбранным цветом.
 void paintSwatch(QToolButton *button, const QColor &color)
@@ -528,19 +556,48 @@ QWidget *SettingsDialog::buildPluginsPage(PluginManager *plugins, PanelPluginReg
         return group;
     };
 
+    // Флажок стоит только на строке плагина. Панель отдельно от него не включается: её код
+    // лежит в том же модуле, и «выключить одну панель из трёх» значило бы попросить плагин
+    // не объявлять её — такого в API нет и заводить его незачем.
+    const auto addPluginItem = [this](QTreeWidgetItem *group, const PluginRow &row) {
+        auto *item = new QTreeWidgetItem(group, {row.id, row.name});
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(0, row.enabled ? Qt::Checked : Qt::Unchecked);
+        m_pluginItems.append({row.id, item});
+        return item;
+    };
+
     QTreeWidgetItem *interfaces = addGroup(tr("Interfaces"));
     if (plugins) {
+        QList<PluginRow> rows;
         for (IInterfacePlugin *plugin : plugins->plugins())
-            new QTreeWidgetItem(interfaces, {plugin->pluginId(), plugin->displayName()});
+            rows.append({plugin->pluginId(), plugin->displayName(), true});
+        for (IInterfacePlugin *plugin : plugins->disabledInterfacePlugins())
+            rows.append({plugin->pluginId(), plugin->displayName(), false});
+        sortPluginRows(rows);
+
+        for (const PluginRow &row : std::as_const(rows))
+            addPluginItem(interfaces, row);
     }
 
     QTreeWidgetItem *panelGroup = addGroup(tr("Panels and data"));
     if (panels) {
-        for (IPanelPlugin *plugin : panels->plugins()) {
-            auto *item = new QTreeWidgetItem(panelGroup,
-                                             {plugin->pluginId(), plugin->displayName()});
+        QList<PluginRow> rows;
+        for (IPanelPlugin *plugin : panels->plugins())
+            rows.append({plugin->pluginId(), plugin->displayName(), true});
+        for (IPanelPlugin *plugin : panels->disabledPanelPlugins())
+            rows.append({plugin->pluginId(), plugin->displayName(), false});
+        sortPluginRows(rows);
+
+        for (const PluginRow &row : std::as_const(rows)) {
+            QTreeWidgetItem *item = addPluginItem(panelGroup, row);
+            // У выключенного панелей нет и быть не может: реестр не разбирал его описания,
+            // и показывать пришлось бы то, чего в программе не существует.
+            if (!row.enabled)
+                continue;
+
             for (const PanelPluginRegistry::PanelEntry &entry : panels->panels()) {
-                if (entry.plugin == plugin)
+                if (entry.plugin && entry.plugin->pluginId() == row.id)
                     new QTreeWidgetItem(item, {entry.descriptor.id, entry.descriptor.title});
             }
             item->setExpanded(true);
@@ -564,7 +621,24 @@ QWidget *SettingsDialog::buildPluginsPage(PluginManager *plugins, PanelPluginReg
         }
     }
 
+    // Подписка ставится после наполнения: setCheckState() у каждой строки поднял бы тот же
+    // сигнал, и обработчик отработал бы столько раз, сколько в дереве плагинов.
+    connect(tree, &QTreeWidget::itemChanged, this,
+            [this, tree](QTreeWidgetItem *changed, int column) {
+                if (column != 0)
+                    return;
+                syncPluginRows(tree, changed);
+            });
+
     layout->addWidget(tree, 1);
+
+    auto *hint = new QLabel(tr("Clearing a checkbox keeps the plugin out of the next start: a "
+                               "disabled interface plugin offers no devices, a disabled panel "
+                               "plugin builds no panels. Takes effect after restarting Spotty."),
+                            page);
+    hint->setObjectName(QStringLiteral("hintLabel"));
+    hint->setWordWrap(true);
+    layout->addWidget(hint);
 
     auto *dirsTitle = new QLabel(tr("Searched directories"), page);
     dirsTitle->setObjectName(QStringLiteral("hintLabel"));
@@ -580,6 +654,43 @@ QWidget *SettingsDialog::buildPluginsPage(PluginManager *plugins, PanelPluginReg
     layout->addWidget(dirs);
 
     return page;
+}
+
+void SettingsDialog::syncPluginRows(QTreeWidget *tree, QTreeWidgetItem *changed)
+{
+    // Один объект вправе играть обе роли, и тогда он стоит и в «Interfaces», и в «Panels
+    // and data». Флажок у него при этом один: список выключенных хранит идентификаторы, а
+    // не роли, — значит строки-двойники обязаны показывать одно и то же состояние.
+    QString id;
+    for (const auto &[rowId, item] : std::as_const(m_pluginItems)) {
+        if (item == changed) {
+            id = rowId;
+            break;
+        }
+    }
+    if (id.isEmpty())
+        return;
+
+    // Правка из обработчика собственного сигнала: без глушителя setCheckState() позвал бы
+    // этот же обработчик заново, уже для строки-двойника.
+    const QSignalBlocker blocker(tree);
+    for (const auto &[rowId, item] : std::as_const(m_pluginItems)) {
+        if (rowId == id && item != changed)
+            item->setCheckState(0, changed->checkState(0));
+    }
+}
+
+QStringList SettingsDialog::disabledPluginIds() const
+{
+    QStringList ids = m_initial.disabledPlugins;
+
+    for (const auto &[id, item] : m_pluginItems) {
+        if (item->checkState(0) == Qt::Checked)
+            ids.removeAll(id);
+        else if (!ids.contains(id))
+            ids.append(id);
+    }
+    return ids;
 }
 
 QWidget *SettingsDialog::buildShortcutsPage()
@@ -668,6 +779,8 @@ AppSettings SettingsDialog::settings() const
     result.packetizerDelimiterHex = m_packetizerDelimiter->text();
     result.packetizerFixedLength = m_packetizerLength->value();
 
+    result.disabledPlugins = disabledPluginIds();
+
     result.shortcuts.clear();
     for (const ShortcutAction &action : m_shortcutActions) {
         QKeySequenceEdit *editor = m_shortcutEditors.value(action.id);
@@ -686,8 +799,16 @@ AppSettings SettingsDialog::settings() const
 bool SettingsDialog::requiresRestart() const
 {
     const AppSettings updated = settings();
+    // Сравнение по составу, а не по порядку: список собирается обходом дерева, а прочитан
+    // был из файла, и одни и те же плагины пришли бы в разном порядке. Иначе диалог просил
+    // бы перезапуск после каждого «ОК».
+    const QSet<QString> before(m_initial.disabledPlugins.cbegin(),
+                               m_initial.disabledPlugins.cend());
+    const QSet<QString> after(updated.disabledPlugins.cbegin(), updated.disabledPlugins.cend());
+
     return updated.language != m_initial.language
-        || updated.singleInstance != m_initial.singleInstance;
+        || updated.singleInstance != m_initial.singleInstance
+        || before != after;
 }
 
 } // namespace spotty

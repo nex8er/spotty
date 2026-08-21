@@ -18,6 +18,8 @@ class QListWidget;
 class QSpinBox;
 class QStackedWidget;
 class QToolButton;
+class QTreeWidget;
+class QTreeWidgetItem;
 
 namespace spotty {
 
@@ -137,6 +139,16 @@ private:
     void buildPluginPages(PanelPluginRegistry *panels, QStringList &titles);
 
     /**
+     * \brief Идентификаторы плагинов, у которых снят флажок в разделе «Plugins».
+     *
+     * За основу берётся прежний список, а не только снятые флажки: в нём могут стоять
+     * плагины, которых на этой машине нет — не собраны, не установлены, настройки принесены
+     * с другой машины. Выбросить их значило бы тихо включить плагин обратно в тот день,
+     * когда он появится, — то есть отменить решение пользователя за него.
+     */
+    QStringList disabledPluginIds() const;
+
+    /**
      * \brief Раздел «Plugins»: что загрузилось, что отвергнуто и где искали.
      *
      * До него отчёт spotty::PluginManager о загрузке жил только в журнале. Молча
@@ -144,6 +156,13 @@ private:
      * с причинами существует ровно ради неё; показывать его стоило с самого начала.
      */
     QWidget *buildPluginsPage(PluginManager *plugins, PanelPluginRegistry *panels);
+
+    /**
+     * \brief Привести строки-двойники одного плагина к состоянию \p changed.
+     * \param tree Дерево раздела «Plugins» — на время правки его сигналы гасятся.
+     * \param changed Строка, флажок которой только что переключил пользователь.
+     */
+    void syncPluginRows(QTreeWidget *tree, QTreeWidgetItem *changed);
 
     /// \brief Обновить доступность полей, зависящих от других полей.
     void updateEnabledState();
@@ -155,6 +174,14 @@ private:
 
     /// \brief Панель раздела «Интерфейсы»; nullptr, если раздел не строился.
     InterfaceSettingsPanel *m_interfacePanel = nullptr;
+
+    /**
+     * \brief Строки плагинов с флажками: идентификатор и его строка в дереве.
+     *
+     * Список пар, а не карта: один объект вправе играть обе роли, и тогда он стоит и в
+     * «Interfaces», и в «Panels and data» — с одним и тем же идентификатором.
+     */
+    QList<QPair<QString, QTreeWidgetItem *>> m_pluginItems;
 
     /// \brief Формы разделов панельных плагинов по идентификатору плагина.
     QHash<QString, SchemaForm *> m_pluginForms;
