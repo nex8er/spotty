@@ -61,6 +61,8 @@ spotty_add_test(spotty-tests
         test_decimator.cpp
         test_plot_math.cpp
         test_plot_profile.cpp
+        test_json_framer.cpp
+        test_json_tree_model.cpp
         test_interface_registry.cpp
         test_session.cpp
         test_data_filter.cpp
@@ -82,6 +84,13 @@ spotty_add_test(spotty-ui-tests
         test_generator_panel.cpp
         test_logging_panel.cpp
         test_search_panel.cpp
+        test_json_tree_panel.cpp
+        # Панель разбора JSON: логика лежит в SDK и проверяется отдельно, а здесь — её
+        # проводка, троттлинг и применение настроек.
+        "${CMAKE_SOURCE_DIR}/plugins/jsontree/JsonTreePlugin.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/jsontree/JsonTreePanel.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/jsontree/JsonTreeView.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/jsontree/JsonRateDelegate.cpp"
         # Панель плоттера целиком: её проводка — то место, где ошибки не видит ни один
         # тест модели, а пользователь видит сразу.
         "${CMAKE_SOURCE_DIR}/plugins/plotter/PlotterPlugin.cpp"
@@ -112,12 +121,20 @@ spotty_add_test(spotty-ui-tests
     ENVIRONMENT
         QT_QPA_PLATFORM=offscreen
 )
+# Плагины собираются здесь в статическом режиме. Q_PLUGIN_METADATA в динамическом порождает
+# у каждого плагина функции с одними и теми же именами (qt_plugin_instance и соседние) — они
+# и должны быть одинаковыми, ведь в модуле плагин ровно один. В тестовом бинарнике их
+# несколько, и второй же добавленный плагин даёт «redefinition». Статический режим заставляет
+# moc назвать функции по классу, и конфликт исчезает.
+target_compile_definitions(spotty-ui-tests PRIVATE QT_STATICPLUGIN)
+
 target_include_directories(spotty-ui-tests PRIVATE
     "${CMAKE_SOURCE_DIR}/src/ui"
     "${CMAKE_SOURCE_DIR}/plugins/plotter"
     "${CMAKE_SOURCE_DIR}/plugins/generator"
     "${CMAKE_SOURCE_DIR}/plugins/logging"
-    "${CMAKE_SOURCE_DIR}/plugins/search")
+    "${CMAKE_SOURCE_DIR}/plugins/search"
+    "${CMAKE_SOURCE_DIR}/plugins/jsontree")
 
 # Цель `coverage` объявляется после исполняемого файла тестов: инструментам нужен его
 # путь, чтобы прочитать карту покрытия. Меряется только spotty-tests.

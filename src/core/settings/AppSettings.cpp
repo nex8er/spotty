@@ -32,6 +32,7 @@ constexpr auto kCsvFilter = "terminal/csvFilter";
 constexpr auto kCsvSeparator = "terminal/csvSeparator";
 constexpr auto kHideUnreadable = "terminal/hideUnreadable";
 constexpr auto kHideUnreadableMode = "terminal/hideUnreadableMode";
+constexpr auto kHiddenSources = "terminal/hiddenSources";
 constexpr auto kLocalEcho = "terminal/localEcho";
 constexpr auto kHexBytesPerRow = "terminal/hexBytesPerRow";
 constexpr auto kViewMode = "terminal/viewMode";
@@ -84,6 +85,8 @@ AppSettings AppSettings::load(const SettingsStore &store)
         store.value(QLatin1String(kHideUnreadable), settings.hideUnreadable).toBool();
     settings.hideUnreadableMode =
         store.value(QLatin1String(kHideUnreadableMode), settings.hideUnreadableMode).toString();
+    settings.hiddenSources =
+        store.value(QLatin1String(kHiddenSources), settings.hiddenSources).toInt();
     settings.localEcho = store.value(QLatin1String(kLocalEcho), settings.localEcho).toBool();
     settings.hexBytesPerRow =
         store.value(QLatin1String(kHexBytesPerRow), settings.hexBytesPerRow).toInt();
@@ -135,6 +138,7 @@ void AppSettings::save(SettingsStore &store) const
     store.setValue(QLatin1String(kCsvSeparator), csvSeparator);
     store.setValue(QLatin1String(kHideUnreadable), hideUnreadable);
     store.setValue(QLatin1String(kHideUnreadableMode), hideUnreadableMode);
+    store.setValue(QLatin1String(kHiddenSources), hiddenSources);
     store.setValue(QLatin1String(kLocalEcho), localEcho);
     store.setValue(QLatin1String(kHexBytesPerRow), hexBytesPerRow);
     store.setValue(QLatin1String(kViewMode), viewMode);

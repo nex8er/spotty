@@ -39,6 +39,7 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QPainter>
 #include <QPushButton>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -517,6 +518,32 @@ QWidget *MainWindow::buildTerminalToolbar()
     m_followButton = makeButton(tr("Follow output"), true);
     m_followButton->setChecked(true);
 
+    // Кнопки скрытия транспортов. Прячут показ, а не источник: строки остаются в буфере,
+    // их по-прежнему разбирают плагины, находит поиск и пишет журнал, а отправлять в
+    // скрытый транспорт можно как и раньше — получатель выбирается в строке отправки.
+    // Показываются только в режиме двух интерфейсов: при одном скрывать нечего.
+    for (int source = 0; source < 2; ++source) {
+        const QString name = source == 0 ? tr("A") : tr("B");
+        QToolButton *button = makeButton(
+            tr("Hide output from interface %1. Its data is still parsed by panels, found "
+               "by search and written to the log, and you can still send to it").arg(name),
+            true);
+        // Буква вместо готового значка: значок пришлось бы искать разный для A и B, а буква
+        // и есть та самая метка, которой строки помечены в колонке источника. Латинская,
+        // как и там: кириллическая «Б» на кнопке разошлась бы с меткой «B:» в самом выводе.
+        // Сам значок рисуется в updateMuteButtonIcons() — цвет в нём запечён и зависит от темы.
+        button->setText(name);
+        button->hide();
+        connect(button, &QToolButton::toggled, this, [this, source](bool hidden) {
+            m_terminal->setSourceVisible(quint8(source), !hidden);
+            const int bit = 1 << source;
+            m_settings.hiddenSources =
+                hidden ? (m_settings.hiddenSources | bit) : (m_settings.hiddenSources & ~bit);
+            m_settings.save(*m_context.settings);
+        });
+        m_muteSourceButtons[source] = button;
+    }
+
     connect(m_hexButton, &QToolButton::toggled, this, [this](bool hex) {
         m_terminal->setViewMode(hex ? TerminalView::ViewMode::Hex
                                     : TerminalView::ViewMode::Text);
@@ -705,6 +732,10 @@ QWidget *MainWindow::buildTerminalToolbar()
     layout->addWidget(m_lineNumberButton);
     layout->addWidget(m_csvFilterButton);
     layout->addWidget(m_hideUnreadableButton);
+    // Рядом с прочими переключателями показа: скрытие транспорта — про содержимое вывода,
+    // а не про действие над ним.
+    layout->addWidget(m_muteSourceButtons[0]);
+    layout->addWidget(m_muteSourceButtons[1]);
     layout->addStretch(1);
     layout->addWidget(m_modeCombo);
     layout->addWidget(m_followButton);
@@ -1036,6 +1067,13 @@ void MainWindow::applySettings()
     m_csvFilterButton->setChecked(m_settings.csvFilter);
     m_hideUnreadableButton->setChecked(m_settings.hideUnreadable);
 
+    for (int source = 0; source < 2; ++source) {
+        const bool hidden = (m_settings.hiddenSources & (1 << source)) != 0;
+        const QSignalBlocker blocker(m_muteSourceButtons[source]);
+        m_muteSourceButtons[source]->setChecked(hidden);
+        m_terminal->setSourceVisible(quint8(source), !hidden);
+    }
+
     if (m_context.session) {
         m_context.session->buffer()->setMaxLines(m_settings.maxLines);
         m_context.session->buffer()->setEncoding(encodingFromName(m_settings.encoding));
@@ -1337,6 +1375,16 @@ void MainWindow::applyViewMode(ViewMode mode, const QString &stripId)
             m_context.session->setSharedBuffer(nullptr, 0);
             m_terminal->setBuffer(m_context.session->buffer());
         }
+        // Скрытие транспорта снимается вместе с режимом. Иначе скрытый A остался бы
+        // скрытым и в одиночном режиме, где все строки помечены источником 0, — терминал
+        // оказался бы пуст, а кнопки, объясняющей почему, на экране уже нет.
+        m_terminal->showAllSources();
+        for (QToolButton *button : m_muteSourceButtons) {
+            const QSignalBlocker blocker(button);
+            button->setChecked(false);
+        }
+        m_settings.hiddenSources = 0;
+
         m_terminal->setShowSource(false);
     }
 
@@ -1359,6 +1407,11 @@ void MainWindow::applyViewMode(ViewMode mode, const QString &stripId)
                                 m_hideUnreadableButton, m_followButton, m_clearButton}) {
         button->setVisible(!strip);
     }
+
+    // Скрывать транспорт есть смысл только когда их два: при одном кнопка предлагала бы
+    // опустошить собственный терминал.
+    for (QToolButton *button : m_muteSourceButtons)
+        button->setVisible(dual && !strip);
 
     showStripActions(shown);
 
@@ -1615,6 +1668,43 @@ void MainWindow::raiseWindow()
     activateWindow();
 }
 
+void MainWindow::updateMuteButtonIcons()
+{
+    const QColor color = m_context.theme ? m_context.theme->colors().text : palette().text().color();
+
+    // Отрисовка в физическом разрешении: значок, нарисованный в логических пикселях, на
+    // плотном дисплее выглядел бы размытым. Тот же приём, что в MdiIcons::icon().
+    const qreal dpr = devicePixelRatioF();
+
+    for (int source = 0; source < 2; ++source) {
+        QPixmap pixmap(QSize(kToolGlyphSize, kToolGlyphSize) * dpr);
+        pixmap.setDevicePixelRatio(dpr);
+        pixmap.fill(Qt::transparent);
+
+        QPainter painter(&pixmap);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setRenderHint(QPainter::TextAntialiasing);
+
+        QFont letterFont = font();
+        letterFont.setPixelSize(kToolGlyphSize - 3);
+        letterFont.setBold(true);
+        painter.setFont(letterFont);
+        painter.setPen(color);
+        painter.drawText(QRect(0, 0, kToolGlyphSize, kToolGlyphSize), Qt::AlignCenter,
+                         source == 0 ? QStringLiteral("A") : QStringLiteral("B"));
+
+        // Диагональ снизу слева вверх направо — привычное «нельзя», то же направление, что
+        // у зачёркнутых значков в остальных программах. Она идёт от края до края, поэтому
+        // видна поверх любой буквы.
+        painter.setPen(QPen(color, 1.7, Qt::SolidLine, Qt::RoundCap));
+        painter.drawLine(QPointF(1.5, kToolGlyphSize - 1.5),
+                         QPointF(kToolGlyphSize - 1.5, 1.5));
+        painter.end();
+
+        m_muteSourceButtons[source]->setIcon(QIcon(pixmap));
+    }
+}
+
 void MainWindow::updateIcons()
 {
     if (m_context.panels) {
@@ -1645,6 +1735,8 @@ void MainWindow::updateIcons()
     m_hideUnreadableButton->setIcon(MdiIcons::icon(mdi::ImageBrokenVariant, kToolGlyphSize));
     m_clearButton->setIcon(MdiIcons::icon(mdi::Broom, kToolGlyphSize));
     m_followButton->setIcon(MdiIcons::icon(mdi::ArrowCollapseDown, kToolGlyphSize));
+
+    updateMuteButtonIcons();
 }
 
 void MainWindow::restoreWindowState()

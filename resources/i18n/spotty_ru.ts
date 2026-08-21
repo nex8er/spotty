@@ -712,6 +712,375 @@
     </message>
 </context>
 <context>
+    <name>spotty::JsonGenChannel</name>
+    <message>
+        <source>Virtual JSON source</source>
+        <translation>Виртуальный источник JSON</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::JsonGenPlugin</name>
+    <message>
+        <source>Virtual JSON telemetry source</source>
+        <translation>Виртуальный источник телеметрии в JSON</translation>
+    </message>
+    <message>
+        <source>Document shape</source>
+        <translation>Форма документа</translation>
+    </message>
+    <message>
+        <source>Shape</source>
+        <translation>Форма</translation>
+    </message>
+    <message>
+        <source>Flat object</source>
+        <translation>Плоский объект</translation>
+    </message>
+    <message>
+        <source>Nested object</source>
+        <translation>Вложенный объект</translation>
+    </message>
+    <message>
+        <source>Array of objects</source>
+        <translation>Массив объектов</translation>
+    </message>
+    <message>
+        <source>Mixed (rotates through all three)</source>
+        <translation>Вперемешку (по кругу все три)</translation>
+    </message>
+    <message>
+        <source>&quot;Mixed&quot; alternates shapes from document to document - the case a parser is most likely to get wrong.</source>
+        <translation>«Вперемешку» меняет форму от документа к документу — случай, на котором разбор ошибается чаще всего.</translation>
+    </message>
+    <message>
+        <source>Fields per object</source>
+        <translation>Полей в объекте</translation>
+    </message>
+    <message>
+        <source>Nesting depth</source>
+        <translation>Глубина вложенности</translation>
+    </message>
+    <message>
+        <source>Only used by the nested and mixed shapes.</source>
+        <translation>Действует только для вложенной и смешанной формы.</translation>
+    </message>
+    <message>
+        <source>Objects per array</source>
+        <translation>Объектов в массиве</translation>
+    </message>
+    <message>
+        <source>Use random ids</source>
+        <translation>Случайные идентификаторы</translation>
+    </message>
+    <message>
+        <source>Every array element gets a brand new id, so the tree grows without bound - this is what a node limit is for.</source>
+        <translation>Каждый элемент массива получает новый идентификатор, и дерево растёт без предела — ровно то, ради чего предел и заведён.</translation>
+    </message>
+    <message>
+        <source>Document interval</source>
+        <translation>Период документов</translation>
+    </message>
+    <message>
+        <source>Rate</source>
+        <translation>Частота</translation>
+    </message>
+    <message>
+        <source>ms</source>
+        <translation>мс</translation>
+    </message>
+    <message>
+        <source>Different rates per field</source>
+        <translation>Разная частота у разных полей</translation>
+    </message>
+    <message>
+        <source>Some fields come with every document, some every 5th, some every 25th. A field that is not due is left out of the document entirely - without that there is nothing for a rate column to show.</source>
+        <translation>Одни поля приходят с каждым документом, другие с каждым пятым, третьи с каждым двадцать пятым. Поле, которому не подошёл черёд, из документа убирается целиком — иначе колонке частоты нечего было бы показывать.</translation>
+    </message>
+    <message>
+        <source>Corrupt documents</source>
+        <translation>Битые документы</translation>
+    </message>
+    <message>
+        <source>Noise</source>
+        <translation>Шум</translation>
+    </message>
+    <message>
+        <source>Truncated tails, missing braces, stray commas - a parser must skip these instead of breaking or littering its output.</source>
+        <translation>Обрубленные хвосты, потерянные скобки, лишние запятые — разбор обязан их пропускать, а не ломаться и не засорять вывод.</translation>
+    </message>
+    <message>
+        <source>Emit plain log lines</source>
+        <translation>Слать обычные текстовые строки</translation>
+    </message>
+    <message>
+        <source>Ordinary text mixed into the telemetry, the way real firmware does it.</source>
+        <translation>Обычный текст вперемешку с телеметрией — так ведёт себя настоящая прошивка.</translation>
+    </message>
+    <message>
+        <source>Layout</source>
+        <translation>Раскладка</translation>
+    </message>
+    <message>
+        <source>Format</source>
+        <translation>Формат</translation>
+    </message>
+    <message>
+        <source>One document per line</source>
+        <translation>По документу на строку</translation>
+    </message>
+    <message>
+        <source>Pretty-printed over several lines</source>
+        <translation>С отступами на несколько строк</translation>
+    </message>
+    <message>
+        <source>Alternate between the two</source>
+        <translation>Чередовать оба</translation>
+    </message>
+    <message>
+        <source>Split documents into two packets</source>
+        <translation>Разбивать документ на два пакета</translation>
+    </message>
+    <message>
+        <source>Breaks the stream mid-line, the way a polled source does. A reader must wait for the line to finish instead of parsing half of it.</source>
+        <translation>Рвёт поток посреди строки, как это делает опрашиваемый источник. Читатель обязан дождаться конца строки, а не разбирать её половину.</translation>
+    </message>
+    <message>
+        <source>Structure drift</source>
+        <translation>Дрейф структуры</translation>
+    </message>
+    <message>
+        <source>Drift</source>
+        <translation>Дрейф</translation>
+    </message>
+    <message>
+        <source>Off</source>
+        <translation>Выключен</translation>
+    </message>
+    <message>
+        <source>Keep adding new keys</source>
+        <translation>Добавлять новые ключи</translation>
+    </message>
+    <message>
+        <source>Keys come and go</source>
+        <translation>Ключи появляются и исчезают</translation>
+    </message>
+    <message>
+        <source>Checks that a tree grows with the stream and shows what stopped coming.</source>
+        <translation>Проверяет, что дерево растёт вместе с потоком и показывает то, что перестало приходить.</translation>
+    </message>
+    <message>
+        <source>Drift every</source>
+        <translation>Дрейф каждые</translation>
+    </message>
+    <message>
+        <source>documents</source>
+        <translation>документов</translation>
+    </message>
+    <message>
+        <source>JSON source</source>
+        <translation>Источник JSON</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::JsonTreePanel</name>
+    <message>
+        <source>JSON</source>
+        <translation>JSON</translation>
+    </message>
+    <message>
+        <source>Pause parsing</source>
+        <translation>Приостановить разбор</translation>
+    </message>
+    <message>
+        <source>Clear the tree</source>
+        <translation>Очистить дерево</translation>
+    </message>
+    <message>
+        <source>Hide fields that stopped arriving</source>
+        <translation>Скрыть поля, которые перестали приходить</translation>
+    </message>
+    <message>
+        <source>Remove fields that stopped arriving</source>
+        <translation>Убрать поля, которые перестали приходить</translation>
+    </message>
+    <message>
+        <source>Expand everything</source>
+        <translation>Раскрыть всё</translation>
+    </message>
+    <message>
+        <source>Collapse everything</source>
+        <translation>Свернуть всё</translation>
+    </message>
+    <message>
+        <source>Flash a field when its value changes
+Right-click to set how long it glows</source>
+        <translation>Подсвечивать поле при изменении значения
+Правая кнопка — насколько долго оно горит</translation>
+    </message>
+    <message>
+        <source>Resume parsing</source>
+        <translation>Продолжить разбор</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n field(s) removed</source>
+        <translation>
+            <numerusform>убрано %n поле</numerusform>
+            <numerusform>убрано %n поля</numerusform>
+            <numerusform>убрано %n полей</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>%1 ms</source>
+        <translation>%1 мс</translation>
+    </message>
+    <message>
+        <source>Other…</source>
+        <translation>Другое…</translation>
+    </message>
+    <message>
+        <source>Flash duration</source>
+        <translation>Длительность вспышки</translation>
+    </message>
+    <message>
+        <source>Milliseconds:</source>
+        <translation>Миллисекунды:</translation>
+    </message>
+    <message>
+        <source>%1 fields · %2 documents</source>
+        <translation>полей: %1 · документов: %2</translation>
+    </message>
+    <message>
+        <source>Documents: %1
+Text lines skipped: %2
+Malformed: %3
+Abandoned: %4
+Paths rejected by limits: %5</source>
+        <translation>Документов: %1
+Пропущено текстовых строк: %2
+Битых: %3
+Брошено накоплений: %4
+Отвергнуто пределами: %5</translation>
+    </message>
+    <message>
+        <source>Node limit reached (%1). New fields are ignored. If the stream contains arrays, set the array identity field in settings — otherwise every element makes its own branch.</source>
+        <translation>Достигнут предел полей (%1). Новые поля не добавляются. Если в потоке есть массивы, задайте в настройках ключ идентификации — иначе каждый элемент заводит свою ветку.</translation>
+    </message>
+    <message>
+        <source>Copy path</source>
+        <translation>Скопировать путь</translation>
+    </message>
+    <message>
+        <source>Copy value</source>
+        <translation>Копировать значение</translation>
+    </message>
+    <message>
+        <source>Expand everything below</source>
+        <translation>Раскрыть всё ниже</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::JsonTreePlugin</name>
+    <message>
+        <source>JSON</source>
+        <translation>JSON</translation>
+    </message>
+    <message>
+        <source>Array identity field</source>
+        <translation>Ключ идентификации массива</translation>
+    </message>
+    <message>
+        <source>Data</source>
+        <translation>Данные</translation>
+    </message>
+    <message>
+        <source>Objects inside an array are told apart by this field, for example id. Leave it empty to collapse the array into a single branch showing the last element&apos;s values.</source>
+        <translation>По этому полю различаются объекты внутри массива — например, id. Пустое значение схлопывает массив в одну ветку со значениями последнего элемента.</translation>
+    </message>
+    <message>
+        <source>Field limit</source>
+        <translation>Предел числа полей</translation>
+    </message>
+    <message>
+        <source>Once reached, new fields are ignored and the ones already there keep updating. A stream that uses random ids will hit this quickly.</source>
+        <translation>По достижении новые поля не заводятся, а уже заведённые продолжают обновляться. Поток со случайными идентификаторами упирается в предел быстро.</translation>
+    </message>
+    <message>
+        <source>Maximum depth</source>
+        <translation>Наибольшая глубина</translation>
+    </message>
+    <message>
+        <source>Deeper subtrees are shown collapsed into a single value.</source>
+        <translation>Более глубокие поддеревья показываются свёрнутыми в одно значение.</translation>
+    </message>
+    <message>
+        <source>Children per branch</source>
+        <translation>Детей на ветку</translation>
+    </message>
+    <message>
+        <source>Multi-line JSON limit</source>
+        <translation>Предел многострочного JSON</translation>
+    </message>
+    <message>
+        <source>Framing</source>
+        <translation>Границы документов</translation>
+    </message>
+    <message>
+        <source>lines</source>
+        <translation>строк</translation>
+    </message>
+    <message>
+        <source>How many lines one pretty-printed document may span.</source>
+        <translation>Сколько строк может занимать один документ с отступами.</translation>
+    </message>
+    <message>
+        <source>Give up on unclosed JSON after</source>
+        <translation>Бросать незакрытый JSON через</translation>
+    </message>
+    <message>
+        <source>ms</source>
+        <translation>мс</translation>
+    </message>
+    <message>
+        <source>A lost closing brace would otherwise swallow everything that follows.</source>
+        <translation>Иначе потерянная закрывающая скобка проглотит весь последующий поток.</translation>
+    </message>
+    <message>
+        <source>Flash a field when its value changes</source>
+        <translation>Подсвечивать поле при изменении значения</translation>
+    </message>
+    <message>
+        <source>View</source>
+        <translation>Показ</translation>
+    </message>
+    <message>
+        <source>The panel has a button for this too, and the same button sets the duration by right-click.</source>
+        <translation>В самой панели для этого есть кнопка, и она же задаёт длительность по правому щелчку.</translation>
+    </message>
+    <message>
+        <source>Flash duration</source>
+        <translation>Длительность вспышки</translation>
+    </message>
+    <message>
+        <source>JSON tree</source>
+        <translation>Дерево JSON</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::JsonTreeView</name>
+    <message>
+        <source>Field</source>
+        <translation>Поле</translation>
+    </message>
+    <message>
+        <source>Value</source>
+        <translation>Значение</translation>
+    </message>
+    <message>
+        <source>Rate</source>
+        <translation>Частота</translation>
+    </message>
+</context>
+<context>
     <name>spotty::LogWriter</name>
     <message>
         <source>Cannot create the log directory: %1</source>
@@ -1333,6 +1702,18 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Hide unreadable characters: control codes and invalid encoding. Right-click to choose how</source>
         <translation>Скрывать нечитаемые символы: управляющие коды и битую кодировку. Способ показа — по правому клику</translation>
+    </message>
+    <message>
+        <source>A</source>
+        <translation>A</translation>
+    </message>
+    <message>
+        <source>B</source>
+        <translation>Б</translation>
+    </message>
+    <message>
+        <source>Hide output from interface %1. Its data is still parsed by panels, found by search and written to the log, and you can still send to it</source>
+        <translation>Скрыть вывод интерфейса %1. Его данные по-прежнему разбирают панели, находит поиск и пишет журнал, и отправлять в него можно как раньше</translation>
     </message>
     <message>
         <source>Comma (,)</source>

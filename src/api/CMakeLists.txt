@@ -30,6 +30,8 @@ target_sources(spotty-api
         Formatting.cpp
         HighlightRules.cpp
         IInterfaceChannel.cpp
+        JsonFramer.cpp
+        JsonTreeModel.cpp
         LogWriter.cpp
         Decimator.cpp
         MacroStore.cpp
@@ -58,6 +60,8 @@ target_sources(spotty-api
         "${CMAKE_SOURCE_DIR}/include/spotty/data/FileUtils.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/Formatting.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/HighlightRules.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/JsonFramer.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/data/JsonTreeModel.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/LogWriter.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/MacroStore.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/data/Decimator.h"

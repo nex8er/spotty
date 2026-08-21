@@ -563,6 +563,33 @@ void TerminalView::setHideUnreadableEnabled(bool enabled)
     viewport()->update();
 }
 
+bool TerminalView::isSourceVisible(quint8 source) const
+{
+    return (m_hiddenSources & (1u << source)) == 0;
+}
+
+void TerminalView::setSourceVisible(quint8 source, bool visible)
+{
+    const quint32 bit = 1u << source;
+    const quint32 updated = visible ? (m_hiddenSources & ~bit) : (m_hiddenSources | bit);
+    if (updated == m_hiddenSources)
+        return;
+
+    m_hiddenSources = updated;
+    // Меняется сам список видимых строк, а не только их отрисовка, — как у csvFilterEnabled.
+    rebuildVisible();
+    viewport()->update();
+}
+
+void TerminalView::showAllSources()
+{
+    if (m_hiddenSources == 0)
+        return;
+    m_hiddenSources = 0;
+    rebuildVisible();
+    viewport()->update();
+}
+
 void TerminalView::setUnreadableMode(UnreadableMode mode)
 {
     if (m_unreadableMode == mode)
@@ -585,6 +612,13 @@ bool TerminalView::passesFilter(const TerminalBuffer::Line &line) const
     // отключено» и ошибки нужны всегда, иначе фильтр прячет причину происходящего.
     if (line.direction == DataDirection::System)
         return true;
+
+    // Скрытый транспорт — тот же принцип, что и ниже: строка остаётся в буфере со своей
+    // отметкой времени, её видят плагины, поиск и журнал, прячется только показ. Поэтому
+    // панель, разбирающая поток, продолжает считать скрытые строки, а отправлять в такой
+    // транспорт по-прежнему можно.
+    if (!isSourceVisible(line.source))
+        return false;
 
     // Данные телеметрии вытесняют из вывода всё остальное — десятки строк в секунду.
     // Скрытые здесь, они остаются в буфере и достаются графику, поиску и журналу.

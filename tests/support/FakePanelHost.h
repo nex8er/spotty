@@ -59,7 +59,10 @@ public:
     bool secondAvailable = false;
     /// @}
 
-    QString pluginId() const override { return QStringLiteral("plotter"); }
+    /// \brief Идентификатор плагина; тест меняет его, когда проверяет не плоттер.
+    QString id = QStringLiteral("plotter");
+
+    QString pluginId() const override { return id; }
 
     void send(const QByteArray &data, SendTarget target) override
     {
