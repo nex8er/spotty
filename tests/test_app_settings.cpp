@@ -29,6 +29,7 @@ TEST(AppSettings, DefaultsOnEmptyStore)
     EXPECT_EQ(settings.sendTermination, 3);
     EXPECT_EQ(settings.sendTarget, 0);
     EXPECT_TRUE(settings.localEcho);
+    EXPECT_EQ(settings.hiddenSources, 0);
 
     // Открытие порта дёргает DTR и перехватывает порт у другой программы: делать это молча
     // при каждом запуске нельзя.
@@ -65,6 +66,9 @@ TEST(AppSettings, RoundTripThroughStore)
     original.packetizerTimeoutMs = 55;
     original.packetizerDelimiterHex = QStringLiteral("0D0A");
     original.packetizerFixedLength = 32;
+    // Скрытые транспорты: бит на источник. Скрывают показ, но не разбор — строки
+    // остаются в буфере и достаются плагинам.
+    original.hiddenSources = 0b10;
     original.shortcuts.insert(QStringLiteral("terminal.clear"), QStringLiteral("Ctrl+K"));
 
     {
@@ -77,6 +81,7 @@ TEST(AppSettings, RoundTripThroughStore)
     ASSERT_TRUE(reloaded.load());
     const AppSettings restored = AppSettings::load(reloaded);
 
+    EXPECT_EQ(restored.hiddenSources, original.hiddenSources);
     EXPECT_EQ(restored.language, original.language);
     EXPECT_EQ(restored.theme, original.theme);
     EXPECT_EQ(restored.autoOpenLastInterface, original.autoOpenLastInterface);

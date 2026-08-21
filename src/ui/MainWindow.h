@@ -13,6 +13,7 @@
 #include <settings/AppSettings.h>
 #include <spotty/api/ChannelState.h>
 #include <spotty/data/DataCodec.h>
+#include <spotty/ui/PanelDescriptor.h>
 
 #include <QDateTime>
 #include <QHash>
@@ -86,6 +87,15 @@ public:
 
     /// \brief Терминация, выбранная пользователем в строке отправки.
     DataCodec::Termination sendTermination() const;
+
+    /// \brief Отправить в выбранный получатель, разрешив FirstAvailable по текущему состоянию.
+    void sendToTarget(const QByteArray &data, SendTarget target);
+
+    /// \brief Включён ли сейчас режим «два интерфейса».
+    bool dualTransportEnabled() const { return m_dualTransport; }
+
+    /// \brief Открыт ли второй интерфейс для отправки прямо сейчас.
+    bool secondInterfaceAvailable() const;
 
     void showStatusMessage(const QString &message);
 
@@ -396,6 +406,30 @@ private:
     QToolButton *m_hideUnreadableButton = nullptr;
     QToolButton *m_clearButton = nullptr;
     QToolButton *m_followButton = nullptr;
+
+    /**
+     * \brief Скрыть из вывода строки транспорта A и B; видны только в режиме двух интерфейсов.
+     *
+     * Скрывают показ, а не источник: строки остаются в буфере, достаются плагинам, поиску
+     * и журналу, и отправлять в скрытый транспорт по-прежнему можно.
+     */
+    QToolButton *m_muteSourceButtons[2] = {nullptr, nullptr};
+
+    /**
+     * \brief Пересобрать значки кнопок скрытия: перечёркнутые буквы транспортов.
+     *
+     * Буква перечёркнута **всегда**, а не только у нажатой кнопки: значок называет
+     * действие — «скрыть A», — а не состояние. Нажатость показывает штатная заливка, как у
+     * остальных переключателей в этом ряду; рисовать состояние ещё и формой значка значило
+     * бы говорить одно и то же дважды, причём разными словами.
+     *
+     * Зачёркивание шрифтом (`QFont::setStrikeOut`) пробовалось и отвергнуто: линия выходит
+     * тоньше волоса и на буквенном значке в 16 px не читается вовсе.
+     *
+     * \note Цвет запекается в пиксельную карту, поэтому метод зовётся из updateIcons() —
+     *       ровно по той же причине, что и все остальные значки окна (см. MdiIcons).
+     */
+    void updateMuteButtonIcons();
 
     /// \name Строка состояния
     /// Секции разделены линиями, а не пробелами: сплошная лента цифр не читается, а

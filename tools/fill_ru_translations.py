@@ -165,6 +165,13 @@ TRANSLATIONS = {
     "Focus &send bar": "Фокус в &строку отправки",
     "Focus send bar": "Фокус в строку отправки",
     "Send to": "Отправить в",
+    # Метка транспорта на кнопке скрытия: та же буква, что в колонке источника.
+    "A": "A",
+    "B": "B",
+    "Hide output from interface %1. Its data is still parsed by panels, found by search "
+    "and written to the log, and you can still send to it":
+        "Скрыть вывод интерфейса %1. Его данные по-прежнему разбирают панели, находит "
+        "поиск и пишет журнал, и отправлять в него можно как раньше",
     "Interface A": "Интерфейс A",
     "Interface B": "Интерфейс B",
     "Both": "Оба",
@@ -225,6 +232,7 @@ TRANSLATIONS = {
     "Macro shortcuts are assigned in the Macros panel, on each macro.":
         "Горячие клавиши макросов задаются в панели макросов, у каждого макроса.",
     "actual: %1 ms": "фактически: %1 мс",
+    "Where the repeated macro goes": "Куда уходит повторяемый макрос",
 
     # --- Логирование ---
     # Коротко: подпись стоит в узкой боковой панели и в полном виде не помещается.
@@ -297,6 +305,7 @@ TRANSLATIONS = {
     "To send bar": "В строку отправки",
     "Put the generated data into the send bar without sending":
         "Положить порождённые данные в строку отправки, не отправляя",
+    "Where the stream goes": "Куда уходит поток",
 
     # --- Пакетизация ---
     "Split incoming data by": "Разбивать принимаемое",
@@ -638,6 +647,8 @@ TRANSLATIONS = {
     "What the plot shows": "Что показывает график",
     "Settings saved for a particular device":
         "Настройки, сохранённые под конкретное устройство",
+    # Подсказка в пустом списке профилей: строчная буква отличает её от имени профиля.
+    "unsaved profile": "профиль не сохранён",
     "Save the current settings as a profile": "Сохранить текущие настройки профилем",
     "Delete this profile": "Удалить этот профиль",
     "New profile": "Новый профиль",
@@ -669,6 +680,8 @@ TRANSLATIONS = {
         "Выберите колонку для оси X, чтобы увидеть фазовый портрет",
     "Click to show or hide, double-click to change the colour":
         "Клик — показать или скрыть, двойной клик — сменить цвет",
+    "Hide every series at once; click again to bring back the previous selection":
+        "Скрыть все ряды разом; повторный клик вернёт прежний выбор",
     "Double-click to rename": "Двойной клик — переименовать",
     "Change colour…": "Сменить цвет…",
     "Rename…": "Переименовать…",
@@ -795,6 +808,126 @@ TRANSLATIONS = {
     "Built against panel API version %1, this build expects %2.":
         "Собран для версии панельного API %1, эта сборка ожидает %2.",
 
+    # --- Разбор JSON (панель jsontree) ---
+    "JSON": "JSON",
+    "JSON tree": "Дерево JSON",
+    "Field": "Поле",
+    "Value": "Значение",
+    "Rate": "Частота",
+    "View": "Показ",
+    "Framing": "Границы документов",
+    "Pause parsing": "Приостановить разбор",
+    "Resume parsing": "Продолжить разбор",
+    "Clear the tree": "Очистить дерево",
+    "Hide fields that stopped arriving": "Скрыть поля, которые перестали приходить",
+    "Remove fields that stopped arriving": "Убрать поля, которые перестали приходить",
+    "Expand everything": "Раскрыть всё",
+    "Collapse everything": "Свернуть всё",
+    "Expand everything below": "Раскрыть всё ниже",
+    "Flash a field when its value changes\nRight-click to set how long it glows":
+        "Подсвечивать поле при изменении значения\n"
+        "Правая кнопка — насколько долго оно горит",
+    "Flash duration": "Длительность вспышки",
+    "Milliseconds:": "Миллисекунды:",
+    "Other…": "Другое…",
+    "The panel has a button for this too, and the same button sets the duration by "
+    "right-click.":
+        "В самой панели для этого есть кнопка, и она же задаёт длительность по правому "
+        "щелчку.",
+    "Copy value": "Копировать значение",
+    "%1 fields · %2 documents": "полей: %1 · документов: %2",
+    "Documents: %1\nText lines skipped: %2\nMalformed: %3\n"
+    "Abandoned: %4\nPaths rejected by limits: %5":
+        "Документов: %1\nПропущено текстовых строк: %2\nБитых: %3\n"
+        "Брошено накоплений: %4\nОтвергнуто пределами: %5",
+    "Node limit reached (%1). New fields are ignored. If the stream contains arrays, set "
+    "the array identity field in settings — otherwise every element makes its own branch.":
+        "Достигнут предел полей (%1). Новые поля не добавляются. Если в потоке есть "
+        "массивы, задайте в настройках ключ идентификации — иначе каждый элемент заводит "
+        "свою ветку.",
+    "Array identity field": "Ключ идентификации массива",
+    "Objects inside an array are told apart by this field, for example id. Leave it empty "
+    "to collapse the array into a single branch showing the last element's values.":
+        "По этому полю различаются объекты внутри массива — например, id. Пустое значение "
+        "схлопывает массив в одну ветку со значениями последнего элемента.",
+    "Field limit": "Предел числа полей",
+    "Once reached, new fields are ignored and the ones already there keep updating. A "
+    "stream that uses random ids will hit this quickly.":
+        "По достижении новые поля не заводятся, а уже заведённые продолжают обновляться. "
+        "Поток со случайными идентификаторами упирается в предел быстро.",
+    "Maximum depth": "Наибольшая глубина",
+    "Deeper subtrees are shown collapsed into a single value.":
+        "Более глубокие поддеревья показываются свёрнутыми в одно значение.",
+    "Children per branch": "Детей на ветку",
+    "Multi-line JSON limit": "Предел многострочного JSON",
+    "How many lines one pretty-printed document may span.":
+        "Сколько строк может занимать один документ с отступами.",
+    "Give up on unclosed JSON after": "Бросать незакрытый JSON через",
+    "A lost closing brace would otherwise swallow everything that follows.":
+        "Иначе потерянная закрывающая скобка проглотит весь последующий поток.",
+    "Flash a field when its value changes": "Подсвечивать поле при изменении значения",
+
+    # --- Виртуальный источник JSON (jsongen) ---
+    "JSON source": "Источник JSON",
+    "Virtual JSON source": "Виртуальный источник JSON",
+    "Virtual JSON telemetry source": "Виртуальный источник телеметрии в JSON",
+    "Shape": "Форма",
+    "Document shape": "Форма документа",
+    "Flat object": "Плоский объект",
+    "Nested object": "Вложенный объект",
+    "Array of objects": "Массив объектов",
+    "Mixed (rotates through all three)": "Вперемешку (по кругу все три)",
+    '"Mixed" alternates shapes from document to document - the case a parser is most '
+    "likely to get wrong.":
+        "«Вперемешку» меняет форму от документа к документу — случай, на котором разбор "
+        "ошибается чаще всего.",
+    "Fields per object": "Полей в объекте",
+    "Nesting depth": "Глубина вложенности",
+    "Only used by the nested and mixed shapes.":
+        "Действует только для вложенной и смешанной формы.",
+    "Objects per array": "Объектов в массиве",
+    "Use random ids": "Случайные идентификаторы",
+    "Every array element gets a brand new id, so the tree grows without bound - this is "
+    "what a node limit is for.":
+        "Каждый элемент массива получает новый идентификатор, и дерево растёт без предела "
+        "— ровно то, ради чего предел и заведён.",
+    "Document interval": "Период документов",
+    "Different rates per field": "Разная частота у разных полей",
+    "Some fields come with every document, some every 5th, some every 25th. A field that "
+    "is not due is left out of the document entirely - without that there is nothing for "
+    "a rate column to show.":
+        "Одни поля приходят с каждым документом, другие с каждым пятым, третьи с каждым "
+        "двадцать пятым. Поле, которому не подошёл черёд, из документа убирается целиком — "
+        "иначе колонке частоты нечего было бы показывать.",
+    "Corrupt documents": "Битые документы",
+    "Truncated tails, missing braces, stray commas - a parser must skip these instead of "
+    "breaking or littering its output.":
+        "Обрубленные хвосты, потерянные скобки, лишние запятые — разбор обязан их "
+        "пропускать, а не ломаться и не засорять вывод.",
+    "Emit plain log lines": "Слать обычные текстовые строки",
+    "Ordinary text mixed into the telemetry, the way real firmware does it.":
+        "Обычный текст вперемешку с телеметрией — так ведёт себя настоящая прошивка.",
+    "Layout": "Раскладка",
+    "One document per line": "По документу на строку",
+    "Pretty-printed over several lines": "С отступами на несколько строк",
+    "Alternate between the two": "Чередовать оба",
+    "Split documents into two packets": "Разбивать документ на два пакета",
+    "Breaks the stream mid-line, the way a polled source does. A reader must wait for the "
+    "line to finish instead of parsing half of it.":
+        "Рвёт поток посреди строки, как это делает опрашиваемый источник. Читатель обязан "
+        "дождаться конца строки, а не разбирать её половину.",
+    "Drift": "Дрейф",
+    "Structure drift": "Дрейф структуры",
+    "Off": "Выключен",
+    "Keep adding new keys": "Добавлять новые ключи",
+    "Keys come and go": "Ключи появляются и исчезают",
+    "Checks that a tree grows with the stream and shows what stopped coming.":
+        "Проверяет, что дерево растёт вместе с потоком и показывает то, что перестало "
+        "приходить.",
+    "Drift every": "Дрейф каждые",
+    "documents": "документов",
+    "lines": "строк",
+
     # --- Прочее ---
     "Start / stop recording": "Начать или остановить запись",
 }
@@ -809,6 +942,7 @@ PLURALS = {
     "%n line(s)": ("%n строка", "%n строки", "%n строк"),
     "%n file(s)": ("%n файл", "%n файла", "%n файлов"),
     "%n series": ("%n ряд", "%n ряда", "%n рядов"),
+    "%n field(s) removed": ("убрано %n поле", "убрано %n поля", "убрано %n полей"),
     "%n point(s)": ("%n точка", "%n точки", "%n точек"),
     "Delete %n selected macro(s)?": ("Удалить выделенный макрос?",
                                      "Удалить %n выделенных макроса?",

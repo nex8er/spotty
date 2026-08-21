@@ -42,10 +42,14 @@ bool PlotModel::growSeries(int columns)
 
     while (m_series.size() < columns) {
         PlotSeries series;
-        series.color = defaultColor(int(m_series.size()));
         const int index = int(m_series.size());
+        series.color = defaultColor(index);
         const QString sourceName = m_reportedNames.value(index);
         series.name = sourceName.isEmpty() ? PlotFormat::defaultSeriesName(index) : sourceName;
+        // По умолчанию виден только первый ряд: устройство нередко шлёт десяток колонок,
+        // и рисовать их все сразу поверх друг друга — не то, чего просят, а то, что
+        // приходится потом вручную разгребать чекбоксами.
+        series.visible = (index == 0);
         m_series.append(series);
     }
     return true;
@@ -152,14 +156,17 @@ void PlotModel::resetSeriesConfiguration()
         const QString reportedName = m_reportedNames.value(index);
         const QString sourceName = reportedName.isEmpty() ? PlotFormat::defaultSeriesName(index)
                                                            : reportedName;
+        // По умолчанию видим только первый ряд — см. growSeries().
+        const bool defaultVisible = (index == 0);
         if (series.name != sourceName || series.nameIsCustom
-            || series.color != defaultColor(index) || !series.visible || series.hasCustomRange) {
+            || series.color != defaultColor(index) || series.visible != defaultVisible
+            || series.hasCustomRange) {
             didChange = true;
         }
         series.name = sourceName;
         series.nameIsCustom = false;
         series.color = defaultColor(index);
-        series.visible = true;
+        series.visible = defaultVisible;
         series.hasCustomRange = false;
         series.customMinimum = 0.0;
         series.customMaximum = 1.0;

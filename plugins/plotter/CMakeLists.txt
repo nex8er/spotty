@@ -14,4 +14,6 @@ spotty_add_plugin(spotty-plugin-plotter
         ScaleLimitsDialog.h
         SeriesSwatchDelegate.cpp
         SeriesSwatchDelegate.h
+        SeriesHeaderView.cpp
+        SeriesHeaderView.h
         )

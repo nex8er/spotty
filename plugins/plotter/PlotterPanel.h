@@ -21,6 +21,7 @@ class PlotCanvas;
 class PlotModel;
 class PlotWidget;
 class PlotViewState;
+class SeriesHeaderView;
 class SeriesSwatchDelegate;
 
 /**
@@ -50,6 +51,7 @@ Q_SIGNALS:
 
 protected:
     void settingsReset() override;
+    void channelStateChanged(ChannelState state) override;
 
     /// \brief Пересчитать ширины колонок статистики под новую ширину панели.
     void resizeEvent(QResizeEvent *event) override;
@@ -95,6 +97,13 @@ private:
     /// \brief Вернуть в ячейки первой колонки цвет и видимость из модели.
     void refreshSwatches();
 
+    /**
+     * \brief Щелчок по флажку в заголовке колонки цвета: скрыть все ряды разом либо
+     *        вернуть выбор, снятый предыдущим щелчком.
+     * \param checked Новое состояние флажка после щелчка.
+     */
+    void toggleAllSeriesVisibility(bool checked);
+
     /// \brief Привести выделение и текущую строку таблицы в согласие с видом.
     void syncSelectionFromView();
 
@@ -112,6 +121,15 @@ private:
 
     /// \brief Перечитать список профилей в выпадающем списке.
     void reloadProfiles();
+
+    /**
+     * \brief Подставить в список профилей подсказку вместо пустого поля.
+     *
+     * Список без выбранного профиля показывал пустое поле — не отличить от «профилей
+     * ещё не бывает» до «профиль есть, но не выбран». Подсказка называет то же имя, что
+     * addProfile() предложит при сохранении: по нему видно, куда сохранённый профиль ляжет.
+     */
+    void updateProfilePlaceholder();
 
     /// \brief Собрать нынешние настройки в профиль под именем \p name.
     PlotProfile currentProfile(const QString &name) const;
@@ -168,6 +186,18 @@ private:
     QToolButton *m_resetProfile = nullptr;
     QTableWidget *m_table = nullptr;
     SeriesSwatchDelegate *m_swatch = nullptr;
+
+    /// \brief Заголовок таблицы; в колонке цвета рисует флажок «показать или скрыть все».
+    SeriesHeaderView *m_header = nullptr;
+
+    /**
+     * \brief Видимость рядов на момент, когда её сняли разом флажком заголовка.
+     *
+     * Пуст, пока чекбоксом ничего не скрывали. Состав меняется вместе с рядами —
+     * rebuildTable() его сбрасывает, потому что старые индексы после появления новой
+     * колонки уже могут указывать не на те ряды.
+     */
+    QList<bool> m_rememberedVisibility;
 
     /// \brief Ширина колонки статистики в знакоместах; см. updateStatisticsWidth().
     int m_statisticsCharacters = 8;

@@ -53,6 +53,7 @@ constexpr int kSendColumnWidth = 34;
 
 // Ключ без префикса: пространство `plugins/macros/` подставляет хост.
 constexpr auto kKeyPreset = "preset";
+constexpr auto kKeyPeriodicTarget = "periodicTarget";
 
 /**
  * \brief Шкала периодов повторной отправки.
@@ -189,6 +190,24 @@ MacrosPanel::MacrosPanel(IPanelHost *panelHost, QWidget *parent)
 
     m_periodicMacro = new QComboBox(periodicBox);
 
+    // Получатель повторной отправки — тот же выбор, что в строке отправки, но свой:
+    // автоотправка макроса не обязана идти туда же, куда только что ушло что-то набранное
+    // вручную. Видна только в режиме двух интерфейсов — updatePeriodicTargetVisibility().
+    m_periodicTarget = new QComboBox(periodicBox);
+    m_periodicTarget->addItem(tr("Interface A"), int(SendTarget::InterfaceA));
+    m_periodicTarget->addItem(tr("Interface B"), int(SendTarget::InterfaceB));
+    m_periodicTarget->addItem(tr("Both"), int(SendTarget::Both));
+    m_periodicTarget->addItem(tr("First available"), int(SendTarget::FirstAvailable));
+    m_periodicTarget->setToolTip(tr("Where the repeated macro goes"));
+    m_periodicTarget->hide();
+    {
+        const int stored = host()->value(QLatin1String(kKeyPeriodicTarget),
+                                         int(SendTarget::FirstAvailable))
+                               .toInt();
+        const int index = m_periodicTarget->findData(stored);
+        m_periodicTarget->setCurrentIndex(index >= 0 ? index : m_periodicTarget->count() - 1);
+    }
+
     m_periodInterval = new QComboBox(periodicBox);
     for (const int period : kPeriodsMs)
         m_periodInterval->addItem(periodLabel(period), period);
@@ -223,6 +242,7 @@ MacrosPanel::MacrosPanel(IPanelHost *panelHost, QWidget *parent)
     m_actualLabel->hide();
 
     periodicLayout->addWidget(m_periodicMacro);
+    periodicLayout->addWidget(m_periodicTarget);
     periodicLayout->addLayout(periodRow);
     periodicLayout->addWidget(m_actualLabel);
     layout->addWidget(periodicBox);
@@ -234,7 +254,7 @@ MacrosPanel::MacrosPanel(IPanelHost *panelHost, QWidget *parent)
     // бы заданный период во что угодно.
     m_periodicTimer->setTimerType(Qt::PreciseTimer);
     connect(m_periodicTimer, &QTimer::timeout, this, [this] {
-        sendMacro(m_periodicMacro->currentIndex());
+        sendMacro(m_periodicMacro->currentIndex(), /*userInitiated=*/false);
         ++m_periodicCount;
         updateActualInterval();
     });
@@ -289,11 +309,28 @@ MacrosPanel::MacrosPanel(IPanelHost *panelHost, QWidget *parent)
     connect(m_exportButton, &QToolButton::clicked, this, &MacrosPanel::exportMacros);
     connect(m_importButton, &QToolButton::clicked, this, &MacrosPanel::importMacros);
 
+    connect(m_periodicTarget, qOverload<int>(&QComboBox::currentIndexChanged), this, [this] {
+        host()->setValue(QLatin1String(kKeyPeriodicTarget),
+                         int(selectedPeriodicTarget()));
+    });
+    connect(host(), &IPanelHost::secondInterfaceStateChanged, this,
+            [this](bool dualTransportEnabled, bool) {
+                updatePeriodicTargetVisibility(dualTransportEnabled);
+            });
+    updatePeriodicTargetVisibility(host()->dualTransportEnabled());
+
     connect(m_periodicButton, &QToolButton::toggled, this, [this](bool on) {
         if (on)
             startPeriodic();
         else
             stopPeriodic();
+    });
+
+    // Смена периода применяется сразу к уже идущей отправке, а не только к следующему
+    // запуску: останавливать повтор ради того, чтобы поправить частоту, неудобно.
+    connect(m_periodInterval, &QComboBox::currentTextChanged, this, [this] {
+        if (m_periodicTimer->isActive())
+            m_periodicTimer->start(selectedPeriodMs());
     });
 
     // Обратное действие к «положить макрос в строку отправки»: набрал команду, проверил
@@ -497,7 +534,7 @@ void MacrosPanel::rebuildShortcuts()
     host()->setShortcuts(shortcuts);
 }
 
-void MacrosPanel::sendMacro(int index)
+void MacrosPanel::sendMacro(int index, bool userInitiated)
 {
     if (index < 0 || index >= m_store.macros().size())
         return;
@@ -517,7 +554,11 @@ void MacrosPanel::sendMacro(int index)
     if (data.isEmpty())
         return;
 
-    host()->send(data);
+    // Получатель из списка относится только к автоотправке: ручная — с кнопки, из меню,
+    // по сочетанию клавиш — ведёт себя так же, как раньше, и идёт первому доступному.
+    host()->send(data, userInitiated ? SendTarget::FirstAvailable : selectedPeriodicTarget());
+    if (userInitiated)
+        host()->scrollTerminalToBottom();
 }
 
 void MacrosPanel::addMacro()
@@ -726,6 +767,17 @@ int MacrosPanel::selectedPeriodMs() const
     bool ok = false;
     const int typed = m_periodInterval->currentText().toInt(&ok);
     return ok ? qBound(kMinPeriodMs, typed, kMaxPeriodMs) : data.toInt();
+}
+
+SendTarget MacrosPanel::selectedPeriodicTarget() const
+{
+    const QVariant data = m_periodicTarget->currentData();
+    return data.isValid() ? SendTarget(data.toInt()) : SendTarget::FirstAvailable;
+}
+
+void MacrosPanel::updatePeriodicTargetVisibility(bool dualTransportEnabled)
+{
+    m_periodicTarget->setVisible(dualTransportEnabled);
 }
 
 void MacrosPanel::startPeriodic()

@@ -28,6 +28,10 @@ endif()
 # после loopback пример "не требует железа".
 add_subdirectory(signalgen)
 
+# Виртуальный источник JSON — то же самое для панели разбора JSON: формы документа, на
+# которых разбор ломается, у реального устройства по заказу не получишь.
+add_subdirectory(jsongen)
+
 # Плагины панелей и обработки данных. Отличаются от транспортов только KIND PANEL в
 # spotty_add_plugin(): им дополнительно достаётся Spotty::UiApi, а с ним Qt6::Widgets.
 add_subdirectory(generator)
@@ -39,3 +43,7 @@ add_subdirectory(search)
 # переделывались из встроенных панелей.
 add_subdirectory(plotter)
 add_subdirectory(filesend)
+
+# Разбор JSON из потока: дерево путей со значением и частотой у каждого поля. Логика
+# (JsonFramer, JsonTreeModel) лежит в SDK и проверяется без виджетов, здесь только показ.
+add_subdirectory(jsontree)

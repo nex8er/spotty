@@ -323,7 +323,9 @@ TEST_F(Panel, ResetProfileRestoresReportedFieldNamesAndDefaults)
     model->feed(QStringLiteral("1,2"), 0);
     model->feed(QStringLiteral("voltage,current"), 1);
     model->setSeriesName(0, QStringLiteral("battery"));
-    model->setSeriesVisible(1, false);
+    // Оба от умолчания: по умолчанию виден только индекс 0 — здесь наоборот.
+    model->setSeriesVisible(0, false);
+    model->setSeriesVisible(1, true);
     model->setSeriesRange(0, true, -5.0, 5.0);
     model->setSeparator(u';');
     model->setCapacity(100);
@@ -346,7 +348,9 @@ TEST_F(Panel, ResetProfileRestoresReportedFieldNamesAndDefaults)
     EXPECT_EQ(model->series(0).name, QStringLiteral("voltage"));
     EXPECT_EQ(model->series(1).name, QStringLiteral("current"));
     EXPECT_FALSE(model->series(0).nameIsCustom);
-    EXPECT_TRUE(model->series(1).visible);
+    // Умолчание — виден только первый ряд.
+    EXPECT_TRUE(model->series(0).visible);
+    EXPECT_FALSE(model->series(1).visible);
     EXPECT_FALSE(model->series(0).hasCustomRange);
 
     const PlotProfile stored = PlotProfileStore(dir.path()).load(QStringLiteral("board"));

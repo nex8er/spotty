@@ -5,6 +5,7 @@
 #pragma once
 
 #include <spotty/data/MacroStore.h>
+#include <spotty/ui/PanelDescriptor.h>
 #include <spotty/ui/PanelWidget.h>
 
 class QComboBox;
@@ -86,8 +87,12 @@ private:
      */
     void rebuildShortcuts();
 
-    /// \brief Отправить макрос по номеру строки.
-    void sendMacro(int index);
+    /**
+     * \brief Отправить макрос по номеру строки.
+     * \param userInitiated Ложно только для вызова из таймера периодической отправки:
+     *        только личное действие пользователя вправе прокрутить терминал к концу.
+     */
+    void sendMacro(int index, bool userInitiated = true);
 
     void addMacro();
     /// \brief Номера выделенных строк по возрастанию.
@@ -106,6 +111,12 @@ private:
 
     void startPeriodic();
     void stopPeriodic();
+
+    /// \brief Получатель повторной отправки, выбранный в списке.
+    SendTarget selectedPeriodicTarget() const;
+
+    /// \brief Показать или спрятать выбор получателя — виден только в режиме двух интерфейсов.
+    void updatePeriodicTargetVisibility(bool dualTransportEnabled);
 
     /// \brief Обновить надпись о фактически достигнутом периоде.
     void updateActualInterval();
@@ -132,6 +143,9 @@ private:
     QComboBox *m_periodInterval = nullptr;
     QToolButton *m_periodicButton = nullptr;
     QLabel *m_actualLabel = nullptr;
+
+    /// \brief Получатель повторной отправки; видна, только пока открыт второй интерфейс.
+    QComboBox *m_periodicTarget = nullptr;
 
     QTimer *m_periodicTimer = nullptr;
 

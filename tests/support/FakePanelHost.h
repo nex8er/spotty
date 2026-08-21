@@ -49,18 +49,34 @@ public:
     QString selection;
     int findNextCalls = 0;
     int findPreviousCalls = 0;
+    int scrollToBottomCalls = 0;
     QVector<TerminalLine> terminalLines;
     TerminalGutterSettings gutterSettings;
+    QByteArray lastSent;
+    SendTarget lastSendTarget = SendTarget::FirstAvailable;
+    int sendCalls = 0;
+    bool dualTransport = false;
+    bool secondAvailable = false;
     /// @}
 
-    QString pluginId() const override { return QStringLiteral("plotter"); }
+    /// \brief Идентификатор плагина; тест меняет его, когда проверяет не плоттер.
+    QString id = QStringLiteral("plotter");
 
-    void send(const QByteArray &) override {}
+    QString pluginId() const override { return id; }
+
+    void send(const QByteArray &data, SendTarget target) override
+    {
+        lastSent = data;
+        lastSendTarget = target;
+        ++sendCalls;
+    }
     DataCodec::Termination sendTermination() const override
     {
         return DataCodec::Termination::CrLf;
     }
     void composeInSendBar(const QString &, DataCodec::Format) override {}
+    bool dualTransportEnabled() const override { return dualTransport; }
+    bool secondInterfaceAvailable() const override { return secondAvailable; }
 
     ChannelState channelState() const override { return ChannelState::Closed; }
     QString interfaceId() const override { return {}; }
@@ -89,6 +105,7 @@ public:
     void appendToTerminal(const QString &) override {}
     void injectReceived(const QByteArray &) override {}
     void clearTerminal() override {}
+    void scrollTerminalToBottom() override { ++scrollToBottomCalls; }
     bool showDocument(const QString &, const QString &) override { return false; }
 
     void setHighlightRules(const HighlightRules &) override {}

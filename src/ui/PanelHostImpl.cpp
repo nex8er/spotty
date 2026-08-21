@@ -55,10 +55,10 @@ PanelHostImpl::~PanelHostImpl() = default;
 
 // --- Отправка ------------------------------------------------------------------------
 
-void PanelHostImpl::send(const QByteArray &data)
+void PanelHostImpl::send(const QByteArray &data, SendTarget target)
 {
-    if (m_context.session)
-        m_context.session->send(data);
+    if (m_window)
+        m_window->sendToTarget(data, target);
 }
 
 DataCodec::Termination PanelHostImpl::sendTermination() const
@@ -70,6 +70,16 @@ void PanelHostImpl::composeInSendBar(const QString &text, DataCodec::Format form
 {
     if (m_window)
         m_window->composeInSendBar(text, format);
+}
+
+bool PanelHostImpl::dualTransportEnabled() const
+{
+    return m_window && m_window->dualTransportEnabled();
+}
+
+bool PanelHostImpl::secondInterfaceAvailable() const
+{
+    return m_window && m_window->secondInterfaceAvailable();
 }
 
 // --- Состояние интерфейса --------------------------------------------------------------
@@ -213,6 +223,12 @@ void PanelHostImpl::clearTerminal()
 {
     if (m_context.session)
         m_context.session->buffer()->clear();
+}
+
+void PanelHostImpl::scrollTerminalToBottom()
+{
+    if (TerminalView *terminal = m_window ? m_window->terminalView() : nullptr)
+        terminal->scrollToBottom();
 }
 
 bool PanelHostImpl::showDocument(const QString &filePath, const QString &title)
@@ -391,6 +407,12 @@ QIcon PanelHostImpl::mutedIcon(char32_t glyph, int size) const
 void PanelHostImpl::notifyChannelState(ChannelState state)
 {
     Q_EMIT channelStateChanged(state);
+}
+
+void PanelHostImpl::notifySecondInterfaceState(bool dualTransportEnabled,
+                                               bool secondInterfaceAvailable)
+{
+    Q_EMIT secondInterfaceStateChanged(dualTransportEnabled, secondInterfaceAvailable);
 }
 
 void PanelHostImpl::notifyThemeChanged()

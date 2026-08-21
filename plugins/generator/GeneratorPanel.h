@@ -5,6 +5,7 @@
 #pragma once
 
 #include <spotty/data/DataGenerator.h>
+#include <spotty/ui/PanelDescriptor.h>
 #include <spotty/ui/PanelWidget.h>
 
 class QComboBox;
@@ -54,12 +55,26 @@ private:
     void updateFrequency();
     void updateIcons();
     void updateSentLabel();
-    void sendOnce();
+
+    /**
+     * \brief Отправить один пакет.
+     * \param userInitiated Ложно только для вызова из таймера потока: выбор получателя из
+     *        m_streamTarget относится к потоку, а ручное «отправить один раз» ведёт себя
+     *        так же, как раньше, и идёт первому доступному.
+     */
+    void sendOnce(bool userInitiated = true);
+
     void resetRuntime();
     void setStreaming(bool on);
     void setSendEnabled(bool enabled);
     QByteArray withSendTermination(const QByteArray &payload) const;
     int selectedIntervalMs() const;
+
+    /// \brief Получатель потока, выбранный в списке.
+    SendTarget selectedStreamTarget() const;
+
+    /// \brief Показать или спрятать выбор получателя — виден только в режиме двух интерфейсов.
+    void updateStreamTargetVisibility(bool dualTransportEnabled);
 
     DataGenerator m_generator;
     DataGenerator::Pattern m_activePattern = DataGenerator::Pattern::Counter;
@@ -93,6 +108,9 @@ private:
 
     QLineEdit *m_prefix = nullptr;
     QComboBox *m_interval = nullptr;
+    QLabel *m_streamTargetLabel = nullptr;
+    /// \brief Получатель потока; вместе с меткой видна, только пока открыт второй интерфейс.
+    QComboBox *m_streamTarget = nullptr;
     QPlainTextEdit *m_preview = nullptr;
     QToolButton *m_hexView = nullptr;
     QToolButton *m_playPause = nullptr;
