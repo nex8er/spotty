@@ -1035,10 +1035,17 @@ void MainWindow::buildMenus()
 
     QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
     helpMenu->addAction(tr("&About Spotty"), this, [this] {
-        QMessageBox::about(this, tr("About Spotty"),
-                           tr("<b>Spotty %1</b><br>Modular terminal port monitor.<br><br>"
-                              "Configuration: %2")
-                               .arg(QLatin1String(SPOTTY_VERSION), Paths::configDir()));
+        // Имя автора и адрес не переводятся и потому подставляются, а не входят в строку
+        // перевода: переводчик не должен получать возможность их «исправить».
+        const QString repository = QStringLiteral("https://github.com/nex8er/spotty");
+        QMessageBox::about(
+            this, tr("About Spotty"),
+            tr("<b>Spotty %1</b><br>Modular terminal port monitor.<br><br>"
+               "Author: %2<br>"
+               "<a href=\"%3\">%3</a><br><br>"
+               "Configuration: %4")
+                .arg(QLatin1String(SPOTTY_VERSION), QStringLiteral("nex8er"), repository,
+                     Paths::configDir()));
     });
 }
 

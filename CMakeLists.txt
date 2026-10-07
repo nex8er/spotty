@@ -19,14 +19,15 @@ if(APPLE AND NOT CMAKE_OSX_SYSROOT AND NOT DEFINED ENV{SDKROOT})
 endif()
 
 project(Spotty
-    VERSION 0.7.0
+    VERSION 0.8.0
     DESCRIPTION "Modular terminal port monitor"
     HOMEPAGE_URL "https://github.com/nex8er/spotty"
     LANGUAGES CXX)
 
-# project(VERSION) принимает только числа, поэтому буква релиза хранится отдельно.
-# Значение попадает в код через определение SPOTTY_VERSION (см. src/core/CMakeLists.txt).
-set(SPOTTY_VERSION "${PROJECT_VERSION}a")
+# Значение попадает в код через определение SPOTTY_VERSION (см. src/core/CMakeLists.txt) и в
+# имена пакетов. Раньше к номеру дописывалась буква «a» (альфа); теперь версия — просто
+# число, и тег релиза выглядит как `v0.8.0`.
+set(SPOTTY_VERSION "${PROJECT_VERSION}")
 
 option(SPOTTY_STATIC_PLUGINS "Link interface plugins into the executable instead of loading them at runtime" OFF)
 option(SPOTTY_BUILD_TESTS "Build unit tests" OFF)

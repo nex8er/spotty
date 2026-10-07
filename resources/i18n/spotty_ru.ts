@@ -1687,6 +1687,10 @@ Double-click to edit, right-click for options</source>
         <source>C&amp;lear terminal</source>
         <translation>О&amp;чистить терминал</translation>
     </message>
+    <message>
+        <source>&lt;b&gt;Spotty %1&lt;/b&gt;&lt;br&gt;Modular terminal port monitor.&lt;br&gt;&lt;br&gt;Author: %2&lt;br&gt;&lt;a href=&quot;%3&quot;&gt;%3&lt;/a&gt;&lt;br&gt;&lt;br&gt;Configuration: %4</source>
+        <translation>&lt;b&gt;Spotty %1&lt;/b&gt;&lt;br&gt;Модульный терминал-монитор портов.&lt;br&gt;&lt;br&gt;Автор: %2&lt;br&gt;&lt;a href="%3"&gt;%3&lt;/a&gt;&lt;br&gt;&lt;br&gt;Настройки: %4</translation>
+    </message>
     <message numerus="yes">
         <source>Selected: %1 (%n line(s))</source>
         <translation>
@@ -1790,10 +1794,6 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>About Spotty</source>
         <translation>О программе</translation>
-    </message>
-    <message>
-        <source>&lt;b&gt;Spotty %1&lt;/b&gt;&lt;br&gt;Modular terminal port monitor.&lt;br&gt;&lt;br&gt;Configuration: %2</source>
-        <translation>&lt;b&gt;Spotty %1&lt;/b&gt;&lt;br&gt;Модульный терминал-монитор портов.&lt;br&gt;&lt;br&gt;Настройки: %2</translation>
     </message>
     <message>
         <source>The language, single-instance and enabled-plugin settings take effect after Spotty is restarted.</source>

@@ -510,8 +510,10 @@ TRANSLATIONS = {
         "необратимо.\n\nПродолжить?",
     "Settings, interfaces and history have been reset to defaults.":
         "Настройки, интерфейсы и история сброшены к умолчаниям.",
-    "<b>Spotty %1</b><br>Modular terminal port monitor.<br><br>Configuration: %2":
-        "<b>Spotty %1</b><br>Модульный терминал-монитор портов.<br><br>Настройки: %2",
+    "<b>Spotty %1</b><br>Modular terminal port monitor.<br><br>Author: %2<br><a "
+    "href=\"%3\">%3</a><br><br>Configuration: %4":
+        "<b>Spotty %1</b><br>Модульный терминал-монитор портов.<br><br>Автор: %2<br>"
+        "<a href=\"%3\">%3</a><br><br>Настройки: %4",
 
     # --- UART ---
     "Serial / UART": "Последовательный порт / UART",
