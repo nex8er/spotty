@@ -8,6 +8,7 @@
 
 #include <QElapsedTimer>
 
+#include <functional>
 #include <memory>
 
 class QSerialPort;
@@ -63,6 +64,19 @@ public:
      */
     bool applySettings(const QVariantMap &settings) override;
 
+    /**
+     * \brief Кому сообщить номер пары com0com, созданной при открытии (только Windows).
+     *
+     * Пару, которую завёл Spotty, при выходе нужно убрать, а чужую — нельзя. Канал знает,
+     * что создал её сам, но живёт меньше программы, поэтому помнит это плагин.
+     *
+     * \warning Вызывается из потока ввода-вывода.
+     */
+    void setPairCreatedHandler(std::function<void(int)> handler)
+    {
+        m_pairCreated = std::move(handler);
+    }
+
 private:
     void onRealReadyRead();
     void onRealError();
@@ -94,6 +108,8 @@ private:
     /// \brief Порты, с которыми канал открыт: их смена на лету невозможна.
     QString m_openedReal;
     QString m_openedVirtual;
+
+    std::function<void(int)> m_pairCreated;
 };
 
 } // namespace spotty

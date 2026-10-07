@@ -117,11 +117,17 @@ void NabChannel::poll()
     QByteArray data;
     const LibusbKLibrary::TransferResult result =
         LibusbKLibrary::instance().read(m_handle, m_input.address, kReadChunkSize, &data);
-    if (result.ok) {
-        if (!data.isEmpty())
-            Q_EMIT dataReceived(data, m_clock.nsecsElapsed());
+
+    // Таймаут пайпа может прийти вместе с уже частично полученными байтами (см.
+    // комментарий в LibusbKLibrary::read()) - их нужно отдать в любом случае, иначе
+    // получится ровно тот же эффект, что раньше: конец предыдущего JSON-пакета
+    // склеивается с серединой следующего, потому что кусок между ними тихо пропал
+    // здесь, а не был потерян на шине или в прошивке.
+    if (!data.isEmpty())
+        Q_EMIT dataReceived(data, m_clock.nsecsElapsed());
+
+    if (result.ok)
         return;
-    }
 
     if (isTimeout(result.errorCode))
         return;

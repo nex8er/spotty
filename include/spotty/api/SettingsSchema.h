@@ -54,6 +54,29 @@ struct SettingsField
         Integer, ///< Числовое поле в границах #minimum и #maximum.
         Toggle,  ///< Флажок.
         Text,    ///< Произвольная строка.
+
+        /**
+         * \brief Строка сведений без редактора: состояние, найденное плагином.
+         *
+         * Слева #label, справа текст. Текст берётся из #defaultValue, а при #live —
+         * из подписи первого пункта spotty::IInterfacePlugin::liveOptions(), то есть
+         * обновляется, пока диалог открыт. Допускается разметка Qt (rich text), ссылки
+         * открываются в браузере.
+         *
+         * \note Значения не хранит: в defaults(), normalized() и настройки канала не попадает.
+         */
+        Note,
+
+        /**
+         * \brief Кнопка с подписью #label. Нажатие зовёт
+         *        spotty::IInterfacePlugin::triggerAction() с ключом поля.
+         *
+         * Нужна там, где плагину есть что сделать по просьбе пользователя, но сам он виджетов
+         * создавать не вправе: открыть программу настройки драйвера, сбросить устройство.
+         *
+         * \note Значения не хранит, как и #Note.
+         */
+        Action,
     };
 
     /// \brief Ключ в QVariantMap настроек. Не переводится и не меняется между версиями.
@@ -119,6 +142,15 @@ struct SettingsField
 
     /// \brief Однострочное пояснение под редактором. Необязательно.
     QString hint;
+
+    /**
+     * \brief Хранит ли поле значение в настройках.
+     * \return `false` для #Note и #Action: они только показывают и действуют.
+     *
+     * Без этой проверки кнопка попала бы в `interfaces.json` пустым значением, а
+     * обязательная строка сведений не давала бы открыть канал.
+     */
+    bool holdsValue() const { return type != Note && type != Action; }
 };
 
 /**
@@ -235,8 +267,10 @@ public:
     QVariantMap defaults() const
     {
         QVariantMap result;
-        for (const SettingsField &field : m_fields)
-            result.insert(field.key, field.defaultValue);
+        for (const SettingsField &field : m_fields) {
+            if (field.holdsValue())
+                result.insert(field.key, field.defaultValue);
+        }
         return result;
     }
 
@@ -259,6 +293,8 @@ public:
     {
         QVariantMap result;
         for (const SettingsField &field : m_fields) {
+            if (!field.holdsValue())
+                continue;
             const auto it = values.constFind(field.key);
             result.insert(field.key, it != values.constEnd() ? *it : field.defaultValue);
         }
@@ -278,7 +314,7 @@ public:
     {
         QStringList result;
         for (const SettingsField &field : m_fields) {
-            if (!field.required)
+            if (!field.required || !field.holdsValue())
                 continue;
             if (values.value(field.key, field.defaultValue).toString().trimmed().isEmpty())
                 result.append(field.key);

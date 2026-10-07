@@ -10,9 +10,10 @@
 
 namespace spotty {
 
-SerialVirtualPort::SerialVirtualPort(QString portName, QObject *parent)
+SerialVirtualPort::SerialVirtualPort(QString portName, QString displayName, QObject *parent)
     : VirtualPort(parent)
     , m_portName(std::move(portName))
+    , m_displayName(std::move(displayName))
 {
 }
 

@@ -137,6 +137,30 @@ public:
     virtual IInterfaceChannel *createChannel(const InterfaceDescriptor &descriptor) = 0;
 
     /**
+     * \brief Пользователь нажал кнопку поля схемы с типом SettingsField::Action.
+     * \param descriptor Устройство, чьи настройки сейчас показаны.
+     * \param key Ключ поля (SettingsField::key).
+     * \param settings Текущие значения остальных полей.
+     * \return Пустую строку при успехе, иначе текст, который ядро покажет пользователю.
+     *         Допускается разметка Qt (rich text) со ссылками.
+     *
+     * Плагину интерфейса виджеты запрещены, поэтому кнопку строит ядро, а сюда приходит
+     * только само действие. После вызова ядро сразу переспрашивает liveOptions(): то, что
+     * действие изменило, становится видно без ожидания следующего тика.
+     *
+     * \warning Вызывается в потоке UI. Долгую работу нужно отдавать в фон, а здесь только
+     *          запускать её.
+     */
+    virtual QString triggerAction(const InterfaceDescriptor &descriptor, const QString &key,
+                                  const QVariantMap &settings)
+    {
+        Q_UNUSED(descriptor);
+        Q_UNUSED(key);
+        Q_UNUSED(settings);
+        return {};
+    }
+
+    /**
      * \brief Версия API, против которой собран плагин.
      *
      * Переопределять не нужно. spotty::PluginManager отказывается загружать плагин, у

@@ -2,7 +2,7 @@
 
 Полное описание SDK и пошаговое руководство по написанию плагина интерфейса.
 
-**Версия API:** 3 (`SPOTTY_API_VERSION`)
+**Версия API:** 4 (`SPOTTY_API_VERSION`)
 
 ---
 
@@ -218,6 +218,13 @@ QList<SettingsOption> CliCanPlugin::liveOptions(const InterfaceDescriptor &descr
 > канала; сам `liveOptions()` в это время просто отдаёт то, что уже накоплено (пустой
 > список, если открытие ещё не завершилось). См. `CliCanPlugin::beginScanOpen()`.
 
+#### `QString triggerAction(const InterfaceDescriptor &, const QString &key, const QVariantMap &settings)`
+
+Нажатие кнопки поля с типом `Action`. Возвращает пустую строку при успехе или текст, который
+ядро покажет окном (разметка Qt допускается). После вызова ядро сразу переспрашивает
+`liveOptions()`, так что строки `Note`, описывающие результат, обновляются без задержки.
+Вызывается в потоке UI: долгую работу только запускать.
+
 #### `int apiVersion() const`
 
 Переопределять не нужно. `PluginManager` отказывается загружать плагин с несовпадающим
@@ -325,7 +332,7 @@ SettingsField{
     .key = QStringLiteral("baudRate"),   // ключ в QVariantMap, не переводится
     .label = tr("Baud rate"),            // подпись
     .group = tr("Port"),                 // раздел диалога
-    .type = SettingsField::Choice,       // Choice | Integer | Toggle | Text
+    .type = SettingsField::Choice,       // Choice | Integer | Toggle | Text | Note | Action
     .defaultValue = 115200,              // единственное место, где задано умолчание
     .options = {{QStringLiteral("9600"), 9600},
                 {QStringLiteral("115200"), 115200}},
@@ -348,6 +355,14 @@ SettingsField{
 | `Integer` | числовое поле | `minimum`, `maximum`, `suffix` |
 | `Toggle` | флажок | — |
 | `Text` | строка | — |
+| `Note` | строка сведений, без редактора | `defaultValue` (текст), `live` |
+| `Action` | кнопка с подписью `label` | — (нажатие → `triggerAction()`) |
+
+`Note` и `Action` значений не хранят: в `defaults()`, `normalized()` и настройки канала они
+не попадают, `required` на них не действует. Текст `Note` при `live = true` — подпись
+первого пункта, который вернул `liveOptions()` для её ключа; разметка Qt со ссылками
+допускается. Так перехватчик порта на Windows показывает, установлен ли com0com, и даёт
+кнопку его настройки, не создавая ни одного виджета.
 
 ### Методы схемы
 

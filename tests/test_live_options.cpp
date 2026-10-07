@@ -17,6 +17,8 @@
 #include <settings/SettingsStore.h>
 
 #include <QComboBox>
+#include <QLabel>
+#include <QPushButton>
 
 #include <gtest/gtest.h>
 
@@ -214,4 +216,106 @@ TEST(LiveOptions, StopsAskingWhenTheDialogIsClosed)
     // нужен: именно по нему spotty::CliCanPlugin отпускает шину CAN.
     EXPECT_FALSE(waitFor([&fixture, afterHide] { return fixture.plugin.calls > afterHide; },
                          1500));
+}
+
+namespace {
+
+constexpr auto kNoteKey = "status";
+constexpr auto kActionKey = "setup";
+
+/**
+ * \class ActionPlugin
+ * \brief Плагин со строкой сведений, обновляемой опросом, и кнопкой.
+ *
+ * Изображает связку «состояние драйвера и кнопка его настройки» у перехватчика порта на
+ * Windows, не требуя ни драйвера, ни Windows.
+ */
+class ActionPlugin : public FakeInterfacePlugin
+{
+public:
+    SettingsSchema settingsSchema() const override
+    {
+        SettingsSchema schema;
+        schema.add(SettingsField{
+            .key = QLatin1String(kNoteKey),
+            .label = QStringLiteral("Driver"),
+            .group = QStringLiteral("Virtual"),
+            .type = SettingsField::Note,
+            .defaultValue = QStringLiteral("unknown"),
+            .live = true,
+        });
+        schema.add(SettingsField{
+            .key = QLatin1String(kActionKey),
+            .label = QStringLiteral("Open setup"),
+            .group = QStringLiteral("Virtual"),
+            .type = SettingsField::Action,
+        });
+        return schema;
+    }
+
+    QList<SettingsOption> liveOptions(const InterfaceDescriptor &descriptor, const QString &key,
+                                      const QVariantMap &settings) override
+    {
+        Q_UNUSED(descriptor);
+        Q_UNUSED(settings);
+        if (key != QLatin1String(kNoteKey))
+            return {};
+        return {{status, QVariant()}};
+    }
+
+    QString triggerAction(const InterfaceDescriptor &descriptor, const QString &key,
+                          const QVariantMap &settings) override
+    {
+        Q_UNUSED(settings);
+        lastAction = key;
+        lastDevice = descriptor.id;
+        // Как настоящая кнопка установки: после действия состояние меняется.
+        status = QStringLiteral("installed");
+        return {};
+    }
+
+    QString status = QStringLiteral("missing");
+    QString lastAction;
+    QString lastDevice;
+};
+
+} // namespace
+
+TEST(LiveOptions, NoteShowsWhatThePluginReportsAndButtonReachesThePlugin)
+{
+    TempDir dir;
+    PluginManager plugins;
+    ActionPlugin plugin;
+    SettingsStore store(dir.filePath(QStringLiteral("interfaces.json")));
+    InterfaceRegistry registry(&plugins, &store);
+    ASSERT_TRUE(plugins.addPlugin(&plugin));
+    store.load();
+    plugin.devices = {FakeInterfacePlugin::makeDevice(QStringLiteral("a"), QStringLiteral("dev-a"))};
+    registry.refresh();
+
+    InterfaceSettingsPanel panel(&registry, &plugins);
+    panel.show();
+    panel.selectInterface(QStringLiteral("fake:a"));
+
+    auto *note = panel.findChild<QLabel *>(QStringLiteral("schemaField_") + QLatin1String(kNoteKey));
+    auto *button =
+        panel.findChild<QPushButton *>(QStringLiteral("schemaField_") + QLatin1String(kActionKey));
+    ASSERT_NE(note, nullptr);
+    ASSERT_NE(button, nullptr);
+    EXPECT_EQ(button->text(), QStringLiteral("Open setup"));
+
+    // Первый опрос идёт сразу при показе, а не через секунду.
+    EXPECT_EQ(note->text(), QStringLiteral("missing"));
+
+    // Нажатие доходит до плагина с ключом поля, и строка сведений обновляется сразу —
+    // иначе казалось бы, что кнопка ничего не сделала.
+    button->click();
+    EXPECT_EQ(plugin.lastAction, QLatin1String(kActionKey));
+    EXPECT_EQ(plugin.lastDevice, QStringLiteral("fake:a"));
+    EXPECT_EQ(note->text(), QStringLiteral("installed"));
+
+    // Ни строка, ни кнопка не записывают значений в настройки устройства.
+    const QVariantMap settings = registry.settingsFor(QStringLiteral("fake:a"));
+    EXPECT_FALSE(settings.contains(QLatin1String(kNoteKey)));
+    EXPECT_FALSE(settings.contains(QLatin1String(kActionKey)));
 }

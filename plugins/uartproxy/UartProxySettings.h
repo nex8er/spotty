@@ -23,8 +23,22 @@ inline constexpr auto kRtsOnOpen = "rtsOnOpen";
 /// \brief Где на POSIX положить ссылку на созданный виртуальный порт.
 inline constexpr auto kLinkPath = "linkPath";
 
-/// \brief Готовый порт, который служит виртуальным концом вместо созданного pty.
+/**
+ * \brief Виртуальный конец.
+ *
+ * На POSIX — готовый порт вместо созданного pty. На Windows — имя видимого конца пары
+ * com0com, которое открывает чужая программа; сам Spotty открывает второй, скрытый конец.
+ */
 inline constexpr auto kVirtualPort = "virtualPort";
+
+/// \brief Строка состояния com0com (только Windows; значения не хранит).
+inline constexpr auto kCom0comStatus = "com0comStatus";
+
+/// \brief Кнопка «открыть настройку com0com» (только Windows; значения не хранит).
+inline constexpr auto kCom0comSetup = "com0comSetup";
+
+/// \brief Кнопка «удалить пару com0com» (только Windows; значения не хранит).
+inline constexpr auto kCom0comRemove = "com0comRemove";
 
 /// \brief Значение #kLinkPath по умолчанию.
 inline constexpr auto kDefaultLinkPath = "/tmp/spotty-uart";

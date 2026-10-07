@@ -106,7 +106,6 @@ TRANSLATIONS = {
     "RX %1  TX %2": "Принято %1  Отправлено %2",
     # --- Перехват порта (uartproxy) ---
     "Serial proxy": "Перехват порта",
-    "Intercept a port opened by another program": "Перехват порта, открытого другой программой",
     "Real port": "Реальный порт",
     "Virtual port": "Виртуальный порт",
     "Port with the device": "Порт с устройством",
@@ -127,10 +126,43 @@ TRANSLATIONS = {
     "a port.":
         "Необязательно: взять один конец готовой пары (например, созданной socat) вместо "
         "создания порта.",
-    "One end of a virtual port pair (for example com0com): the other program opens the "
-    "other end.":
-        "Один конец пары виртуальных портов (например, com0com): другая программа открывает "
-        "второй конец.",
+    "Port for the other program": "Порт для другой программы",
+    "The other program opens this port. If it does not exist, Spotty creates it with "
+    "com0com together with a hidden partner port that Spotty uses itself. Each side sets its "
+    "own baud rate.":
+        "Этот порт открывает другая программа. Если его нет, Spotty создаёт его через com0com "
+        "вместе со скрытым парным портом, который занимает сам. Скорость каждая сторона "
+        "выставляет свою.",
+    "State": "Состояние",
+    "Checking...": "Проверка...",
+    "Remove this virtual port": "Удалить этот виртуальный порт",
+    "Open com0com setup...": "Открыть настройку com0com...",
+    "com0com is not installed. Download: %1": "com0com не установлен. Скачать: %1",
+    "Choose the name the other program will open.":
+        "Выберите имя порта, который откроет другая программа.",
+    "Ready: the other program opens %1, Spotty uses %2%3.":
+        "Готово: другая программа открывает %1, Spotty занимает %2%3.",
+    " (hidden)": " (скрытый)",
+    "\"%1\" is not a valid port name.": "«%1» не годится в имя порта.",
+    "%1 is already used by another device: choose another name.":
+        "%1 уже занят другим устройством: выберите другое имя.",
+    "%1 will be created when the interface opens (administrator rights will be requested).":
+        "%1 будет создан при открытии интерфейса (Windows запросит права администратора).",
+    "%1 - com0com, ready": "%1 — com0com, готов",
+    "%1 - new": "%1 — новый",
+    "There is no com0com port named %1.": "Порта com0com с именем %1 нет.",
+    "The com0com setup program was not found. Install com0com from %1 and try again.":
+        "Программа настройки com0com не найдена. Установите com0com с %1 и повторите.",
+    "The com0com setup program was not found.": "Программа настройки com0com не найдена.",
+    "The com0com program setupc.exe was not found.": "Программа com0com setupc.exe не найдена.",
+    "com0com is not installed: Spotty needs it to create a virtual port.":
+        "com0com не установлен, а без него Spotty не может создать виртуальный порт.",
+    "%1 is already used by another device.": "%1 уже занят другим устройством.",
+    "Administrator rights are needed to create %1.":
+        "Чтобы создать %1, нужны права администратора.",
+    "com0com did not create %1. Try the com0com setup.":
+        "com0com не создал %1. Попробуйте через настройку com0com.",
+    "Could not start %1: %2": "Не удалось запустить %1: %2",
     "Choose the real port with the device.": "Выберите реальный порт с устройством.",
     "Choose the virtual port that the other program will open.":
         "Выберите виртуальный порт, который откроет другая программа.",

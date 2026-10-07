@@ -26,16 +26,27 @@ class SerialVirtualPort : public VirtualPort
     Q_OBJECT
 
 public:
-    explicit SerialVirtualPort(QString portName, QObject *parent = nullptr);
+    /**
+     * \param portName Порт, который открывает Spotty.
+     * \param displayName Что показать пользователю, если это другое имя: у пары com0com на
+     *        Windows Spotty занимает скрытый конец, а знать человеку нужно видимый — его
+     *        вводят в чужой программе. Пустая строка — показывать \p portName.
+     */
+    explicit SerialVirtualPort(QString portName, QString displayName = {},
+                               QObject *parent = nullptr);
     ~SerialVirtualPort() override;
 
     bool open(const QVariantMap &settings, QString *error) override;
     void close() override;
     void write(const QByteArray &data) override;
-    QString description() const override { return m_portName; }
+    QString description() const override
+    {
+        return m_displayName.isEmpty() ? m_portName : m_displayName;
+    }
 
 private:
     QString m_portName;
+    QString m_displayName;
     QSerialPort *m_port = nullptr;
 };
 

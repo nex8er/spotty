@@ -19,6 +19,8 @@
 #include <QIntValidator>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
+#include <QPushButton>
 #include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSpinBox>
@@ -267,7 +269,10 @@ void InterfaceSettingsPanel::showEntry(const QString &id)
                 editor->setObjectName(QStringLiteral("schemaField_") + field.key);
                 m_editors.insert(field.key, editor);
 
-                if (field.suffix.isEmpty()) {
+                if (field.type == SettingsField::Action) {
+                    // Подпись уже на самой кнопке; повторять её слева незачем.
+                    form->addRow(QString(), editor);
+                } else if (field.suffix.isEmpty()) {
                     form->addRow(field.label, editor);
                 } else {
                     auto *row = new QWidget(box);
@@ -360,6 +365,14 @@ void InterfaceSettingsPanel::refreshLiveOptions()
 void InterfaceSettingsPanel::applyLiveOptions(const QString &key,
                                               const QList<SettingsOption> &options)
 {
+    // Строка сведений: опрос приносит её текст, а не пункты. Пустой ответ — плагину пока
+    // нечего сказать, и прежний текст остаётся.
+    if (auto *note = qobject_cast<QLabel *>(m_editors.value(key))) {
+        if (!options.isEmpty() && note->text() != options.first().label)
+            note->setText(options.first().label);
+        return;
+    }
+
     auto *combo = qobject_cast<QComboBox *>(m_editors.value(key));
     if (!combo)
         return;
@@ -502,6 +515,24 @@ QWidget *InterfaceSettingsPanel::createEditor(const SettingsField &field, const 
         return check;
     }
 
+    case SettingsField::Note: {
+        auto *note = new QLabel(field.defaultValue.toString(), this);
+        note->setWordWrap(true);
+        // Ссылка в сведениях — обычно адрес, откуда взять недостающее (драйвер), и
+        // показывать её некликабельной значило бы заставлять перепечатывать.
+        note->setTextFormat(Qt::AutoText);
+        note->setOpenExternalLinks(true);
+        note->setTextInteractionFlags(Qt::TextBrowserInteraction);
+        return note;
+    }
+
+    case SettingsField::Action: {
+        auto *button = new QPushButton(field.label, this);
+        const QString key = field.key;
+        connect(button, &QPushButton::clicked, this, [this, key] { triggerAction(key); });
+        return button;
+    }
+
     case SettingsField::Text:
         break;
     }
@@ -564,6 +595,37 @@ QWidget *InterfaceSettingsPanel::createLiveSearchEditor(const SettingsField &fie
     });
 
     return combo;
+}
+
+void InterfaceSettingsPanel::triggerAction(const QString &key)
+{
+    if (m_currentId.isEmpty() || !m_registry || !m_plugins)
+        return;
+
+    const InterfaceEntry *entry = m_registry->entry(m_currentId);
+    if (!entry)
+        return;
+
+    IInterfacePlugin *plugin = m_plugins->plugin(entry->descriptor.pluginId);
+    if (!plugin)
+        return;
+
+    const SettingsField *field = m_currentSchema.field(key);
+    const QString problem =
+        plugin->triggerAction(entry->descriptor, key, m_registry->settingsFor(m_currentId));
+
+    // Действие обычно меняет то, о чём рассказывают живые поля (поставили драйвер, создали
+    // пару портов): спросить сразу, а не через секунду, когда пользователь уже решит, что
+    // ничего не произошло.
+    if (!m_liveFields.isEmpty())
+        refreshLiveOptions();
+
+    if (!problem.isEmpty()) {
+        QMessageBox box(QMessageBox::Warning, field ? field->label : QString(), problem,
+                        QMessageBox::Ok, this);
+        box.setTextFormat(Qt::AutoText);
+        box.exec();
+    }
 }
 
 void InterfaceSettingsPanel::commitSchemaValues()

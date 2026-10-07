@@ -104,6 +104,18 @@ QWidget *SchemaForm::createEditor(const SettingsField &field, const QVariant &va
         return check;
     }
 
+    case SettingsField::Note: {
+        auto *note = new QLabel(field.defaultValue.toString(), this);
+        note->setWordWrap(true);
+        note->setOpenExternalLinks(true);
+        return note;
+    }
+
+    case SettingsField::Action:
+        // Нажатие передать некому: у панельного плагина нет аналога
+        // IInterfacePlugin::triggerAction(), а мёртвая кнопка хуже отсутствующей.
+        return nullptr;
+
     case SettingsField::Text:
         break;
     }

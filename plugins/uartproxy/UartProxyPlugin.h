@@ -6,6 +6,8 @@
 
 #include <spotty/api/IInterfacePlugin.h>
 
+#include <QList>
+#include <QMutex>
 #include <QObject>
 
 namespace spotty {
@@ -49,7 +51,25 @@ public:
     QList<SettingsOption> liveOptions(const InterfaceDescriptor &descriptor, const QString &key,
                                       const QVariantMap &settings) override;
 
+    /// \brief Кнопки com0com (Windows): удалить пару, открыть настройку. На других системах их нет.
+    QString triggerAction(const InterfaceDescriptor &descriptor, const QString &key,
+                          const QVariantMap &settings) override;
+
     IInterfaceChannel *createChannel(const InterfaceDescriptor &descriptor) override;
+
+private:
+    /**
+     * \brief Удалить пары com0com, созданные Spotty за этот запуск (Windows).
+     *
+     * Зовётся по QCoreApplication::aboutToQuit: к этому моменту окно уже закрыло сессию, и
+     * свой конец пары Spotty отпустил. Пары, существовавшие до Spotty, не трогаются — их
+     * завёл пользователь, и пропажа портов после выхода была бы для него сюрпризом.
+     */
+    void removeCreatedPairs();
+
+    QMutex m_createdMutex;   ///< Номера пишет поток ввода-вывода, читает поток UI.
+    QList<int> m_createdPairs;
+    bool m_quitHooked = false;
 };
 
 } // namespace spotty

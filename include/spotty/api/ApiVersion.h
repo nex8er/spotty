@@ -26,6 +26,10 @@
  *
  * \par История
  *
+ * - **4** — типы полей spotty::SettingsField::Note и spotty::SettingsField::Action и метод
+ *   spotty::IInterfacePlugin::triggerAction(): строка состояния и кнопка в диалоге
+ *   настроек (наличие драйвера com0com у перехватчика порта на Windows). Новый
+ *   виртуальный метод сдвигает vtable; раскладка самой структуры поля не менялась.
  * - **3** — сигнал spotty::IInterfaceChannel::dataTransmitted(): перехватчик порта видит и
  *   то, что чужая программа посылает устройству. Старые плагины сигналом не затронуты —
  *   он дописан в конец, — но новый плагин на прежнем ядре испустил бы сигнал, которого там
@@ -36,7 +40,7 @@
  *   раскладку SettingsSchema.
  * - **1** — первый выпуск.
  */
-#define SPOTTY_API_VERSION 3
+#define SPOTTY_API_VERSION 4
 
 /**
  * \def SPOTTY_INTERFACE_PLUGIN_IID

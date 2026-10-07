@@ -8,6 +8,12 @@
 #include "UartProxyPorts.h"
 #include "UartProxySettings.h"
 
+#include <QCoreApplication>
+
+#ifdef Q_OS_WIN
+#include "Com0com.h"
+#endif
+
 namespace spotty {
 
 using namespace uartproxy;
@@ -15,6 +21,56 @@ using namespace uartproxy;
 namespace {
 
 constexpr auto kDeviceId = "uartproxy:tap";
+
+#ifdef Q_OS_WIN
+constexpr auto kCom0comUrl = "https://sourceforge.net/projects/com0com/";
+
+/// \brief С какого номера предлагать свободное имя: младшие обычно заняты настоящими портами.
+constexpr int kFirstSuggestedCom = 20;
+
+/// \brief Ссылка на страницу драйвера в разметке Qt.
+QString com0comLink()
+{
+    return QStringLiteral("<a href=\"%1\">%1</a>").arg(QLatin1String(kCom0comUrl));
+}
+
+/// \brief Имя виртуального порта, выбранное в настройках.
+QString virtualPortName(const QVariantMap &settings)
+{
+    return settings.value(QLatin1String(kVirtualPort)).toString().trimmed();
+}
+
+/**
+ * \brief Текст строки состояния для выбранного имени.
+ *
+ * Каждый случай лечится по-своему, поэтому и сказать о каждом нужно своё: драйвера нет —
+ * скачать; имя занято чужим устройством — выбрать другое; пары ещё нет — она появится при
+ * открытии; пара есть — всё готово.
+ */
+QString com0comStatusText(const Com0comInfo &info, const QString &name)
+{
+    if (!info.driverInstalled)
+        return UartProxyPlugin::tr("com0com is not installed. Download: %1").arg(com0comLink());
+    if (name.isEmpty())
+        return UartProxyPlugin::tr("Choose the name the other program will open.");
+
+    Com0comPort own;
+    Com0comPort peer;
+    if (findCom0comPair(info, name, &own, &peer)) {
+        return UartProxyPlugin::tr("Ready: the other program opens %1, Spotty uses %2%3.")
+            .arg(own.name, peer.name,
+                 peer.hidden ? UartProxyPlugin::tr(" (hidden)") : QString());
+    }
+    if (!isValidPortName(name))
+        return UartProxyPlugin::tr("\"%1\" is not a valid port name.").arg(name);
+    if (portNameTaken(name))
+        return UartProxyPlugin::tr("%1 is already used by another device: choose another name.")
+            .arg(name);
+    return UartProxyPlugin::tr("%1 will be created when the interface opens (administrator "
+                               "rights will be requested).")
+        .arg(name);
+}
+#endif
 
 } // namespace
 
@@ -26,7 +82,9 @@ QList<InterfaceDescriptor> UartProxyPlugin::enumerate() const
     InterfaceDescriptor tap;
     tap.id = QLatin1String(kDeviceId);
     tap.systemName = QStringLiteral("uartproxy");
-    tap.description = tr("Intercept a port opened by another program");
+    // Описание служит именем в списке интерфейсов, и пояснение «что это делает» там лишнее:
+    // оно есть в README и в подсказках диалога.
+    tap.description = displayName();
     return {tap};
 }
 
@@ -151,6 +209,48 @@ SettingsSchema UartProxyPlugin::settingsSchema() const
     });
 #endif
 
+#ifdef Q_OS_WIN
+    // На Windows пару портов заводит com0com, и заводит её Spotty сам: пользователь выбирает
+    // только имя, которое увидит чужая программа. Второй конец пары скрыт от перечисления и
+    // нигде не настраивается — выбирать его было бы не из чего и незачем.
+    schema.add(SettingsField{
+        .key = QLatin1String(kVirtualPort),
+        .label = tr("Port for the other program"),
+        .group = virtualGroup,
+        .type = SettingsField::Choice,
+        .defaultValue = QString(),
+        .options = {},
+        .live = true,
+        .editable = true,
+        .required = true,
+        .hint = tr("The other program opens this port. If it does not exist, Spotty creates it "
+                   "with com0com together with a hidden partner port that Spotty uses itself. "
+                   "Each side sets its own baud rate."),
+    });
+
+    schema.add(SettingsField{
+        .key = QLatin1String(kCom0comStatus),
+        .label = tr("State"),
+        .group = virtualGroup,
+        .type = SettingsField::Note,
+        .defaultValue = tr("Checking..."),
+        .live = true,
+    });
+
+    schema.add(SettingsField{
+        .key = QLatin1String(kCom0comRemove),
+        .label = tr("Remove this virtual port"),
+        .group = virtualGroup,
+        .type = SettingsField::Action,
+    });
+
+    schema.add(SettingsField{
+        .key = QLatin1String(kCom0comSetup),
+        .label = tr("Open com0com setup..."),
+        .group = virtualGroup,
+        .type = SettingsField::Action,
+    });
+#else
     schema.add(SettingsField{
         .key = QLatin1String(kVirtualPort),
         .label = tr("Existing virtual port"),
@@ -160,15 +260,10 @@ SettingsSchema UartProxyPlugin::settingsSchema() const
         .options = {},
         .live = true,
         .editable = true,
-#ifdef Q_OS_UNIX
         .hint = tr("Optional: use one end of a ready pair (for example made by socat) "
                    "instead of creating a port."),
-#else
-        .required = true,
-        .hint = tr("One end of a virtual port pair (for example com0com): the other program "
-                   "opens the other end."),
-#endif
     });
+#endif
 
     return schema;
 }
@@ -205,8 +300,68 @@ QList<SettingsOption> UartProxyPlugin::liveOptions(const InterfaceDescriptor &de
     // обязан быть USB-устройством, и свойств для идентификатора у него нет.
     if (key == QLatin1String(kRealPort))
         return portOptions(/*byName=*/false);
+#ifdef Q_OS_WIN
+    if (key == QLatin1String(kCom0comStatus))
+        return {{com0comStatusText(detectCom0com(), virtualPortName(settings)), QVariant()}};
+
+    if (key == QLatin1String(kVirtualPort)) {
+        // Уже созданные видимые концы пар и одно свободное имя: остальное набирают руками.
+        // Скрытые концы не предлагаются — открывать их чужой программе незачем.
+        const Com0comInfo info = detectCom0com();
+        QList<SettingsOption> options;
+        for (const Com0comPair &pair : info.pairs) {
+            for (const Com0comPort *port : {&pair.a, &pair.b}) {
+                if (!port->hidden)
+                    options.append({tr("%1 - com0com, ready").arg(port->name), port->name});
+            }
+        }
+        for (int number = kFirstSuggestedCom; number < 256; ++number) {
+            const QString name = QStringLiteral("COM%1").arg(number);
+            if (!portNameTaken(name)) {
+                options.append({tr("%1 - new").arg(name), name});
+                break;
+            }
+        }
+        return options;
+    }
+#endif
+
     if (key == QLatin1String(kVirtualPort))
         return portOptions(/*byName=*/true);
+    return {};
+}
+
+QString UartProxyPlugin::triggerAction(const InterfaceDescriptor &descriptor, const QString &key,
+                                       const QVariantMap &settings)
+{
+    Q_UNUSED(descriptor);
+    Q_UNUSED(settings);
+
+#ifdef Q_OS_WIN
+    const Com0comInfo info = detectCom0com();
+    QString problem;
+
+    if (key == QLatin1String(kCom0comSetup)) {
+        if (info.setupGui().isEmpty()) {
+            return tr("The com0com setup program was not found. Install com0com from %1 "
+                      "and try again.")
+                .arg(com0comLink());
+        }
+        if (!launchCom0comSetup(info, &problem))
+            return problem;
+    } else if (key == QLatin1String(kCom0comRemove)) {
+        const QString name = virtualPortName(settings);
+        const Com0comPair *pair = findCom0comPair(info, name);
+        if (!pair)
+            return tr("There is no com0com port named %1.").arg(name);
+        // Не ждём: удаление устройств идёт секунды, а вызов пришёл из потока UI. Строка
+        // состояния покажет результат сама.
+        if (!removeCom0comPair(info, pair->number, &problem))
+            return problem;
+    }
+#else
+    Q_UNUSED(key);
+#endif
     return {};
 }
 
@@ -214,7 +369,46 @@ IInterfaceChannel *UartProxyPlugin::createChannel(const InterfaceDescriptor &des
 {
     if (descriptor.id != QLatin1String(kDeviceId))
         return nullptr;
-    return new UartProxyChannel;
+
+    auto *channel = new UartProxyChannel;
+
+#ifdef Q_OS_WIN
+    // Подписка заводится здесь, а не в конструкторе: объект плагина создаётся загрузчиком,
+    // и QCoreApplication к тому моменту может ещё не существовать.
+    if (!m_quitHooked && QCoreApplication::instance()) {
+        connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, this,
+                &UartProxyPlugin::removeCreatedPairs);
+        m_quitHooked = true;
+    }
+    channel->setPairCreatedHandler([this](int number) {
+        const QMutexLocker locker(&m_createdMutex);
+        if (!m_createdPairs.contains(number))
+            m_createdPairs.append(number);
+    });
+#endif
+
+    return channel;
+}
+
+void UartProxyPlugin::removeCreatedPairs()
+{
+#ifdef Q_OS_WIN
+    QList<int> numbers;
+    {
+        const QMutexLocker locker(&m_createdMutex);
+        numbers.swap(m_createdPairs);
+    }
+    if (numbers.isEmpty())
+        return;
+
+    // Пару могли уже удалить кнопкой в диалоге: удалять отсутствующее значило бы зря
+    // спрашивать права администратора.
+    const Com0comInfo info = detectCom0com();
+    for (const Com0comPair &pair : info.pairs) {
+        if (numbers.contains(pair.number))
+            removeCom0comPair(info, pair.number, nullptr);
+    }
+#endif
 }
 
 } // namespace spotty

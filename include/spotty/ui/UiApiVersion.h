@@ -42,6 +42,10 @@
 // Версия 3 — сигнал IInterfaceChannel::dataTransmitted(). Панельных плагинов он не касается:
 // каналов они не видят, а виртуальные методы и структуры, доступные им, не менялись, поэтому
 // SPOTTY_UI_API_VERSION остался прежним.
-static_assert(SPOTTY_API_VERSION == 3,
+//
+// Версия 4 — типы полей Note и Action и IInterfacePlugin::triggerAction(). Раскладка
+// SettingsField не менялась (добавлены значения перечисления и невиртуальный метод), а
+// уже собранная панель новых типов не возвращает, поэтому панельная версия прежняя.
+static_assert(SPOTTY_API_VERSION == 4,
               "SPOTTY_API_VERSION changed: review the panel SDK, bump "
               "SPOTTY_UI_API_VERSION if the change reaches it, and update this assert");

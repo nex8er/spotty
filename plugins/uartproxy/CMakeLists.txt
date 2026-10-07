@@ -15,12 +15,20 @@ set(UARTPROXY_SOURCES
     SerialVirtualPort.cpp
     SerialVirtualPort.h
 )
+set(UARTPROXY_LINK Qt6::SerialPort)
 if(UNIX)
     list(APPEND UARTPROXY_SOURCES PtyPort.cpp PtyPort.h)
+endif()
+# Com0com — обнаружение драйвера пар портов и запуск его настройки: на Windows без него
+# перехватчику не с чем работать, и диалог обязан об этом сказать. Реестр и запуск с
+# повышением прав — advapi32 и shell32.
+if(WIN32)
+    list(APPEND UARTPROXY_SOURCES Com0com.cpp Com0com.h)
+    list(APPEND UARTPROXY_LINK advapi32 shell32)
 endif()
 
 spotty_add_plugin(spotty-plugin-uartproxy
     CLASS_NAME UartProxyPlugin
     SOURCES ${UARTPROXY_SOURCES}
-    LINK Qt6::SerialPort
+    LINK ${UARTPROXY_LINK}
 )

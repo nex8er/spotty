@@ -544,6 +544,28 @@ TEST(InterfaceRegistry, SettingsAreNormalisedAgainstSchema)
     EXPECT_FALSE(settings.contains(QStringLiteral("removedInNewVersion")));
 }
 
+TEST(InterfaceRegistry, NoteAndActionFieldsHoldNoValue)
+{
+    SettingsSchema schema;
+    schema.add(SettingsField{.key = QStringLiteral("speed"),
+                             .type = SettingsField::Integer,
+                             .defaultValue = 9600});
+    schema.add(SettingsField{.key = QStringLiteral("status"),
+                             .type = SettingsField::Note,
+                             .defaultValue = QString(),
+                             .required = true});
+    schema.add(SettingsField{.key = QStringLiteral("setup"),
+                             .type = SettingsField::Action,
+                             .required = true});
+
+    // Строка сведений и кнопка не должны ни попадать в interfaces.json, ни мешать открыть
+    // канал своим «пустым значением», даже если автор плагина поставил им required.
+    EXPECT_EQ(schema.defaults().keys(), QStringList{QStringLiteral("speed")});
+    EXPECT_EQ(schema.normalized({{QStringLiteral("status"), QStringLiteral("x")}}).keys(),
+              QStringList{QStringLiteral("speed")});
+    EXPECT_TRUE(schema.missingRequiredFields({}).isEmpty());
+}
+
 TEST(InterfaceRegistry, SettingsForUnknownIdIsEmpty)
 {
     Fixture fixture;

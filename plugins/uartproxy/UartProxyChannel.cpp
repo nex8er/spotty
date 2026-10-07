@@ -15,6 +15,10 @@
 #include "PtyPort.h"
 #endif
 
+#ifdef Q_OS_WIN
+#include "Com0com.h"
+#endif
+
 namespace spotty {
 
 using namespace uartproxy;
@@ -36,17 +40,31 @@ std::unique_ptr<VirtualPort> UartProxyChannel::createVirtualPort(const QVariantM
 {
     const QString existing = settings.value(QLatin1String(kVirtualPort)).toString().trimmed();
 
-    // Готовый порт важнее созданного: его задали явно, а на Windows он единственный.
+#ifdef Q_OS_WIN
+    // На Windows в настройке — имя, которое открывает чужая программа, а Spotty нужен второй
+    // конец пары. Пары может ещё не быть: тогда она создаётся здесь, в потоке ввода-вывода,
+    // потому что установка устройств драйвером длится десятки секунд.
+    if (existing.isEmpty()) {
+        if (error)
+            *error = tr("Choose the virtual port that the other program will open.");
+        return nullptr;
+    }
+    int createdPair = -1;
+    const QString hiddenEnd = ensureCom0comPair(existing, error, &createdPair);
+    if (hiddenEnd.isEmpty())
+        return nullptr;
+    if (createdPair >= 0 && m_pairCreated)
+        m_pairCreated(createdPair);
+    return std::make_unique<SerialVirtualPort>(hiddenEnd, existing);
+#else
+    Q_UNUSED(error);
+
+    // Готовый порт важнее созданного: его задали явно.
     if (!existing.isEmpty())
         return std::make_unique<SerialVirtualPort>(existing);
 
-#ifdef Q_OS_UNIX
     return std::make_unique<PtyPort>(
         settings.value(QLatin1String(kLinkPath)).toString().trimmed());
-#else
-    if (error)
-        *error = tr("Choose the virtual port that the other program will open.");
-    return nullptr;
 #endif
 }
 

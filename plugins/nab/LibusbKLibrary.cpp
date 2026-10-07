@@ -461,14 +461,20 @@ LibusbKLibrary::TransferResult LibusbKLibrary::read(void *handle, quint8 endpoin
 
     QByteArray buffer(maxBytes, '\0');
     quint32 transferred = 0;
-    if (!reinterpret_cast<FnUsbReadPipe>(m_usbReadPipe)(
+    const bool ok = reinterpret_cast<FnUsbReadPipe>(m_usbReadPipe)(
             handle, endpoint, reinterpret_cast<quint8 *>(buffer.data()), buffer.size(),
-            &transferred, nullptr)) {
+            &transferred, nullptr);
+    if (!ok)
         result.errorCode = GetLastError();
-        return result;
-    }
 
-    result.ok = true;
+    // Даже при неуспехе (в первую очередь - таймаут пайпа, см. kReadTimeoutMs в
+    // NabChannel) UsbK_ReadPipe может успеть частично заполнить transferred до того,
+    // как операция была отменена по таймауту: устройство шлёт JSON-телеметрию кусками
+    // по ~1KB, и если очередной кусок не уложился в окно таймаута, раньше эти байты
+    // тут же терялись молча (result.ok=false -> ранний return, transferred игнорировался
+    // целиком) - именно это и давало обрезанные/битые JSON-пакеты в логах при вполне
+    // исправной прошивке. Отдаём наверх всё, что реально пришло, независимо от ok.
+    result.ok = ok;
     result.transferred = transferred;
     if (data && transferred > 0)
         *data = buffer.left(transferred);
