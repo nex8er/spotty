@@ -1,6 +1,16 @@
-# Сборка и тесты на всех целевых платформах.
+# Сборка и тесты, в двух конфигурациях.
 #
-# На macOS матрица покрывает обе архитектуры, потому что именно архитектурные различия
+# **Быстрая** (по умолчанию: пуш в main, pull request, ручной запуск) — Windows x86-64 и
+# macOS arm64. Этих двух хватает, чтобы заметить почти всё: Windows ломается на том, чего не
+# видит Unix (пути, права, MSVC), а macOS arm64 — основная платформа разработки. Остальное
+# добавляет **полная**: Linux x86-64, macOS x86-64, Linux arm64 и покрытие. Её запускают тег
+# версии `v*` (релиз без полной проверки не выпускается) и ручной запуск с profile=full.
+# Какая из конфигураций нужна, решает джоб plan — один раз и для всех остальных.
+#
+# Пакеты собираются на теге и по просьбе при ручном запуске (package=true): так упаковку
+# можно проверить, не выпуская версию. Публикует релиз только тег.
+#
+# На macOS в полной матрице покрывает обе архитектуры, потому что именно архитектурные различия
 # ловят то, что не ловит одна машина разработчика: выравнивание, знаковость char и порядок
 # байтов. Разработка идёт на macOS arm64, поэтому x86-64 здесь особенно ценен.
 #
@@ -30,6 +40,16 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Конфигурация: quick — Windows и macOS arm64, full — все системы'
+        type: choice
+        options: [quick, full]
+        default: quick
+      package:
+        description: 'Собрать пакеты (без публикации релиза)'
+        type: boolean
+        default: false
 
 # Новый коммит в ветку отменяет предыдущий прогон: держать очередь из устаревших сборок
 # незачем.
@@ -42,27 +62,69 @@ env:
   BUILD_TYPE: Release
 
 jobs:
+  # Решает, что запускать. Отдельным джобом, а не условиями на каждом шаге: матрицу по
+  # условию иначе не задать, а правило «что такое быстрая конфигурация» должно жить в одном
+  # месте, а не повторяться в каждом `if:`.
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    outputs:
+      full: ${{ steps.plan.outputs.full }}
+      package: ${{ steps.plan.outputs.package }}
+      build_matrix: ${{ steps.plan.outputs.build_matrix }}
+      package_matrix: ${{ steps.plan.outputs.package_matrix }}
+    steps:
+      - id: plan
+        # Значения контекста приходят через env, а не подстановкой в скрипт: имя ветки или
+        # тега — ввод со стороны, и в тексте скрипта оно стало бы командой.
+        env:
+          REF: ${{ github.ref }}
+          EVENT: ${{ github.event_name }}
+          PROFILE: ${{ inputs.profile }}
+          WANT_PACKAGE: ${{ inputs.package }}
+        run: |
+          full=false
+          package=false
+
+          # Тег версии — это релиз: проверяется всё и пакуется всё.
+          if [[ "$REF" == refs/tags/v* ]]; then
+            full=true
+            package=true
+          fi
+          if [[ "$EVENT" == workflow_dispatch ]]; then
+            [[ "$PROFILE" == full ]] && full=true
+            [[ "$WANT_PACKAGE" == true ]] && package=true
+          fi
+
+          mac_arm='{"name":"macOS arm64","os":"macos-14","qt_arch":"clang_64"}'
+          windows='{"name":"Windows x86-64","os":"windows-latest","qt_arch":"win64_msvc2022_64"}'
+          linux='{"name":"Linux x86-64","os":"ubuntu-latest","qt_arch":"linux_gcc_64"}'
+          mac_intel='{"name":"macOS x86-64","os":"macos-15-intel","qt_arch":"clang_64"}'
+
+          if [[ "$full" == true ]]; then
+            build="$linux,$mac_arm,$mac_intel,$windows"
+            pack="$mac_arm,$windows,$linux"
+          else
+            build="$mac_arm,$windows"
+            pack="$mac_arm,$windows"
+          fi
+
+          {
+            echo "full=$full"
+            echo "package=$package"
+            echo "build_matrix={\"include\":[$build]}"
+            echo "package_matrix={\"include\":[$pack]}"
+          } >> "$GITHUB_OUTPUT"
+
   build:
     name: ${{ matrix.name }}
+    needs: plan
     runs-on: ${{ matrix.os }}
     strategy:
       # Падение на одной платформе не должно скрывать состояние остальных: разбираться
       # проще, когда видно, где именно сломалось.
       fail-fast: false
-      matrix:
-        include:
-          - name: Linux x86-64
-            os: ubuntu-latest
-            qt_arch: linux_gcc_64
-          - name: macOS arm64
-            os: macos-14
-            qt_arch: clang_64
-          - name: macOS x86-64
-            os: macos-15-intel
-            qt_arch: clang_64
-          - name: Windows x86-64
-            os: windows-latest
-            qt_arch: win64_msvc2022_64
+      matrix: ${{ fromJSON(needs.plan.outputs.build_matrix) }}
 
     steps:
       - uses: actions/checkout@v4
@@ -129,6 +191,8 @@ jobs:
 
   build-linux-arm64:
     name: Linux arm64
+    needs: plan
+    if: needs.plan.outputs.full == 'true'
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
@@ -163,6 +227,8 @@ jobs:
 
   coverage:
     name: Coverage
+    needs: plan
+    if: needs.plan.outputs.full == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -206,24 +272,15 @@ jobs:
 
   package:
     name: Package ${{ matrix.name }}
-    needs: build
+    needs: [plan, build]
     runs-on: ${{ matrix.os }}
-    # Пакеты собираются только для помеченных версий: гонять развёртывание на каждый
-    # коммит незачем, а артефакты хранятся не бесплатно.
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Пакеты — для тега версии и по просьбе при ручном запуске: гонять развёртывание на
+    # каждый коммит незачем, а артефакты хранятся не бесплатно. Решает plan, чтобы условие
+    # не расходилось между джобами.
+    if: needs.plan.outputs.package == 'true'
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: macOS arm64
-            os: macos-14
-            qt_arch: clang_64
-          - name: Windows x86-64
-            os: windows-latest
-            qt_arch: win64_msvc2022_64
-          - name: Linux x86-64
-            os: ubuntu-latest
-            qt_arch: linux_gcc_64
+      matrix: ${{ fromJSON(needs.plan.outputs.package_matrix) }}
 
     steps:
       - uses: actions/checkout@v4
@@ -298,7 +355,16 @@ jobs:
             Copy-Item $redist.FullName $vcredist
           }
 
-          $version = '${{ github.ref_name }}'.TrimStart('v')
+          # Версия — из имени тега; при ручном запуске тега нет, и ref_name там называет ветку
+          # (main), которую Inno Setup версией не примет. Тогда берётся версия проекта из
+          # CMakeLists.txt — ровно та же, что SPOTTY_VERSION.
+          if ('${{ github.ref }}'.StartsWith('refs/tags/v')) {
+            $version = '${{ github.ref_name }}'.TrimStart('v')
+          } else {
+            $match = Select-String -Path 'CMakeLists.txt' -Pattern '^\s*VERSION\s+(\d+\.\d+\.\d+)' | Select-Object -First 1
+            if ($null -eq $match) { throw 'Project version was not found in CMakeLists.txt.' }
+            $version = $match.Matches[0].Groups[1].Value
+          }
           & $isccPath "/DSourceDir=$sourceDir" "/DMyAppVersion=$version" "/O$packageDir" "/FSpotty-$version-Windows-x64-Setup" 'installer/Spotty.iss'
 
       - uses: actions/upload-artifact@v4
@@ -309,9 +375,10 @@ jobs:
 
   package-linux-arm64:
     name: Package Linux arm64
-    needs: build-linux-arm64
+    needs: [plan, build-linux-arm64]
     runs-on: ubuntu-24.04-arm
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Только в полной конфигурации: его сборка (build-linux-arm64) там и выполняется.
+    if: needs.plan.outputs.package == 'true' && needs.plan.outputs.full == 'true'
     steps:
       - uses: actions/checkout@v4
 
