@@ -14,6 +14,13 @@
 #include "Com0com.h"
 #endif
 
+#ifdef Q_OS_UNIX
+#include "DevLink.h"
+
+#include <QFileInfo>
+#include <QThreadPool>
+#endif
+
 namespace spotty {
 
 using namespace uartproxy;
@@ -37,7 +44,7 @@ QString com0comLink()
 /// \brief Имя виртуального порта, выбранное в настройках.
 QString virtualPortName(const QVariantMap &settings)
 {
-    return settings.value(QLatin1String(kVirtualPort)).toString().trimmed();
+    return visiblePortName(settings);
 }
 
 /**
@@ -69,6 +76,52 @@ QString com0comStatusText(const Com0comInfo &info, const QString &name)
     return UartProxyPlugin::tr("%1 will be created when the interface opens (administrator "
                                "rights will be requested).")
         .arg(name);
+}
+#endif
+
+#ifdef Q_OS_UNIX
+/**
+ * \brief Текст строки состояния для выбранного имени.
+ *
+ * Как у com0com на Windows: что произойдёт при открытии, сказано до того, как человек
+ * нажал кнопку, а не после неё.
+ */
+QString linkStatusText(const QString &path)
+{
+    if (path.isEmpty()) {
+        return UartProxyPlugin::tr("No name: the other program has to open the path of the "
+                                   "port itself, shown after opening. It changes on every run.");
+    }
+
+    if (isDevicePath(path)) {
+        if (!deviceLinksSupported()) {
+            return UartProxyPlugin::tr("This system does not allow creating names in /dev, even "
+                                       "with administrator rights. Use a path outside /dev, for "
+                                       "example %1.")
+                .arg(QLatin1String(kUnprivilegedLinkPath));
+        }
+        if (!isValidDevicePath(path))
+            return UartProxyPlugin::tr("\"%1\" is not a valid name in /dev.").arg(path);
+        switch (inspectDeviceLink(path)) {
+        case LinkState::Ready:
+            return UartProxyPlugin::tr("Ready: the other program opens %1.").arg(path);
+        case LinkState::Foreign:
+            return UartProxyPlugin::tr(
+                       "%1 is already used by something else: choose another name.")
+                .arg(path);
+        case LinkState::Missing:
+            return UartProxyPlugin::tr("%1 will be created when the interface opens "
+                                       "(administrator rights will be requested).")
+                .arg(path);
+        }
+    }
+
+    const QFileInfo parent(QFileInfo(path).absolutePath());
+    if (!parent.isDir())
+        return UartProxyPlugin::tr("Directory %1 does not exist.").arg(parent.filePath());
+    return UartProxyPlugin::tr("The link %1 is created when the interface opens. It does not "
+                               "appear in the port lists of other programs: enter the path.")
+        .arg(path);
 }
 #endif
 
@@ -197,16 +250,64 @@ SettingsSchema UartProxyPlugin::settingsSchema() const
     });
 
 #ifdef Q_OS_UNIX
+    // Как на Windows: пользователь выбирает имя, которое увидит чужая программа, а сам
+    // порт заводит Spotty. Дальше системы расходятся. На Linux имя в /dev попадает в списки
+    // портов других программ, и создаёт его администратор. На macOS /dev не принимает
+    // чужих имён вовсе, и остаётся путь вне /dev, который программа должна уметь принять от
+    // руки.
+#ifdef Q_OS_MACOS
+    const QList<SettingsOption> linkOptions = {
+        {tr("%1 - enter this path in the other program")
+             .arg(QLatin1String(kUnprivilegedLinkPath)),
+         QLatin1String(kUnprivilegedLinkPath)}};
+    const QString linkHint =
+        tr("The other program opens this port. macOS does not allow adding names to /dev, so "
+           "the program must accept a typed path. The port's own path (/dev/ttysN) is shown "
+           "in the interface state after opening: programs that list /dev/tty* show it "
+           "themselves. Each side sets its own baud rate.");
+#else
+    const QList<SettingsOption> linkOptions = {
+        {tr("%1 - in port lists (administrator rights, once per boot)")
+             .arg(QLatin1String(kDefaultLinkPath)),
+         QLatin1String(kDefaultLinkPath)},
+        {tr("%1 - no rights, enter the path by hand").arg(QLatin1String(kUnprivilegedLinkPath)),
+         QLatin1String(kUnprivilegedLinkPath)}};
+    const QString linkHint =
+        tr("The other program opens this port. Spotty creates a virtual port behind it. A name "
+           "in /dev appears in the port lists of other programs; the link stays until the "
+           "system restarts. Each side sets its own baud rate.");
+#endif
+
     schema.add(SettingsField{
         .key = QLatin1String(kLinkPath),
-        .label = tr("Link path"),
+        .label = tr("Port for the other program"),
         .group = virtualGroup,
-        .type = SettingsField::Text,
+        .type = SettingsField::Choice,
         .defaultValue = QLatin1String(kDefaultLinkPath),
-        .hint = tr("Spotty creates a virtual port and puts a link with this fixed path to it: "
-                   "enter the path in the other program. Leave empty to use the port's own "
-                   "path, shown after opening - it changes on every run."),
+        .options = linkOptions,
+        .editable = true,
+        .hint = linkHint,
     });
+
+    schema.add(SettingsField{
+        .key = QLatin1String(kLinkStatus),
+        .label = tr("State"),
+        .group = virtualGroup,
+        .type = SettingsField::Note,
+        .defaultValue = tr("Checking..."),
+        .live = true,
+    });
+
+#ifndef Q_OS_MACOS
+    // Имя в /dev переживает закрытие интерфейса, и убрать его можно только этой кнопкой. На
+    // macOS таких имён не бывает, а ссылка вне /dev исчезает вместе с открытым портом.
+    schema.add(SettingsField{
+        .key = QLatin1String(kLinkRemove),
+        .label = tr("Remove this virtual port"),
+        .group = virtualGroup,
+        .type = SettingsField::Action,
+    });
+#endif
 #endif
 
 #ifdef Q_OS_WIN
@@ -250,19 +351,6 @@ SettingsSchema UartProxyPlugin::settingsSchema() const
         .group = virtualGroup,
         .type = SettingsField::Action,
     });
-#else
-    schema.add(SettingsField{
-        .key = QLatin1String(kVirtualPort),
-        .label = tr("Existing virtual port"),
-        .group = virtualGroup,
-        .type = SettingsField::Choice,
-        .defaultValue = QString(),
-        .options = {},
-        .live = true,
-        .editable = true,
-        .hint = tr("Optional: use one end of a ready pair (for example made by socat) "
-                   "instead of creating a port."),
-    });
 #endif
 
     return schema;
@@ -281,9 +369,7 @@ QString UartProxyPlugin::settingsSummary(const QVariantMap &settings) const
 
     // То, что нужно ввести в чужой программе, — самое важное сведение об этом
     // интерфейсе, и спрятать его в диалоге значит заставлять искать каждый раз.
-    QString where = settings.value(QLatin1String(kVirtualPort)).toString().trimmed();
-    if (where.isEmpty())
-        where = settings.value(QLatin1String(kLinkPath)).toString().trimmed();
+    const QString where = visiblePortName(settings);
     if (!where.isEmpty())
         summary += QStringLiteral(" → ") + where;
     return summary;
@@ -326,8 +412,13 @@ QList<SettingsOption> UartProxyPlugin::liveOptions(const InterfaceDescriptor &de
     }
 #endif
 
-    if (key == QLatin1String(kVirtualPort))
-        return portOptions(/*byName=*/true);
+#ifdef Q_OS_UNIX
+    if (key == QLatin1String(kLinkStatus)) {
+        return {{linkStatusText(settings.value(QLatin1String(kLinkPath)).toString().trimmed()),
+                 QVariant()}};
+    }
+#endif
+
     return {};
 }
 
@@ -360,7 +451,21 @@ QString UartProxyPlugin::triggerAction(const InterfaceDescriptor &descriptor, co
             return problem;
     }
 #else
-    Q_UNUSED(key);
+    if (key == QLatin1String(kLinkRemove) && deviceLinksSupported()) {
+        const QString path = settings.value(QLatin1String(kLinkPath)).toString().trimmed();
+        if (!isDevicePath(path))
+            return tr("Only a name in /dev needs removing: other links disappear when the "
+                      "interface closes.");
+        if (inspectDeviceLink(path) == LinkState::Missing)
+            return tr("%1 does not exist.").arg(path);
+
+        // Не ждём: окно с паролем висит, пока человек его вводит, а вызов пришёл из потока UI.
+        // Результат покажет строка состояния, которая переспрашивается сама.
+        QThreadPool::globalInstance()->start([path] {
+            QString problem;
+            removeDeviceLink(path, &problem);
+        });
+    }
 #endif
     return {};
 }

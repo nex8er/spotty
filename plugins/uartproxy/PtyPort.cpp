@@ -4,6 +4,9 @@
  */
 #include "PtyPort.h"
 
+#include "DevLink.h"
+#include "UartProxySettings.h"
+
 #include <QMutex>
 #include <QMutexLocker>
 #include <QSocketNotifier>
@@ -99,9 +102,36 @@ bool PtyPort::open(const QVariantMap &settings, QString *error)
         ::tcsetattr(m_slave, TCSANOW, &attributes);
     }
 
-    QString linkError;
-    if (!m_linkPath.isEmpty() && !createLink(&linkError))
-        return fail(linkError);
+    if (!m_linkPath.isEmpty()) {
+        QString linkError;
+        if (uartproxy::isDevicePath(m_linkPath)) {
+            // Имя в `/dev`: чужая программа найдёт его в списке портов. Сначала то, что
+            // можно сделать без прав, — промежуточная ссылка на pty, — и лишь затем, если
+            // имени ещё нет, запрос прав на ссылку в `/dev`.
+            if (!uartproxy::deviceLinksSupported()) {
+                return fail(tr("This system does not allow creating names in /dev, even with "
+                               "administrator rights. Use a path outside /dev, for example "
+                               "%1.")
+                                .arg(QLatin1String(uartproxy::kUnprivilegedLinkPath)));
+            }
+            if (!uartproxy::isValidDevicePath(m_linkPath))
+                return fail(tr("\"%1\" is not a valid name in /dev.").arg(m_linkPath));
+            if (uartproxy::inspectDeviceLink(m_linkPath) == uartproxy::LinkState::Foreign) {
+                return fail(
+                    tr("%1 is already used by something else: choose another name.")
+                        .arg(m_linkPath));
+            }
+            if (!createLink(uartproxy::bridgePath(), &linkError)
+                || !uartproxy::ensureDeviceLink(m_linkPath, &linkError)) {
+                return fail(linkError);
+            }
+            m_linkCreated = true;
+        } else {
+            if (!createLink(m_linkPath, &linkError))
+                return fail(linkError);
+            m_linkCreated = true;
+        }
+    }
 
     m_readNotifier = new QSocketNotifier(m_master, QSocketNotifier::Read, this);
     connect(m_readNotifier, &QSocketNotifier::activated, this, &PtyPort::readAvailable);
@@ -113,16 +143,16 @@ bool PtyPort::open(const QVariantMap &settings, QString *error)
     return true;
 }
 
-bool PtyPort::createLink(QString *error)
+bool PtyPort::createLink(const QString &path, QString *error)
 {
-    const QByteArray link = m_linkPath.toLocal8Bit();
+    const QByteArray link = path.toLocal8Bit();
 
     struct stat info{};
     if (::lstat(link.constData(), &info) == 0) {
         // Только своё: затирать файл пользователя ради удобства нельзя. Ссылка же от
         // прошлого запуска — наша, и её место свободно.
         if (!S_ISLNK(info.st_mode)) {
-            *error = tr("%1 already exists and is not a link.").arg(m_linkPath);
+            *error = tr("%1 already exists and is not a link.").arg(path);
             return false;
         }
         ::unlink(link.constData());
@@ -130,26 +160,31 @@ bool PtyPort::createLink(QString *error)
 
     if (::symlink(m_slavePath.toLocal8Bit().constData(), link.constData()) != 0) {
         *error = tr("Cannot create %1: %2")
-                     .arg(m_linkPath, QString::fromLocal8Bit(std::strerror(errno)));
+                     .arg(path, QString::fromLocal8Bit(std::strerror(errno)));
         return false;
     }
-    m_linkCreated = true;
+    m_ownLink = path;
     return true;
 }
 
 void PtyPort::removeLink()
 {
-    if (!m_linkCreated)
-        return;
+    // Ссылка в `/dev` остаётся: убрать её можно только с правами, а спрашивать их ещё раз
+    // при каждом закрытии — значит мучить человека ради ссылки, которая и так исчезнет при
+    // перезагрузке и никуда не ведёт, пока Spotty не запущен.
     m_linkCreated = false;
+    if (m_ownLink.isEmpty())
+        return;
+    const QString link = m_ownLink;
+    m_ownLink.clear();
 
     // Удаляется, только если указывает ещё на наш порт: за время работы ссылку мог
     // переложить другой экземпляр Spotty, и убрать чужую значило бы оборвать его.
     char target[1024];
-    const QByteArray link = m_linkPath.toLocal8Bit();
-    const ssize_t length = ::readlink(link.constData(), target, sizeof(target) - 1);
+    const QByteArray linkPath = link.toLocal8Bit();
+    const ssize_t length = ::readlink(linkPath.constData(), target, sizeof(target) - 1);
     if (length > 0 && QString::fromLocal8Bit(target, int(length)) == m_slavePath)
-        ::unlink(link.constData());
+        ::unlink(linkPath.constData());
 }
 
 void PtyPort::close()
@@ -176,6 +211,14 @@ void PtyPort::close()
 QString PtyPort::description() const
 {
     return m_linkCreated ? m_linkPath : m_slavePath;
+}
+
+QString PtyPort::details() const
+{
+    // Имя и сам порт рядом: имя выбирал пользователь, а настоящий путь меняется при каждом
+    // запуске и нужен тем программам, что покажут его в списке сами.
+    return m_linkCreated ? QStringLiteral("%1 (%2)").arg(m_linkPath, m_slavePath)
+                         : m_slavePath;
 }
 
 void PtyPort::readAvailable()

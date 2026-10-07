@@ -39,7 +39,8 @@ public:
                 .group = QStringLiteral("Group"),
                 .type = SettingsField::Choice,
                 .defaultValue = 1,
-                .options = {{QStringLiteral("one"), 1}, {QStringLiteral("two"), 2}},
+                .options = {{QStringLiteral("cu.usbmodem0000593034541 - J-Link, a long port description"), 1},
+                            {QStringLiteral("two"), 2}},
                 .hint = QStringLiteral("A hint long enough to wrap onto several lines when "
                                        "the panel is narrow, as the real ones do."),
             });
@@ -73,7 +74,10 @@ TEST(InterfaceSettingsPanel, LongSchemaScrollsInsteadOfOverlappingFields)
 
     auto *scroll = panel.findChild<QScrollArea *>();
     ASSERT_NE(scroll, nullptr);
-    EXPECT_GT(scroll->verticalScrollBar()->maximum(), 0);
+    // Содержимое не шире окна: горизонтальной прокрутки нет, и всё, что вылезло вправо,
+    // оказалось бы просто обрезано — поля с длинными названиями портов так и выглядели.
+    EXPECT_LE(scroll->widget()->width(), scroll->viewport()->width());
+    EXPECT_LE(scroll->widget()->minimumSizeHint().width(), scroll->viewport()->width());
 
     // Каждое поле получило не меньше места, чем ему нужно, и поля не заходят друг на друга.
     int previousBottom = -1;

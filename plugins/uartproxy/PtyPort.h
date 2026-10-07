@@ -44,8 +44,13 @@ class PtyPort : public VirtualPort
 public:
     /**
      * \brief Конструктор.
-     * \param linkPath Куда положить символическую ссылку на подчинённый конец; пустая
-     *        строка — без ссылки.
+     * \param linkPath Имя, под которым порт увидит чужая программа; пустая строка — без
+     *        имени, и тогда открывать придётся путь самого pty.
+     *
+     * Путь вне `/dev` — обычная ссылка прямо на pty, права не нужны, но в списках портов
+     * других программ её нет: путь им приходится вводить руками. Путь в `/dev` в такие
+     * списки попадает, и ссылка там создаётся с правами администратора через
+     * промежуточную (см. spotty::uartproxy::bridgePath()) — один раз за загрузку системы.
      */
     explicit PtyPort(QString linkPath, QObject *parent = nullptr);
     ~PtyPort() override;
@@ -56,6 +61,7 @@ public:
 
     /// \brief Постоянный путь, если он задан, иначе путь подчинённого конца.
     QString description() const override;
+    QString details() const override;
 
     /// \brief Путь подчинённого конца, который открывает программа; пусто, пока порт закрыт.
     QString slavePath() const { return m_slavePath; }
@@ -67,14 +73,21 @@ private:
     /// \brief Дописать очередь в ведущий конец, сколько он примет сейчас.
     void flushPending();
 
-    /// \brief Положить ссылку; при отказе записывает причину.
-    bool createLink(QString *error);
+    /// \brief Положить ссылку \p path на подчинённый конец; при отказе записывает причину.
+    bool createLink(const QString &path, QString *error);
 
-    /// \brief Убрать ссылку, если она всё ещё наша.
+    /// \brief Убрать ссылку, которую положил createLink(), если она всё ещё наша.
     void removeLink();
 
+    /// \brief Имя, заказанное пользователем.
     QString m_linkPath;
+
+    /// \brief Ссылка прямо на pty: заказанное имя либо промежуточная для имени в `/dev`.
+    QString m_ownLink;
+
     QString m_slavePath;
+
+    /// \brief Заказанное имя готово к открытию чужой программой.
     bool m_linkCreated = false;
 
     int m_master = -1;

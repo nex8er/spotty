@@ -38,9 +38,8 @@ UartProxyChannel::~UartProxyChannel()
 std::unique_ptr<VirtualPort> UartProxyChannel::createVirtualPort(const QVariantMap &settings,
                                                                  QString *error) const
 {
-    const QString existing = settings.value(QLatin1String(kVirtualPort)).toString().trimmed();
-
 #ifdef Q_OS_WIN
+    const QString existing = visiblePortName(settings);
     // На Windows в настройке — имя, которое открывает чужая программа, а Spotty нужен второй
     // конец пары. Пары может ещё не быть: тогда она создаётся здесь, в потоке ввода-вывода,
     // потому что установка устройств драйвером длится десятки секунд.
@@ -59,12 +58,10 @@ std::unique_ptr<VirtualPort> UartProxyChannel::createVirtualPort(const QVariantM
 #else
     Q_UNUSED(error);
 
-    // Готовый порт важнее созданного: его задали явно.
-    if (!existing.isEmpty())
-        return std::make_unique<SerialVirtualPort>(existing);
-
-    return std::make_unique<PtyPort>(
-        settings.value(QLatin1String(kLinkPath)).toString().trimmed());
+    // Только созданный pty: готовые пары портов здесь не поддерживаются. Поле выбора такого
+    // порта было, но у списка без пункта «не выбрано» первое найденное устройство
+    // подставлялось само, и перехват молча открывал чужой порт вместо своего pty.
+    return std::make_unique<PtyPort>(visiblePortName(settings));
 #endif
 }
 
@@ -120,7 +117,7 @@ bool UartProxyChannel::open(const QVariantMap &settings, QString *error)
     m_openedReal = realValue;
     m_openedVirtual = m_virtual->description();
 
-    setState(ChannelState::Open, tr("Virtual port: %1").arg(m_virtual->description()));
+    setState(ChannelState::Open, tr("Virtual port: %1").arg(m_virtual->details()));
     return true;
 }
 
@@ -166,9 +163,7 @@ bool UartProxyChannel::applySettings(const QVariantMap &settings)
     // Смена любого из портов — это уже другое соединение.
     if (settings.value(QLatin1String(kRealPort)).toString() != m_openedReal)
         return false;
-    const QString virtualValue = settings.value(QLatin1String(kVirtualPort)).toString().trimmed();
-    const QString linkValue = settings.value(QLatin1String(kLinkPath)).toString().trimmed();
-    const QString desired = virtualValue.isEmpty() ? linkValue : virtualValue;
+    const QString desired = visiblePortName(settings);
     if (!desired.isEmpty() && desired != m_openedVirtual)
         return false;
 

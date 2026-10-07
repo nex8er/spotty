@@ -1,8 +1,8 @@
 # Перехват последовательного порта, открытого другой программой: Spotty встаёт между
 # устройством и этой программой. Зависит от Qt6::SerialPort, как и uart.
 #
-# PtyPort — POSIX-вариант виртуального порта (pty); на Windows виртуальным концом служит
-# уже существующий порт из пары com0com и подобных, поэтому файла там нет вовсе.
+# PtyPort — POSIX-вариант виртуального порта (pty), DevLink — его постоянное имя в /dev. На
+# Windows виртуальным концом служит порт из пары com0com, и этих файлов там нет вовсе.
 set(UARTPROXY_SOURCES
     UartProxyPlugin.cpp
     UartProxyPlugin.h
@@ -17,7 +17,7 @@ set(UARTPROXY_SOURCES
 )
 set(UARTPROXY_LINK Qt6::SerialPort)
 if(UNIX)
-    list(APPEND UARTPROXY_SOURCES PtyPort.cpp PtyPort.h)
+    list(APPEND UARTPROXY_SOURCES PtyPort.cpp PtyPort.h DevLink.cpp DevLink.h)
 endif()
 # Com0com — обнаружение драйвера пар портов и запуск его настройки: на Windows без него
 # перехватчику не с чем работать, и диалог обязан об этом сказать. Реестр и запуск с

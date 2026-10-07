@@ -18,6 +18,10 @@ InterfaceSettingsDialog::InterfaceSettingsDialog(InterfaceRegistry *registry,
 {
     setWindowTitle(tr("Interface settings"));
 
+    // Размер по умолчанию задан явно: у области прокрутки подсказка размера мала, и без него
+    // диалог открывался узким, а подсказки под полями переносились на много строк.
+    resize(640, 680);
+
     auto *layout = new QVBoxLayout(this);
 
     m_panel = new InterfaceSettingsPanel(registry, plugins, this);

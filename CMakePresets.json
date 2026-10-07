@@ -25,8 +25,29 @@
       }
     },
     {
+      "name": "macos-base",
+      "hidden": true,
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
+      "environment": {
+        "CMAKE_PREFIX_PATH": "/opt/homebrew:/usr/local:$penv{CMAKE_PREFIX_PATH}",
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:$penv{PATH}"
+      }
+    },
+    {
       "name": "debug-dynamic",
       "inherits": "base",
+      "condition": {
+        "type": "allOf",
+        "conditions": [
+          { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+          { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
+        ]
+      },
       "displayName": "Debug — dynamic plugins",
       "description": "Debug build and tests; plugins are loaded from the plugins directory.",
       "binaryDir": "${sourceDir}/build/debug-dynamic",
@@ -39,6 +60,13 @@
     {
       "name": "release-dynamic",
       "inherits": "base",
+      "condition": {
+        "type": "allOf",
+        "conditions": [
+          { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+          { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
+        ]
+      },
       "displayName": "Release — dynamic plugins",
       "description": "Release build; plugins remain separately loadable modules.",
       "binaryDir": "${sourceDir}/build/release-dynamic",
@@ -50,6 +78,13 @@
     {
       "name": "release-static",
       "inherits": "base",
+      "condition": {
+        "type": "allOf",
+        "conditions": [
+          { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+          { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
+        ]
+      },
       "displayName": "Release — static plugins",
       "description": "Release build; Spotty plugins and SDKs are linked into the executable.",
       "binaryDir": "${sourceDir}/build/release-static",
@@ -75,6 +110,13 @@
     {
       "name": "coverage",
       "inherits": "base",
+      "condition": {
+        "type": "allOf",
+        "conditions": [
+          { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+          { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
+        ]
+      },
       "displayName": "Coverage",
       "description": "Debug tests instrumented for coverage; static plugins are required for one profile.",
       "binaryDir": "${sourceDir}/build/coverage",
@@ -83,6 +125,78 @@
         "SPOTTY_BUILD_TESTS": "ON",
         "SPOTTY_ENABLE_COVERAGE": "ON",
         "SPOTTY_STATIC_PLUGINS": "ON"
+      }
+    },
+    {
+      "name": "macos-debug-dynamic",
+      "inherits": ["debug-dynamic", "macos-base"],
+      "displayName": "macOS Debug — dynamic plugins",
+      "description": "Debug build and tests with Homebrew Qt; plugins are loaded from the plugins directory.",
+      "binaryDir": "${sourceDir}/build/macos-debug-dynamic",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "macos-release-dynamic",
+      "inherits": ["release-dynamic", "macos-base"],
+      "displayName": "macOS Release — dynamic plugins",
+      "description": "Release build with Homebrew Qt and separately loadable plugins.",
+      "binaryDir": "${sourceDir}/build/macos-release-dynamic",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "macos-release-static",
+      "inherits": ["release-static", "macos-base"],
+      "displayName": "macOS Release — static plugins",
+      "description": "Release build with Homebrew Qt and plugins linked into Spotty.",
+      "binaryDir": "${sourceDir}/build/macos-release-static",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "macos-package-dynamic",
+      "inherits": ["package-dynamic", "macos-base"],
+      "displayName": "macOS Package — dynamic plugins",
+      "description": "macOS release package with separately loaded plugin modules.",
+      "binaryDir": "${sourceDir}/build/macos-package-dynamic",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "macos-package-static",
+      "inherits": ["package-static", "macos-base"],
+      "displayName": "macOS Package — static plugins",
+      "description": "macOS release package with plugins built into the application.",
+      "binaryDir": "${sourceDir}/build/macos-package-static",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "macos-coverage",
+      "inherits": ["coverage", "macos-base"],
+      "displayName": "macOS Coverage",
+      "description": "Instrumented macOS debug tests with Homebrew Qt.",
+      "binaryDir": "${sourceDir}/build/macos-coverage",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
       }
     },
     {
@@ -184,6 +298,33 @@
     {
       "name": "coverage",
       "configurePreset": "coverage",
+      "targets": ["coverage"]
+    },
+    {
+      "name": "macos-debug-dynamic",
+      "configurePreset": "macos-debug-dynamic"
+    },
+    {
+      "name": "macos-release-dynamic",
+      "configurePreset": "macos-release-dynamic"
+    },
+    {
+      "name": "macos-release-static",
+      "configurePreset": "macos-release-static"
+    },
+    {
+      "name": "macos-package-dynamic",
+      "configurePreset": "macos-package-dynamic",
+      "targets": ["spotty-package"]
+    },
+    {
+      "name": "macos-package-static",
+      "configurePreset": "macos-package-static",
+      "targets": ["spotty-package"]
+    },
+    {
+      "name": "macos-coverage",
+      "configurePreset": "macos-coverage",
       "targets": ["coverage"]
     },
     {

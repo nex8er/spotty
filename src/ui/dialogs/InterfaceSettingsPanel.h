@@ -83,6 +83,9 @@ protected:
     /// \brief Возобновить опрос живых полей: панель снова на экране.
     void showEvent(QShowEvent *event) override;
 
+    /// \brief Держит ширину содержимого не больше видимой; см. конструктор.
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
     /// \brief Прекратить опрос: закрытый диалог не должен держать занятой шину устройства.
     void hideEvent(QHideEvent *event) override;
 
@@ -164,6 +167,9 @@ private:
     QCheckBox *m_hidden = nullptr;
     QLabel *m_addressValue = nullptr;
     QLabel *m_vidPidValue = nullptr;
+
+    /// \brief Содержимое области прокрутки: всё, что ниже переключателя устройств.
+    QWidget *m_content = nullptr;
 
     QVBoxLayout *m_schemaLayout = nullptr; ///< Сюда вставляются группы полей схемы.
     SettingsSchema m_currentSchema;

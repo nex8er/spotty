@@ -48,6 +48,15 @@ public:
     /// \brief Как программе найти этот порт: путь или имя. Для показа пользователю.
     virtual QString description() const = 0;
 
+    /**
+     * \brief Подробности для показа пользователю.
+     *
+     * По умолчанию то же, что description(). У pty добавляется путь самого порта: он
+     * попадает в списки тех программ, что показывают всё из `/dev/tty*`, и бывает единственным
+     * способом открыть порт без ввода пути руками.
+     */
+    virtual QString details() const { return description(); }
+
 Q_SIGNALS:
     /// \brief Программа отправила байты устройству.
     void dataRead(const QByteArray &data);

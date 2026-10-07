@@ -105,6 +105,60 @@ TRANSLATIONS = {
         "Линии управления: заглавные — линия поднята",
     "RX %1  TX %2": "Принято %1  Отправлено %2",
     # --- Перехват порта (uartproxy) ---
+    "\"%1\" is not a valid name in /dev.": "\"%1\" не годится как имя в /dev.",
+    "%1 - in port lists (administrator rights, once per boot)":
+        "%1 — виден в списках портов (права администратора, раз за загрузку)",
+    "%1 - no rights, enter the path by hand":
+        "%1 — без прав, путь вводится вручную",
+    "%1 does not exist.": "%1 не существует.",
+    "%1 is already used by something else: choose another name.":
+        "%1 уже занято чем-то другим: выберите другое имя.",
+    "%1 was not created by Spotty and is left untouched.":
+        "%1 создан не Spotty, поэтому его не трогаем.",
+    "%1 was not created.": "%1 не создан.",
+    "Administrator rights are needed to remove %1.":
+        "Чтобы удалить %1, нужны права администратора.",
+    "Could not run %1.": "Не удалось запустить %1.",
+    "Directory %1 does not exist.": "Каталога %1 не существует.",
+    "No name: the other program has to open the path of the port itself, shown after "
+    "opening. It changes on every run.":
+        "Имени нет: другой программе придётся открывать путь самого порта, он показывается "
+        "после открытия и меняется при каждом запуске.",
+    "Only a name in /dev needs removing: other links disappear when the interface closes.":
+        "Удалять нужно только имя в /dev: остальные ссылки исчезают при закрытии интерфейса.",
+    "%1 - enter this path in the other program": "%1 — этот путь нужно ввести в другой программе",
+    "The other program opens this port. macOS does not allow adding names to /dev, so the "
+    "program must accept a typed path. The port's own path (/dev/ttysN) is shown in the "
+    "interface state after opening: programs that list /dev/tty* show it themselves. Each "
+    "side sets its own baud rate.":
+        "Этот порт открывает другая программа. macOS не позволяет добавлять имена в /dev, "
+        "поэтому программа должна принимать путь, набранный руками. Собственный путь порта "
+        "(/dev/ttysN) показан в состоянии интерфейса после открытия: программы, которые "
+        "перечисляют /dev/tty*, покажут его сами. Скорость каждая сторона выставляет свою.",
+    "This system does not allow creating names in /dev, even with administrator rights. "
+    "Use a path outside /dev, for example %1.":
+        "Эта система не позволяет создавать имена в /dev, даже с правами администратора. "
+        "Используйте путь вне /dev, например %1.",
+    "macOS does not allow creating names in /dev.":
+        "macOS не позволяет создавать имена в /dev.",
+    "Ready: the other program opens %1.": "Готово: другая программа открывает %1.",
+    "Spotty needs to create a virtual serial port name in /dev.":
+        "Spotty нужно создать имя виртуального последовательного порта в /dev.",
+    "The command failed.": "Команда завершилась с ошибкой.",
+    "The link %1 is created when the interface opens. It does not appear in the port "
+    "lists of other programs: enter the path.":
+        "Ссылка %1 создаётся при открытии интерфейса. В списках портов других программ её "
+        "нет: путь нужно ввести.",
+    "The other program opens this port. Spotty creates a virtual port behind it. A name "
+    "in /dev appears in the port lists of other programs; the link stays until the system "
+    "restarts. Each side sets its own baud rate.":
+        "Этот порт открывает другая программа, а за ним Spotty создаёт виртуальный порт. Имя "
+        "в /dev попадает в списки портов других программ; ссылка остаётся до перезагрузки "
+        "системы. Скорость каждая сторона выставляет свою.",
+    "pkexec is not installed, so Spotty cannot ask for administrator rights. Choose a path "
+    "outside /dev or create the link yourself.":
+        "pkexec не установлен, и Spotty не может запросить права администратора. Выберите "
+        "путь вне /dev или создайте ссылку сами.",
     "Serial proxy": "Перехват порта",
     "Real port": "Реальный порт",
     "Virtual port": "Виртуальный порт",

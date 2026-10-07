@@ -68,6 +68,7 @@ InterfaceSettingsPanel::InterfaceSettingsPanel(InterfaceRegistry *registry,
     // ужимает виджеты ниже их минимума, и поля налезают друг на друга, а подсказки
     // обрезаются до одной строки.
     auto *scroll = new QScrollArea(this);
+    scroll->setObjectName(QStringLiteral("schemaScroll"));
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -76,6 +77,13 @@ InterfaceSettingsPanel::InterfaceSettingsPanel(InterfaceRegistry *registry,
     auto *contentLayout = new QVBoxLayout(content);
     contentLayout->setContentsMargins(0, 0, 0, 0);
     scroll->setWidget(content);
+    m_content = content;
+
+    // Ширина содержимого не может превышать видимую. QScrollArea считает её до того, как
+    // появилась вертикальная полоса, и содержимое оставалось шире окна на ширину самой
+    // полосы: правый край полей и подсказок обрезался, а горизонтальной прокрутки нет.
+    // Предел обновляется при каждом изменении области — и при появлении полосы тоже.
+    scroll->viewport()->installEventFilter(this);
 
     // setWidget() включает заливку фона у содержимого, и оно становится цветом палитры, а не
     // диалога: на тёмной теме это два чуть разных серых. Прозрачными оба слоя показывают тот
@@ -317,6 +325,13 @@ void InterfaceSettingsPanel::showEntry(const QString &id)
         refreshLiveOptions();
 }
 
+bool InterfaceSettingsPanel::eventFilter(QObject *watched, QEvent *event)
+{
+    if (m_content && event->type() == QEvent::Resize && watched == m_content->parentWidget())
+        m_content->setMaximumWidth(static_cast<QWidget *>(watched)->width());
+    return QWidget::eventFilter(watched, event);
+}
+
 void InterfaceSettingsPanel::showEvent(QShowEvent *event)
 {
     QWidget::showEvent(event);
@@ -460,6 +475,11 @@ QWidget *InterfaceSettingsPanel::createEditor(const SettingsField &field, const 
             return createLiveSearchEditor(field, value);
 
         auto *combo = new QComboBox(this);
+        // Ширина поля — от формы, а не от самого длинного пункта: названия портов вроде
+        // «cu.usbmodem0000593034541 — J-Link» длинные, а пункты к тому же добавляются уже
+        // при открытом окне, и форма не должна расти или дёргаться вслед за ними.
+        
+        combo->setMinimumContentsLength(12);
         for (const SettingsOption &option : field.options)
             combo->addItem(option.label, option.value);
 
@@ -528,6 +548,10 @@ QWidget *InterfaceSettingsPanel::createEditor(const SettingsField &field, const 
 
     case SettingsField::Action: {
         auto *button = new QPushButton(field.label, this);
+        // Первая кнопка диалога становится «по умолчанию» сама, а тема заливает такую
+        // акцентом — единственное отступление от монохромности. Действие «удалить порт» —
+        // последнее, что стоит выделять как главное, и Enter не должен его нажимать.
+        button->setAutoDefault(false);
         const QString key = field.key;
         connect(button, &QPushButton::clicked, this, [this, key] { triggerAction(key); });
         return button;

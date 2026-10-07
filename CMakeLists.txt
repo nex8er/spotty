@@ -5,6 +5,19 @@
 # а src/ui это свойство читает.
 cmake_minimum_required(VERSION 3.21)
 
+# На macOS без явного sysroot компилятор берёт SDK из Command Line Tools, а линкер — из
+# выбранного Xcode. Когда CLT новее Xcode (а это бывает после обновления только одного из
+# двух), линкер отвечает `unknown architecture` на `.tbd` чужого SDK, и сборка падает на
+# самом последнем шаге. Имя `macosx` разрешается через `xcrun` в SDK выбранного Xcode, а не
+# в пути, зашитом в проект. Явный SDKROOT пользователя этим не перекрывается.
+#
+# До project(): после него CMAKE_OSX_SYSROOT уже определён, и значение не подхватится.
+if(APPLE AND NOT CMAKE_OSX_SYSROOT AND NOT DEFINED ENV{SDKROOT})
+    # FORCE: в каталогах, настроенных раньше, в кэше уже лежит пустое значение, и без него
+    # set(CACHE) его не заменит — старая сборка продолжала бы падать.
+    set(CMAKE_OSX_SYSROOT macosx CACHE STRING "macOS SDK name or path" FORCE)
+endif()
+
 project(Spotty
     VERSION 0.7.0
     DESCRIPTION "Modular terminal port monitor"

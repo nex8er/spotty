@@ -85,6 +85,7 @@ if(UNIX AND Qt6SerialPort_FOUND)
         test_uartproxy.cpp
         # Заголовок без .cpp: AUTOMOC находит moc-класс только среди перечисленных исходников.
         "${CMAKE_SOURCE_DIR}/plugins/uartproxy/VirtualPort.h"
+        "${CMAKE_SOURCE_DIR}/plugins/uartproxy/DevLink.cpp"
         "${CMAKE_SOURCE_DIR}/plugins/uartproxy/PtyPort.cpp"
         "${CMAKE_SOURCE_DIR}/plugins/uartproxy/SerialVirtualPort.cpp"
         "${CMAKE_SOURCE_DIR}/plugins/uartproxy/UartProxyChannel.cpp"

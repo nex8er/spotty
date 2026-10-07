@@ -8,6 +8,7 @@
  */
 #include "support/TestSupport.h"
 
+#include <DevLink.h>
 #include <PtyPort.h>
 #include <UartProxyChannel.h>
 #include <UartProxySettings.h>
@@ -386,3 +387,189 @@ TEST(UartProxyChannel, SpeedCanChangeWithoutReopeningButPortsCannot)
     settings[QLatin1String(uartproxy::kLinkPath)] = dir.filePath(QStringLiteral("other"));
     EXPECT_FALSE(channel.applySettings(settings));
 }
+
+namespace {
+
+/// \brief Подменяет исполнителя с повышением прав и бросает его обратно по выходе из теста.
+class FakeElevator
+{
+public:
+    explicit FakeElevator(bool succeed = true, bool decline = false)
+    {
+        uartproxy::setElevatorForTesting(
+            [this, succeed, decline](const QString &script, bool *cancelled, QString *error) {
+                ++calls;
+                lastScript = script;
+                if (!probe.isEmpty())
+                    probeExisted = QFileInfo(probe).isSymLink();
+                if (decline) {
+                    if (cancelled)
+                        *cancelled = true;
+                    return false;
+                }
+                if (!succeed && error)
+                    *error = QStringLiteral("refused by test");
+                return succeed;
+            });
+    }
+    ~FakeElevator() { uartproxy::setElevatorForTesting({}); }
+
+    int calls = 0;
+    QString lastScript;
+
+    /// \brief Путь, наличие которого (как ссылки) запоминается в момент вызова.
+    QString probe;
+    bool probeExisted = false;
+};
+
+} // namespace
+
+TEST(DevLink, OnlyPlainNamesDirectlyInDevAreAccepted)
+{
+    using uartproxy::isDevicePath;
+    using uartproxy::isValidDevicePath;
+
+    EXPECT_TRUE(isDevicePath(QStringLiteral("/dev/cu.spotty")));
+    EXPECT_FALSE(isDevicePath(QStringLiteral("/tmp/spotty-uart")));
+
+    EXPECT_TRUE(isValidDevicePath(QStringLiteral("/dev/cu.spotty")));
+    EXPECT_TRUE(isValidDevicePath(QStringLiteral("/dev/ttyV0")));
+
+    // Путь уходит в команду, которую исполнит root: всё, что не простое имя, отсекается до
+    // запуска, а не экранируется в расчёте, что экранирование не подведёт.
+    EXPECT_FALSE(isValidDevicePath(QStringLiteral("/dev/")));
+    EXPECT_FALSE(isValidDevicePath(QStringLiteral("/dev/sub/dir")));
+    EXPECT_FALSE(isValidDevicePath(QStringLiteral("/dev/../etc/passwd")));
+    EXPECT_FALSE(isValidDevicePath(QStringLiteral("/dev/..")));
+    EXPECT_FALSE(isValidDevicePath(QStringLiteral("/dev/a b")));
+    EXPECT_FALSE(isValidDevicePath(QStringLiteral("/dev/a'; rm -rf /; '")));
+    EXPECT_FALSE(isValidDevicePath(QStringLiteral("/dev/a\"b")));
+    EXPECT_FALSE(isValidDevicePath(QStringLiteral("/dev/a\nb")));
+    EXPECT_FALSE(isValidDevicePath(QStringLiteral("/dev/-rf")));
+}
+
+TEST(DevLink, InspectDistinguishesMissingReadyAndForeign)
+{
+    TempDir dir;
+    const QString target = dir.filePath(QStringLiteral("bridge"));
+    const QString link = dir.filePath(QStringLiteral("link"));
+
+    EXPECT_EQ(uartproxy::inspectLink(link, target), uartproxy::LinkState::Missing);
+
+    ASSERT_TRUE(QFile::link(target, link));
+    EXPECT_EQ(uartproxy::inspectLink(link, target), uartproxy::LinkState::Ready);
+    EXPECT_EQ(uartproxy::inspectLink(link, dir.filePath(QStringLiteral("other"))),
+              uartproxy::LinkState::Foreign);
+
+    // Не ссылка вовсе — тоже чужое.
+    const QString file = dir.filePath(QStringLiteral("file"));
+    QFile plain(file);
+    ASSERT_TRUE(plain.open(QIODevice::WriteOnly));
+    plain.close();
+    EXPECT_EQ(uartproxy::inspectLink(file, target), uartproxy::LinkState::Foreign);
+}
+
+TEST(DevLink, CreatesTheLinkThroughOneElevatedCommand)
+{
+    TempDir dir;
+    uartproxy::setBridgePathForTesting(dir.filePath(QStringLiteral("bridge")));
+    FakeElevator elevator(/*succeed=*/true);
+
+    QString error;
+    // Исполнитель «успешен», но ссылки в /dev не появилось: настоящая проверка после него
+    // обязана это заметить, а не поверить коду возврата.
+    EXPECT_FALSE(uartproxy::ensureDeviceLink(QStringLiteral("/dev/spotty-test-missing"), &error));
+    EXPECT_EQ(elevator.calls, 1);
+    EXPECT_NE(error.indexOf(QStringLiteral("was not created")), -1);
+
+    EXPECT_NE(elevator.lastScript.indexOf(QStringLiteral("/bin/ln -s")), -1);
+    EXPECT_NE(elevator.lastScript.indexOf(QStringLiteral("/dev/spotty-test-missing")), -1);
+    EXPECT_NE(elevator.lastScript.indexOf(dir.filePath(QStringLiteral("bridge"))), -1);
+
+    uartproxy::setBridgePathForTesting({});
+}
+
+TEST(DevLink, DecliningThePasswordIsReportedAsSuch)
+{
+    FakeElevator elevator(/*succeed=*/false, /*decline=*/true);
+
+    QString error;
+    EXPECT_FALSE(uartproxy::ensureDeviceLink(QStringLiteral("/dev/spotty-test-missing"), &error));
+    EXPECT_NE(error.indexOf(QStringLiteral("Administrator rights")), -1);
+}
+
+TEST(DevLink, NeverAsksForRightsOnAnInvalidOrForeignName)
+{
+    FakeElevator elevator;
+
+    QString error;
+    EXPECT_FALSE(uartproxy::ensureDeviceLink(QStringLiteral("/dev/a b"), &error));
+    // /dev/null существует и ссылкой на промежуточную не является: чужое.
+    EXPECT_FALSE(uartproxy::ensureDeviceLink(QStringLiteral("/dev/null"), &error));
+    EXPECT_FALSE(uartproxy::removeDeviceLink(QStringLiteral("/dev/null"), &error));
+
+    // Удалять нечего — права и тут не нужны.
+    EXPECT_TRUE(uartproxy::removeDeviceLink(QStringLiteral("/dev/spotty-test-missing"), &error));
+
+    EXPECT_EQ(elevator.calls, 0);
+}
+
+TEST(PtyPort, RefusesAForeignNameInDevWithoutAskingForRights)
+{
+    FakeElevator elevator;
+    TempDir dir;
+    uartproxy::setBridgePathForTesting(dir.filePath(QStringLiteral("bridge")));
+
+    PtyPort port(QStringLiteral("/dev/null"));
+    QString error;
+    EXPECT_FALSE(port.open({}, &error));
+    EXPECT_FALSE(error.isEmpty());
+    EXPECT_EQ(elevator.calls, 0);
+    // Промежуточной ссылке тоже не появляться: порт не открыт, и вести ей не на что.
+    EXPECT_FALSE(QFileInfo(dir.filePath(QStringLiteral("bridge"))).isSymLink());
+
+    uartproxy::setBridgePathForTesting({});
+}
+
+#ifdef Q_OS_MACOS
+TEST(PtyPort, MacOsRefusesANameInDevWithoutAskingForAPassword)
+{
+    // devfs на macOS не принимает чужих имён даже у администратора: `ln` отвечает
+    // «Operation not permitted». Просить пароль ради заведомого отказа нельзя.
+    FakeElevator elevator;
+    TempDir dir;
+    uartproxy::setBridgePathForTesting(dir.filePath(QStringLiteral("bridge")));
+
+    PtyPort port(QStringLiteral("/dev/cu.spotty-test"));
+    QString error;
+    EXPECT_FALSE(port.open({}, &error));
+    EXPECT_EQ(elevator.calls, 0);
+    EXPECT_NE(error.indexOf(QStringLiteral("/dev")), -1);
+    EXPECT_FALSE(QFileInfo(dir.filePath(QStringLiteral("bridge"))).isSymLink());
+
+    uartproxy::setBridgePathForTesting({});
+}
+#else
+TEST(PtyPort, CreatesTheBridgeBeforeAskingForRightsAndRemovesItOnClose)
+{
+    FakeElevator elevator(/*succeed=*/true);
+    TempDir dir;
+    const QString bridge = dir.filePath(QStringLiteral("bridge"));
+    uartproxy::setBridgePathForTesting(bridge);
+
+    elevator.probe = bridge;
+
+    PtyPort port(QStringLiteral("/dev/spotty-test-missing"));
+    QString error;
+    // Ссылки в /dev исполнитель не создал, и открытие отказывает, — но промежуточная к
+    // этому моменту уже была, и закрытие её убирает: после отказа ничего не остаётся.
+    EXPECT_FALSE(port.open({}, &error));
+    EXPECT_EQ(elevator.calls, 1);
+    // К моменту запроса прав промежуточная ссылка уже лежала: иначе ссылка в /dev, созданная
+    // с правами, указывала бы в никуда.
+    EXPECT_TRUE(elevator.probeExisted);
+    EXPECT_FALSE(QFileInfo(bridge).isSymLink());
+
+    uartproxy::setBridgePathForTesting({});
+}
+#endif

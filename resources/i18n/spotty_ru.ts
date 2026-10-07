@@ -1889,40 +1889,6 @@ Double-click to edit, right-click for options</source>
     </message>
 </context>
 <context>
-    <name>spotty::NabChannel</name>
-    <message>
-        <source>Could not open NAB USB interface %1: %2</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Could not configure NAB USB interface %1: %2</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>USB interface %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>NAB USB transfer failed: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>spotty::NabPlugin</name>
-    <message>
-        <source>USB interface %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>NAB USB interface %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>NAB USB</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>spotty::PanelPluginRegistry</name>
     <message>
         <source>Built against panel API version %1, this build expects %2.</source>
@@ -2366,6 +2332,37 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Another plugin already provides id &quot;%1&quot;.</source>
         <translation>Идентификатор «%1» уже занят другим плагином.</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::PtyPort</name>
+    <message>
+        <source>Cannot create a virtual port (%1).</source>
+        <translation>Не удалось создать виртуальный порт (%1).</translation>
+    </message>
+    <message>
+        <source>This system does not allow creating names in /dev, even with administrator rights. Use a path outside /dev, for example %1.</source>
+        <translation>Эта система не позволяет создавать имена в /dev, даже с правами администратора. Используйте путь вне /dev, например %1.</translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; is not a valid name in /dev.</source>
+        <translation>&quot;%1&quot; не годится как имя в /dev.</translation>
+    </message>
+    <message>
+        <source>%1 is already used by something else: choose another name.</source>
+        <translation>%1 уже занято чем-то другим: выберите другое имя.</translation>
+    </message>
+    <message>
+        <source>%1 already exists and is not a link.</source>
+        <translation>%1 уже существует и не является ссылкой.</translation>
+    </message>
+    <message>
+        <source>Cannot create %1: %2</source>
+        <translation>Не удалось создать %1: %2</translation>
+    </message>
+    <message>
+        <source>Virtual port failed: %1</source>
+        <translation>Сбой виртуального порта: %1</translation>
     </message>
 </context>
 <context>
@@ -3288,6 +3285,34 @@ Continue?</source>
         <translation>%1 будет создан при открытии интерфейса (Windows запросит права администратора).</translation>
     </message>
     <message>
+        <source>No name: the other program has to open the path of the port itself, shown after opening. It changes on every run.</source>
+        <translation>Имени нет: другой программе придётся открывать путь самого порта, он показывается после открытия и меняется при каждом запуске.</translation>
+    </message>
+    <message>
+        <source>This system does not allow creating names in /dev, even with administrator rights. Use a path outside /dev, for example %1.</source>
+        <translation>Эта система не позволяет создавать имена в /dev, даже с правами администратора. Используйте путь вне /dev, например %1.</translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; is not a valid name in /dev.</source>
+        <translation>&quot;%1&quot; не годится как имя в /dev.</translation>
+    </message>
+    <message>
+        <source>Ready: the other program opens %1.</source>
+        <translation>Готово: другая программа открывает %1.</translation>
+    </message>
+    <message>
+        <source>%1 is already used by something else: choose another name.</source>
+        <translation>%1 уже занято чем-то другим: выберите другое имя.</translation>
+    </message>
+    <message>
+        <source>Directory %1 does not exist.</source>
+        <translation>Каталога %1 не существует.</translation>
+    </message>
+    <message>
+        <source>The link %1 is created when the interface opens. It does not appear in the port lists of other programs: enter the path.</source>
+        <translation>Ссылка %1 создаётся при открытии интерфейса. В списках портов других программ её нет: путь нужно ввести.</translation>
+    </message>
+    <message>
         <source>Real port</source>
         <translation>Реальный порт</translation>
     </message>
@@ -3368,12 +3393,20 @@ Continue?</source>
         <translation>Поднимать RTS при открытии</translation>
     </message>
     <message>
-        <source>Link path</source>
-        <translation>Путь ссылки</translation>
+        <source>%1 - enter this path in the other program</source>
+        <translation>%1 — этот путь нужно ввести в другой программе</translation>
     </message>
     <message>
-        <source>Spotty creates a virtual port and puts a link with this fixed path to it: enter the path in the other program. Leave empty to use the port&apos;s own path, shown after opening - it changes on every run.</source>
-        <translation>Spotty создаёт виртуальный порт и кладёт на него ссылку с этим постоянным путём: введите его в другой программе. Если оставить пустым, используется собственный путь порта, он показывается после открытия и меняется при каждом запуске.</translation>
+        <source>The other program opens this port. macOS does not allow adding names to /dev, so the program must accept a typed path. The port&apos;s own path (/dev/ttysN) is shown in the interface state after opening: programs that list /dev/tty* show it themselves. Each side sets its own baud rate.</source>
+        <translation>Этот порт открывает другая программа. macOS не позволяет добавлять имена в /dev, поэтому программа должна принимать путь, набранный руками. Собственный путь порта (/dev/ttysN) показан в состоянии интерфейса после открытия: программы, которые перечисляют /dev/tty*, покажут его сами. Скорость каждая сторона выставляет свою.</translation>
+    </message>
+    <message>
+        <source>Only a name in /dev needs removing: other links disappear when the interface closes.</source>
+        <translation>Удалять нужно только имя в /dev: остальные ссылки исчезают при закрытии интерфейса.</translation>
+    </message>
+    <message>
+        <source>%1 does not exist.</source>
+        <translation>%1 не существует.</translation>
     </message>
     <message>
         <source>Port for the other program</source>
@@ -3386,6 +3419,18 @@ Continue?</source>
     <message>
         <source>State</source>
         <translation>Состояние</translation>
+    </message>
+    <message>
+        <source>%1 - in port lists (administrator rights, once per boot)</source>
+        <translation>%1 — виден в списках портов (права администратора, раз за загрузку)</translation>
+    </message>
+    <message>
+        <source>%1 - no rights, enter the path by hand</source>
+        <translation>%1 — без прав, путь вводится вручную</translation>
+    </message>
+    <message>
+        <source>The other program opens this port. Spotty creates a virtual port behind it. A name in /dev appears in the port lists of other programs; the link stays until the system restarts. Each side sets its own baud rate.</source>
+        <translation>Этот порт открывает другая программа, а за ним Spotty создаёт виртуальный порт. Имя в /dev попадает в списки портов других программ; ссылка остаётся до перезагрузки системы. Скорость каждая сторона выставляет свою.</translation>
     </message>
     <message>
         <source>Checking...</source>
@@ -3412,14 +3457,6 @@ Continue?</source>
         <translation>Открыть настройку com0com...</translation>
     </message>
     <message>
-        <source>Existing virtual port</source>
-        <translation>Готовый виртуальный порт</translation>
-    </message>
-    <message>
-        <source>Optional: use one end of a ready pair (for example made by socat) instead of creating a port.</source>
-        <translation>Необязательно: взять один конец готовой пары (например, созданной socat) вместо создания порта.</translation>
-    </message>
-    <message>
         <source>The com0com setup program was not found. Install com0com from %1 and try again.</source>
         <translation>Программа настройки com0com не найдена. Установите com0com с %1 и повторите.</translation>
     </message>
@@ -3427,33 +3464,48 @@ Continue?</source>
         <source>Serial proxy</source>
         <translation>Перехват порта</translation>
     </message>
+</context>
+<context>
+    <name>spotty::uartproxy</name>
     <message>
-        <source>Could not start %1: %2</source>
-        <translation>Не удалось запустить %1: %2</translation>
+        <source>macOS does not allow creating names in /dev.</source>
+        <translation>macOS не позволяет создавать имена в /dev.</translation>
     </message>
     <message>
-        <source>com0com is not installed: Spotty needs it to create a virtual port.</source>
-        <translation>com0com не установлен, а без него Spotty не может создать виртуальный порт.</translation>
+        <source>pkexec is not installed, so Spotty cannot ask for administrator rights. Choose a path outside /dev or create the link yourself.</source>
+        <translation>pkexec не установлен, и Spotty не может запросить права администратора. Выберите путь вне /dev или создайте ссылку сами.</translation>
     </message>
     <message>
-        <source>%1 is already used by another device.</source>
-        <translation>%1 уже занят другим устройством.</translation>
+        <source>Could not run %1.</source>
+        <translation>Не удалось запустить %1.</translation>
     </message>
     <message>
-        <source>The com0com program setupc.exe was not found.</source>
-        <translation>Программа com0com setupc.exe не найдена.</translation>
+        <source>The command failed.</source>
+        <translation>Команда завершилась с ошибкой.</translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; is not a valid name in /dev.</source>
+        <translation>&quot;%1&quot; не годится как имя в /dev.</translation>
+    </message>
+    <message>
+        <source>%1 is already used by something else: choose another name.</source>
+        <translation>%1 уже занято чем-то другим: выберите другое имя.</translation>
     </message>
     <message>
         <source>Administrator rights are needed to create %1.</source>
         <translation>Чтобы создать %1, нужны права администратора.</translation>
     </message>
     <message>
-        <source>com0com did not create %1. Try the com0com setup.</source>
-        <translation>com0com не создал %1. Попробуйте через настройку com0com.</translation>
+        <source>%1 was not created.</source>
+        <translation>%1 не создан.</translation>
     </message>
     <message>
-        <source>The com0com setup program was not found.</source>
-        <translation>Программа настройки com0com не найдена.</translation>
+        <source>%1 was not created by Spotty and is left untouched.</source>
+        <translation>%1 создан не Spotty, поэтому его не трогаем.</translation>
+    </message>
+    <message>
+        <source>Administrator rights are needed to remove %1.</source>
+        <translation>Чтобы удалить %1, нужны права администратора.</translation>
     </message>
 </context>
 </TS>

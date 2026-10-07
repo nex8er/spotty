@@ -71,6 +71,11 @@ QWidget *SchemaForm::createEditor(const SettingsField &field, const QVariant &va
     switch (field.type) {
     case SettingsField::Choice: {
         auto *combo = new QComboBox(this);
+        // Ширина поля — от формы, а не от самого длинного пункта: названия портов вроде
+        // «cu.usbmodem0000593034541 — J-Link» длинные, а пункты к тому же добавляются уже
+        // при открытом окне, и форма не должна расти или дёргаться вслед за ними.
+        combo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+        combo->setMinimumContentsLength(12);
         for (const SettingsOption &option : field.options)
             combo->addItem(option.label, option.value);
 
