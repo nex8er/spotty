@@ -19,6 +19,7 @@
 #include <QIntValidator>
 #include <QLabel>
 #include <QLineEdit>
+#include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSpinBox>
 #include <QEvent>
@@ -59,9 +60,32 @@ InterfaceSettingsPanel::InterfaceSettingsPanel(InterfaceRegistry *registry,
     switcherForm->addRow(tr("Device"), m_deviceCombo);
     layout->addLayout(switcherForm);
 
+    // Всё, что ниже переключателя устройств, лежит в области прокрутки. Число полей схемы
+    // задаёт плагин, а не мы: у UART их хватало с запасом, у плагина с двумя портами и
+    // подсказками под каждым — уже нет. Без прокрутки Qt не выходит за размеры окна, а
+    // ужимает виджеты ниже их минимума, и поля налезают друг на друга, а подсказки
+    // обрезаются до одной строки.
+    auto *scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    auto *content = new QWidget(scroll);
+    auto *contentLayout = new QVBoxLayout(content);
+    contentLayout->setContentsMargins(0, 0, 0, 0);
+    scroll->setWidget(content);
+
+    // setWidget() включает заливку фона у содержимого, и оно становится цветом палитры, а не
+    // диалога: на тёмной теме это два чуть разных серых. Прозрачными оба слоя показывают тот
+    // фон, который задан диалогу таблицей стилей.
+    scroll->viewport()->setAutoFillBackground(false);
+    content->setAutoFillBackground(false);
+
+    layout->addWidget(scroll, 1);
+
     // Псевдоним, скрытие и служебные сведения принадлежат ядру, а не плагину — есть у
     // любого транспорта, поэтому стоят своей группой над полями схемы.
-    auto *infoBox = new QGroupBox(tr("Interface"), this);
+    auto *infoBox = new QGroupBox(tr("Interface"), content);
     auto *infoForm = new QFormLayout(infoBox);
 
     m_alias = new QLineEdit(infoBox);
@@ -76,16 +100,16 @@ InterfaceSettingsPanel::InterfaceSettingsPanel(InterfaceRegistry *registry,
     m_vidPidValue = new QLabel(infoBox);
     infoForm->addRow(tr("VID:PID"), m_vidPidValue);
 
-    layout->addWidget(infoBox);
+    contentLayout->addWidget(infoBox);
 
     // Поля схемы вставляются сюда — количество и состав групп зависят от плагина
     // выбранного устройства и пересобираются заново при каждом переключении.
-    auto *schemaContainer = new QWidget(this);
+    auto *schemaContainer = new QWidget(content);
     m_schemaLayout = new QVBoxLayout(schemaContainer);
     m_schemaLayout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(schemaContainer);
+    contentLayout->addWidget(schemaContainer);
 
-    layout->addStretch(1);
+    contentLayout->addStretch(1);
 
     connect(m_deviceCombo, &QComboBox::currentIndexChanged, this, [this](int index) {
         if (m_populating)

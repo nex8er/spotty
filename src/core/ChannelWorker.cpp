@@ -21,6 +21,8 @@ ChannelWorker::ChannelWorker(IInterfaceChannel *channel, QObject *parent)
 
     connect(m_channel, &IInterfaceChannel::dataReceived,
             this, &ChannelWorker::dataReceived);
+    connect(m_channel, &IInterfaceChannel::dataTransmitted,
+            this, &ChannelWorker::dataTransmitted);
     connect(m_channel, &IInterfaceChannel::stateChanged,
             this, &ChannelWorker::stateChanged);
     connect(m_channel, &IInterfaceChannel::errorOccurred,

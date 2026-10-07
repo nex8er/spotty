@@ -76,12 +76,30 @@ spotty_add_test(spotty-tests
         spotty-test-main
 )
 
+# Перехватчик порта: проверяется на настоящих псевдотерминалах, поэтому только на POSIX и
+# только там, где есть Qt6::SerialPort. Исходники плагина берутся напрямую, без самого
+# класса плагина: Q_PLUGIN_METADATA в тестовом бинарнике ни к чему, а канал и порт проверяются
+# и без него.
+if(UNIX AND Qt6SerialPort_FOUND)
+    target_sources(spotty-tests PRIVATE
+        test_uartproxy.cpp
+        # Заголовок без .cpp: AUTOMOC находит moc-класс только среди перечисленных исходников.
+        "${CMAKE_SOURCE_DIR}/plugins/uartproxy/VirtualPort.h"
+        "${CMAKE_SOURCE_DIR}/plugins/uartproxy/PtyPort.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/uartproxy/SerialVirtualPort.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/uartproxy/UartProxyChannel.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/uartproxy/UartProxyPorts.cpp")
+    target_include_directories(spotty-tests PRIVATE "${CMAKE_SOURCE_DIR}/plugins/uartproxy")
+    target_link_libraries(spotty-tests PRIVATE Qt6::SerialPort)
+endif()
+
 spotty_add_test(spotty-ui-tests
     SOURCES
         test_panel_registry.cpp
         test_series_swatch.cpp
         test_plotter_panel.cpp
         test_live_options.cpp
+        test_interface_settings_panel.cpp
         test_generator_panel.cpp
         test_logging_panel.cpp
         test_search_panel.cpp

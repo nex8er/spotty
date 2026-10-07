@@ -83,6 +83,9 @@ Q_SIGNALS:
     /// \brief Данные приняты. Пробрасывается из канала без изменений.
     void dataReceived(const QByteArray &data, qint64 monotonicNs);
 
+    /// \brief Увидены данные, отправленные устройству чужой программой. Пробрасывается как есть.
+    void dataTransmitted(const QByteArray &data, qint64 monotonicNs);
+
     /// \brief Состояние канала изменилось.
     void stateChanged(spotty::ChannelState state, const QString &detail);
 

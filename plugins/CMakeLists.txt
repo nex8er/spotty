@@ -10,6 +10,12 @@ if(Qt6SerialPort_FOUND)
     add_subdirectory(uart)
 endif()
 
+# Перехват порта, открытого другой программой, — тоже на Qt6::SerialPort, и без него не
+# собирается по той же причине.
+if(Qt6SerialPort_FOUND)
+    add_subdirectory(uartproxy)
+endif()
+
 # J-Link RTT собирается всегда: libjlinkarm грузится в рантайме, а не на этапе сборки, и
 # её отсутствие плагин переживает так же, как UART переживает отсутствие Qt6::SerialPort.
 add_subdirectory(jlinkrtt)

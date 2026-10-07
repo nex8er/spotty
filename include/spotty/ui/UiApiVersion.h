@@ -38,6 +38,10 @@
 // из IPanelPlugin::settingsSchema() — то есть чужая правка дотянулась до панельного ABI, и
 // SPOTTY_UI_API_VERSION пришлось поднять вместе с основной. Виртуальный метод, добавленный
 // в IInterfacePlugin, сам по себе панелей бы не задел.
-static_assert(SPOTTY_API_VERSION == 2,
+//
+// Версия 3 — сигнал IInterfaceChannel::dataTransmitted(). Панельных плагинов он не касается:
+// каналов они не видят, а виртуальные методы и структуры, доступные им, не менялись, поэтому
+// SPOTTY_UI_API_VERSION остался прежним.
+static_assert(SPOTTY_API_VERSION == 3,
               "SPOTTY_API_VERSION changed: review the panel SDK, bump "
               "SPOTTY_UI_API_VERSION if the change reaches it, and update this assert");

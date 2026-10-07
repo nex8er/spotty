@@ -218,6 +218,15 @@ private:
     void handleIncoming(const QByteArray &data, qint64 monotonicNs);
 
     /**
+     * \brief Байты, которые чужая программа отправила устройству, — через ту же очередь.
+     *
+     * Через ту же, а не прямо в буфер: принятое задерживается в #m_pendingIncoming, и
+     * отправленное, минуя очередь, обгоняло бы уже пришедший ответ. Для перехвата порядок
+     * двух направлений и есть содержание.
+     */
+    void handleObservedTransmit(const QByteArray &data, qint64 monotonicNs);
+
+    /**
      * \brief Разобрать всё накопленное в #m_pendingIncoming одним проходом.
      *
      * handleIncoming() вызывается из потока интерфейса через очередь Qt и сам по себе
@@ -262,6 +271,10 @@ private:
     {
         QByteArray data;
         qint64 monotonicNs = 0;
+
+        /// \brief Байты ушли устройству от чужой программы, а не пришли от него; см.
+        ///        spotty::IInterfaceChannel::dataTransmitted().
+        bool transmitted = false;
     };
 
     PluginManager *m_plugins;

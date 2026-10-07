@@ -300,6 +300,57 @@ TEST(Session, DataLoggedSignalCarriesRawBytes)
     EXPECT_EQ(logged, QByteArrayLiteral("\x1b[31mred\n"));
 }
 
+TEST(Session, ObservedTransmitKeepsItsPlaceBetweenReceivedData)
+{
+    Fixture fixture;
+    ASSERT_TRUE(fixture.openDevice());
+    const qint64 before = fixture.session.buffer()->nextLineNumber();
+    FakeChannel *channel = fixture.plugin.lastChannel;
+
+    QList<DataDirection> logged;
+    QObject::connect(&fixture.session, &Session::dataLogged,
+                     [&](const QByteArray &, DataDirection direction) { logged.append(direction); });
+
+    // Приём задерживается в очереди сессии, и отправка, минуя её, обогнала бы уже пришедший
+    // ответ: для перехвата порядок двух направлений и есть содержание.
+    QMetaObject::invokeMethod(channel, "injectData", Qt::QueuedConnection,
+                              Q_ARG(QByteArray, QByteArrayLiteral("first\n")));
+    QMetaObject::invokeMethod(channel, "injectTransmitted", Qt::QueuedConnection,
+                              Q_ARG(QByteArray, QByteArrayLiteral("command\r\n")));
+    QMetaObject::invokeMethod(channel, "injectData", Qt::QueuedConnection,
+                              Q_ARG(QByteArray, QByteArrayLiteral("reply\n")));
+
+    ASSERT_TRUE(waitFor([&] { return fixture.session.buffer()->nextLineNumber() >= before + 3; }));
+
+    const TerminalBuffer *buffer = fixture.session.buffer();
+    EXPECT_EQ(buffer->line(before)->direction, DataDirection::Rx);
+    EXPECT_EQ(buffer->line(before)->text, QStringLiteral("first"));
+    EXPECT_EQ(buffer->line(before + 1)->direction, DataDirection::Tx);
+    EXPECT_EQ(buffer->line(before + 1)->text, QStringLiteral("command"));
+    EXPECT_EQ(buffer->line(before + 2)->direction, DataDirection::Rx);
+    EXPECT_EQ(buffer->line(before + 2)->text, QStringLiteral("reply"));
+
+    const QList<DataDirection> expected{DataDirection::Rx, DataDirection::Tx, DataDirection::Rx};
+    EXPECT_EQ(logged, expected);
+}
+
+TEST(Session, ObservedTransmitDoesNotDependOnEcho)
+{
+    Fixture fixture;
+    fixture.session.setEchoEnabled(false);
+    ASSERT_TRUE(fixture.openDevice());
+    const qint64 before = fixture.session.buffer()->nextLineNumber();
+
+    QMetaObject::invokeMethod(fixture.plugin.lastChannel, "injectTransmitted",
+                              Qt::QueuedConnection,
+                              Q_ARG(QByteArray, QByteArrayLiteral("seen\n")));
+
+    // Это не эхо собственной отправки, а содержание перехвата: прятать его вместе с эхо
+    // значило бы оставить от перехвата только половину обмена.
+    ASSERT_TRUE(waitFor([&] { return fixture.session.buffer()->nextLineNumber() > before; }));
+    EXPECT_EQ(fixture.session.buffer()->line(before)->direction, DataDirection::Tx);
+}
+
 TEST(Session, StatisticsCountTraffic)
 {
     Fixture fixture;

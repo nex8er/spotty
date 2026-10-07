@@ -339,6 +339,31 @@ void MainWindow::buildUi()
     m_linesLabel = new QLabel(this);
     m_linesLabel->setFont(mono);
 
+    // Положение курсора и размер выделения — сведения о том, что на экране, а не о
+    // канале, и стоят левее всех секций о канале. Каждая — со своим разделителем, который
+    // прячется вместе с ней: иначе от скрытой секции оставалась бы одинокая линия.
+    //
+    // Курсор показан, только пока терминал в фокусе: вне его положение курсора ничего не
+    // говорит о том, куда пойдёт ввод. Выделение же остаётся видно на экране и после
+    // потери фокуса, поэтому и его размер не прячется.
+    m_cursorLabel = new QLabel(this);
+    m_cursorLabel->setFont(mono);
+    // Ширина под обычный случай: иначе подпись дёргает соседей на каждом шаге курсора.
+    m_cursorLabel->setMinimumWidth(
+        QFontMetrics(mono).horizontalAdvance(QStringLiteral("Ln 000000, Col 000")));
+    m_cursorSeparator = makeStatusSeparator();
+    m_selectionLabel = new QLabel(this);
+    m_selectionLabel->setFont(mono);
+    m_selectionSeparator = makeStatusSeparator();
+    m_cursorLabel->hide();
+    m_cursorSeparator->hide();
+    m_selectionLabel->hide();
+    m_selectionSeparator->hide();
+
+    statusBar()->addPermanentWidget(m_selectionLabel);
+    statusBar()->addPermanentWidget(m_selectionSeparator);
+    statusBar()->addPermanentWidget(m_cursorLabel);
+    statusBar()->addPermanentWidget(m_cursorSeparator);
     statusBar()->addPermanentWidget(m_errorsLabel);
     statusBar()->addPermanentWidget(makeStatusSeparator());
     statusBar()->addPermanentWidget(m_linesLabel);
@@ -438,6 +463,10 @@ void MainWindow::buildUi()
         m_settings.sendTarget = int(target);
         m_settings.save(*m_context.settings);
     });
+
+    connect(m_terminal, &TerminalView::selectionInfoChanged,
+            this, &MainWindow::updateSelectionInfo);
+    updateSelectionInfo();
 
     connect(m_terminal, &TerminalView::followTailChanged, this, [this](bool following) {
         m_followButton->setChecked(following);
@@ -1529,6 +1558,28 @@ QWidget *MainWindow::makeStatusSeparator()
     line->setObjectName(QStringLiteral("statusSeparator"));
     line->setFixedWidth(1);
     return line;
+}
+
+void MainWindow::updateSelectionInfo()
+{
+    const TerminalView::SelectionInfo info = m_terminal->selectionInfo();
+
+    const bool showCursor = info.hasCursor && m_terminal->hasFocus();
+    if (showCursor) {
+        m_cursorLabel->setText(tr("Ln %1, Col %2").arg(info.line).arg(info.column));
+        m_cursorLabel->setToolTip(tr("Cursor position in the terminal: line number as in "
+                                     "the line number column, column within the row"));
+    }
+    m_cursorLabel->setVisible(showCursor);
+    m_cursorSeparator->setVisible(showCursor);
+
+    const bool showSelection = info.rows > 0;
+    if (showSelection) {
+        m_selectionLabel->setText(
+            tr("Selected: %1 (%n line(s))", nullptr, int(info.rows)).arg(info.characters));
+    }
+    m_selectionLabel->setVisible(showSelection);
+    m_selectionSeparator->setVisible(showSelection);
 }
 
 void MainWindow::updateStatistics()

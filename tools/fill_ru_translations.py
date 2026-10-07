@@ -104,6 +104,53 @@ TRANSLATIONS = {
     "Control lines: uppercase means asserted":
         "Линии управления: заглавные — линия поднята",
     "RX %1  TX %2": "Принято %1  Отправлено %2",
+    # --- Перехват порта (uartproxy) ---
+    "Serial proxy": "Перехват порта",
+    "Intercept a port opened by another program": "Перехват порта, открытого другой программой",
+    "Real port": "Реальный порт",
+    "Virtual port": "Виртуальный порт",
+    "Port with the device": "Порт с устройством",
+    "Spotty opens this port itself, so close it in the other program.":
+        "Spotty открывает этот порт сам, поэтому в другой программе его нужно закрыть.",
+    "Must match what the other program uses: a virtual port cannot report it.":
+        "Должна совпадать с той, что использует другая программа: виртуальный порт её "
+        "сообщить не может.",
+    "Link path": "Путь ссылки",
+    "Spotty creates a virtual port and puts a link with this fixed path to it: enter the "
+    "path in the other program. Leave empty to use the port's own path, shown after opening "
+    "- it changes on every run.":
+        "Spotty создаёт виртуальный порт и кладёт на него ссылку с этим постоянным путём: "
+        "введите его в другой программе. Если оставить пустым, используется собственный путь "
+        "порта, он показывается после открытия и меняется при каждом запуске.",
+    "Existing virtual port": "Готовый виртуальный порт",
+    "Optional: use one end of a ready pair (for example made by socat) instead of creating "
+    "a port.":
+        "Необязательно: взять один конец готовой пары (например, созданной socat) вместо "
+        "создания порта.",
+    "One end of a virtual port pair (for example com0com): the other program opens the "
+    "other end.":
+        "Один конец пары виртуальных портов (например, com0com): другая программа открывает "
+        "второй конец.",
+    "Choose the real port with the device.": "Выберите реальный порт с устройством.",
+    "Choose the virtual port that the other program will open.":
+        "Выберите виртуальный порт, который откроет другая программа.",
+    "Virtual port: %1": "Виртуальный порт: %1",
+    "Virtual port %1: %2": "Виртуальный порт %1: %2",
+    "Virtual port %1 disappeared.": "Виртуальный порт %1 пропал.",
+    "Virtual port failed: %1": "Сбой виртуального порта: %1",
+    "Cannot create a virtual port (%1).": "Не удалось создать виртуальный порт (%1).",
+    "%1 already exists and is not a link.": "%1 уже существует и не является ссылкой.",
+    "Cannot create %1: %2": "Не удалось создать %1: %2",
+    "%1: %2": "%1: %2",
+    "The program on the virtual port is not reading: its data is being dropped (capture "
+    "is not affected).":
+        "Программа на виртуальном порту не читает: её данные отбрасываются (на перехват это "
+        "не влияет).",
+    "Ln %1, Col %2": "Стр %1, Стлб %2",
+    "Cursor position in the terminal: line number as in the line number column, "
+    "column within the row":
+        "Положение курсора в терминале: номер строки — как в колонке номеров, "
+        "столбец — в пределах ряда",
     "%1/s": "%1/с",
     "  ·  %1": "  ·  %1",
 
@@ -947,6 +994,8 @@ PLURALS = {
     "%n min ago": ("%n минуту назад", "%n минуты назад", "%n минут назад"),
     "%n h ago": ("%n час назад", "%n часа назад", "%n часов назад"),
     "%n d ago": ("%n день назад", "%n дня назад", "%n дней назад"),
+    "Selected: %1 (%n line(s))": ("Выделено: %1 (%n строка)", "Выделено: %1 (%n строки)",
+                                  "Выделено: %1 (%n строк)"),
     "%n line(s)": ("%n строка", "%n строки", "%n строк"),
     "%n file(s)": ("%n файл", "%n файла", "%n файлов"),
     "%n series": ("%n ряд", "%n ряда", "%n рядов"),

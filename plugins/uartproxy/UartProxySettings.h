@@ -1,0 +1,32 @@
+/**
+ * \file UartProxySettings.h
+ * \brief Ключи настроек плагина перехвата порта.
+ *
+ * Вынесены в заголовок: схему строит плагин, а читает канал, и расхождение в строке ключа
+ * не поймает ни компилятор, ни тесты — настройка просто перестанет действовать.
+ */
+#pragma once
+
+namespace spotty::uartproxy {
+
+/// \brief Реальный порт с устройством: устойчивый идентификатор либо системное имя.
+inline constexpr auto kRealPort = "realPort";
+
+inline constexpr auto kBaudRate = "baudRate";
+inline constexpr auto kDataBits = "dataBits";
+inline constexpr auto kParity = "parity";
+inline constexpr auto kStopBits = "stopBits";
+inline constexpr auto kFlowControl = "flowControl";
+inline constexpr auto kDtrOnOpen = "dtrOnOpen";
+inline constexpr auto kRtsOnOpen = "rtsOnOpen";
+
+/// \brief Где на POSIX положить ссылку на созданный виртуальный порт.
+inline constexpr auto kLinkPath = "linkPath";
+
+/// \brief Готовый порт, который служит виртуальным концом вместо созданного pty.
+inline constexpr auto kVirtualPort = "virtualPort";
+
+/// \brief Значение #kLinkPath по умолчанию.
+inline constexpr auto kDefaultLinkPath = "/tmp/spotty-uart";
+
+} // namespace spotty::uartproxy

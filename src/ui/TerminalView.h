@@ -206,6 +206,28 @@ public:
     QString selectedText() const;
     bool hasSelection() const;
 
+    /**
+     * \struct SelectionInfo
+     * \brief Что показывает строка состояния: где курсор и сколько выделено.
+     */
+    struct SelectionInfo
+    {
+        bool hasCursor = false;  ///< Курсор поставлен (мышью или стрелками).
+        qint64 line = 0;         ///< Номер строки в той же нумерации, что и колонка номеров.
+        int column = 0;          ///< Столбец в ряду, считая с единицы.
+        qint64 characters = 0;   ///< Выделено символов, без символов перевода строки.
+        qint64 rows = 0;         ///< Выделено рядов; 0, когда выделения нет.
+    };
+
+    /**
+     * \brief Текущее положение курсора и размер выделения.
+     *
+     * Размер считается по тексту выделения, то есть за время O(выделенного): на «выделить
+     * всё» в буфере из сотен тысяч строк это заметно. Поэтому сигнал
+     * #selectionInfoChanged приходит не на каждое движение мыши, а с задержкой.
+     */
+    SelectionInfo selectionInfo() const;
+
     /// \brief Правила подсветки строк. Виджет хранит копию.
     void setHighlightRules(const HighlightRules &rules);
 
@@ -313,6 +335,14 @@ Q_SIGNALS:
      */
     void showLineNumbersChanged(bool show);
 
+    /**
+     * \brief Курсор сдвинулся, изменилось выделение или терминал получил либо потерял фокус.
+     *
+     * Склеивается таймером: протаскивание мыши по большому выделению иначе пересчитывало
+     * бы его размер на каждое движение.
+     */
+    void selectionInfoChanged();
+
 protected:
     void paintEvent(QPaintEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
@@ -321,6 +351,8 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
+    void focusInEvent(QFocusEvent *event) override;
+    void focusOutEvent(QFocusEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
     void scrollContentsBy(int dx, int dy) override;
@@ -455,6 +487,9 @@ private:
     /// \brief Положение содержимого по точке в области просмотра.
     Position positionAt(const QPoint &viewportPoint) const;
 
+    /// \brief Поставить в очередь сигнал #selectionInfoChanged.
+    void scheduleSelectionInfo();
+
     /// \brief Выделить целиком ряд под точкой — тройной щелчок.
     void selectRowAt(const QPoint &viewportPoint);
 
@@ -578,6 +613,7 @@ private:
     /// @}
 
     QTimer *m_repaintTimer = nullptr;
+    QTimer *m_selectionInfoTimer = nullptr;
 };
 
 } // namespace spotty

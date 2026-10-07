@@ -1687,6 +1687,14 @@ Double-click to edit, right-click for options</source>
         <source>C&amp;lear terminal</source>
         <translation>О&amp;чистить терминал</translation>
     </message>
+    <message numerus="yes">
+        <source>Selected: %1 (%n line(s))</source>
+        <translation>
+            <numerusform>Выделено: %1 (%n строка)</numerusform>
+            <numerusform>Выделено: %1 (%n строки)</numerusform>
+            <numerusform>Выделено: %1 (%n строк)</numerusform>
+        </translation>
+    </message>
     <message>
         <source>Time since the interface was opened</source>
         <translation>Сколько открыт интерфейс</translation>
@@ -1830,6 +1838,14 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Choose an interface above to see its output here</source>
         <translation>Выберите интерфейс наверху, чтобы увидеть здесь его вывод</translation>
+    </message>
+    <message>
+        <source>Ln %1, Col %2</source>
+        <translation>Стр %1, Стлб %2</translation>
+    </message>
+    <message>
+        <source>Cursor position in the terminal: line number as in the line number column, column within the row</source>
+        <translation>Положение курсора в терминале: номер строки — как в колонке номеров, столбец — в пределах ряда</translation>
     </message>
     <message>
         <source>RX %1   TX %2</source>
@@ -2319,6 +2335,25 @@ Double-click to edit, right-click for options</source>
     </message>
 </context>
 <context>
+    <name>spotty::PtyPort</name>
+    <message>
+        <source>Cannot create a virtual port (%1).</source>
+        <translation>Не удалось создать виртуальный порт (%1).</translation>
+    </message>
+    <message>
+        <source>%1 already exists and is not a link.</source>
+        <translation>%1 уже существует и не является ссылкой.</translation>
+    </message>
+    <message>
+        <source>Cannot create %1: %2</source>
+        <translation>Не удалось создать %1: %2</translation>
+    </message>
+    <message>
+        <source>Virtual port failed: %1</source>
+        <translation>Сбой виртуального порта: %1</translation>
+    </message>
+</context>
+<context>
     <name>spotty::ScaleLimitsDialog</name>
     <message>
         <source>Scale limits — %1</source>
@@ -2483,6 +2518,17 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Save as macro</source>
         <translation>Сохранить как макрос</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::SerialVirtualPort</name>
+    <message>
+        <source>Virtual port %1: %2</source>
+        <translation>Виртуальный порт %1: %2</translation>
+    </message>
+    <message>
+        <source>Virtual port %1 disappeared.</source>
+        <translation>Виртуальный порт %1 пропал.</translation>
     </message>
 </context>
 <context>
@@ -3163,6 +3209,148 @@ Continue?</source>
     <message>
         <source>Serial / UART</source>
         <translation>Последовательный порт / UART</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::UartProxyChannel</name>
+    <message>
+        <source>Choose the virtual port that the other program will open.</source>
+        <translation>Выберите виртуальный порт, который откроет другая программа.</translation>
+    </message>
+    <message>
+        <source>Choose the real port with the device.</source>
+        <translation>Выберите реальный порт с устройством.</translation>
+    </message>
+    <message>
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>The program on the virtual port is not reading: its data is being dropped (capture is not affected).</source>
+        <translation>Программа на виртуальном порту не читает: её данные отбрасываются (на перехват это не влияет).</translation>
+    </message>
+    <message>
+        <source>Virtual port: %1</source>
+        <translation>Виртуальный порт: %1</translation>
+    </message>
+    <message>
+        <source>Invalid baud rate.</source>
+        <translation>Недопустимая скорость.</translation>
+    </message>
+    <message>
+        <source>The port does not support %1 baud.</source>
+        <translation>Порт не поддерживает скорость %1.</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::UartProxyPlugin</name>
+    <message>
+        <source>Intercept a port opened by another program</source>
+        <translation>Перехват порта, открытого другой программой</translation>
+    </message>
+    <message>
+        <source>Real port</source>
+        <translation>Реальный порт</translation>
+    </message>
+    <message>
+        <source>Virtual port</source>
+        <translation>Виртуальный порт</translation>
+    </message>
+    <message>
+        <source>Port with the device</source>
+        <translation>Порт с устройством</translation>
+    </message>
+    <message>
+        <source>Spotty opens this port itself, so close it in the other program.</source>
+        <translation>Spotty открывает этот порт сам, поэтому в другой программе его нужно закрыть.</translation>
+    </message>
+    <message>
+        <source>Baud rate</source>
+        <translation>Скорость</translation>
+    </message>
+    <message>
+        <source>Must match what the other program uses: a virtual port cannot report it.</source>
+        <translation>Должна совпадать с той, что использует другая программа: виртуальный порт её сообщить не может.</translation>
+    </message>
+    <message>
+        <source>Data bits</source>
+        <translation>Бит данных</translation>
+    </message>
+    <message>
+        <source>Parity</source>
+        <translation>Чётность</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>Нет</translation>
+    </message>
+    <message>
+        <source>Even</source>
+        <translation>Чётная</translation>
+    </message>
+    <message>
+        <source>Odd</source>
+        <translation>Нечётная</translation>
+    </message>
+    <message>
+        <source>Mark</source>
+        <translation>Единица</translation>
+    </message>
+    <message>
+        <source>Space</source>
+        <translation>Ноль</translation>
+    </message>
+    <message>
+        <source>Stop bits</source>
+        <translation>Стоп-биты</translation>
+    </message>
+    <message>
+        <source>Flow control</source>
+        <translation>Управление потоком</translation>
+    </message>
+    <message>
+        <source>Hardware (RTS/CTS)</source>
+        <translation>Аппаратное (RTS/CTS)</translation>
+    </message>
+    <message>
+        <source>Software (XON/XOFF)</source>
+        <translation>Программное (XON/XOFF)</translation>
+    </message>
+    <message>
+        <source>Assert DTR on open</source>
+        <translation>Поднимать DTR при открытии</translation>
+    </message>
+    <message>
+        <source>On many boards DTR is wired to reset - clear it to avoid rebooting the device when the port opens.</source>
+        <translation>У многих плат DTR заведён на сброс — снимите флажок, чтобы открытие порта не перезагружало устройство.</translation>
+    </message>
+    <message>
+        <source>Assert RTS on open</source>
+        <translation>Поднимать RTS при открытии</translation>
+    </message>
+    <message>
+        <source>Link path</source>
+        <translation>Путь ссылки</translation>
+    </message>
+    <message>
+        <source>Spotty creates a virtual port and puts a link with this fixed path to it: enter the path in the other program. Leave empty to use the port&apos;s own path, shown after opening - it changes on every run.</source>
+        <translation>Spotty создаёт виртуальный порт и кладёт на него ссылку с этим постоянным путём: введите его в другой программе. Если оставить пустым, используется собственный путь порта, он показывается после открытия и меняется при каждом запуске.</translation>
+    </message>
+    <message>
+        <source>Existing virtual port</source>
+        <translation>Готовый виртуальный порт</translation>
+    </message>
+    <message>
+        <source>Optional: use one end of a ready pair (for example made by socat) instead of creating a port.</source>
+        <translation>Необязательно: взять один конец готовой пары (например, созданной socat) вместо создания порта.</translation>
+    </message>
+    <message>
+        <source>One end of a virtual port pair (for example com0com): the other program opens the other end.</source>
+        <translation>Один конец пары виртуальных портов (например, com0com): другая программа открывает второй конец.</translation>
+    </message>
+    <message>
+        <source>Serial proxy</source>
+        <translation>Перехват порта</translation>
     </message>
 </context>
 </TS>

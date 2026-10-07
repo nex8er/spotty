@@ -442,6 +442,10 @@ private:
     QLabel *m_errorsLabel = nullptr;  ///< Счётчик ошибок; скрыт, пока их нет.
     QLabel *m_uptimeLabel = nullptr;  ///< Сколько открыт текущий сеанс.
     QLabel *m_linesLabel = nullptr;   ///< Линии управления.
+    QLabel *m_cursorLabel = nullptr;    ///< Строка и столбец курсора; скрыта вне фокуса терминала.
+    QLabel *m_selectionLabel = nullptr; ///< Размер выделения; скрыта, пока выделения нет.
+    QWidget *m_cursorSeparator = nullptr;    ///< Разделитель за положением курсора.
+    QWidget *m_selectionSeparator = nullptr; ///< Разделитель за размером выделения.
     /// @}
 
     /// \brief Момент открытия канала для счётчика времени сеанса.
@@ -455,6 +459,9 @@ private:
 
     /// \brief Обновить надпись о длительности сеанса.
     void updateUptime();
+
+    /// \brief Показать в строке состояния курсор и выделение терминала.
+    void updateSelectionInfo();
 
     /// \brief Действия по идентификаторам из spotty::SettingsDialog::shortcutActions().
     QHash<QString, QAction *> m_actions;

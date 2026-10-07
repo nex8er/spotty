@@ -176,6 +176,8 @@ bool Session::createWorker()
 
     connect(m_worker, &ChannelWorker::dataReceived, this, &Session::handleIncoming);
 
+    connect(m_worker, &ChannelWorker::dataTransmitted, this, &Session::handleObservedTransmit);
+
     connect(m_worker, &ChannelWorker::stateChanged, this,
             [this](ChannelState state, const QString &detail) { setState(state, detail); });
 
@@ -393,6 +395,13 @@ void Session::handleIncoming(const QByteArray &data, qint64 monotonicNs)
         m_incomingBatchTimer->start();
 }
 
+void Session::handleObservedTransmit(const QByteArray &data, qint64 monotonicNs)
+{
+    m_pendingIncoming.append({data, monotonicNs, /*transmitted=*/true});
+    if (!m_incomingBatchTimer->isActive())
+        m_incomingBatchTimer->start();
+}
+
 void Session::processPendingIncoming()
 {
     if (m_pendingIncoming.isEmpty())
@@ -404,6 +413,17 @@ void Session::processPendingIncoming()
     const QList<IncomingChunk> pending = std::exchange(m_pendingIncoming, {});
 
     for (const IncomingChunk &chunk : pending) {
+        if (chunk.transmitted) {
+            // Это уже готовая отправка, а не поток: ни цепочке, ни пакетизатору её
+            // отдавать нельзя — они разбирают приём. Строка остаётся открытой: байтовая
+            // отправка по одному не должна дробиться на строки, а следующий приём другого
+            // направления закроет её сам (см. TerminalBuffer::append()).
+            m_buffer->append(chunk.data, DataDirection::Tx, chunk.monotonicNs,
+                             /*terminatesLine=*/false, m_source);
+            Q_EMIT dataLogged(chunk.data, DataDirection::Tx);
+            continue;
+        }
+
         // Наблюдателям отдаём поток до пакетизации и до цепочки: журнал должен получить
         // ровно то, что пришло по проводу, а не то, что из этого сделали плагины. Каждая
         // порция — отдельным сигналом, как и раньше: LogWriter и подписчики dataReceived()

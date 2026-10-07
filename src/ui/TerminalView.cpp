@@ -84,6 +84,9 @@ constexpr int kMaxScrollMarkers = 2000;
 /// \brief Задержка пересчёта меток, мс. Обход буфера дорог, а точность здесь не нужна.
 constexpr int kMarkerRefreshMs = 250;
 
+/// \brief Склейка сигналов о курсоре и выделении, мс: размер считается по тексту выделения.
+constexpr int kSelectionInfoMs = 50;
+
 /// \brief Насколько приглушается цвет правила подсветки под текстом.
 constexpr int kHighlightAlpha = 64;
 
@@ -151,6 +154,12 @@ TerminalView::TerminalView(QWidget *parent)
             verticalScrollBar()->setValue(verticalScrollBar()->maximum());
         viewport()->update();
     });
+
+    // Размер выделения считается по его тексту, а мышь шлёт движения десятками в секунду.
+    m_selectionInfoTimer = new QTimer(this);
+    m_selectionInfoTimer->setSingleShot(true);
+    m_selectionInfoTimer->setInterval(kSelectionInfoMs);
+    connect(m_selectionInfoTimer, &QTimer::timeout, this, &TerminalView::selectionInfoChanged);
 
     horizontalScrollBar()->setSingleStep(m_charWidth * 4);
     connect(m_markerBar, &QScrollBar::sliderMoved, this, &TerminalView::scrollInteraction);
@@ -1493,6 +1502,7 @@ void TerminalView::stepMatch(int direction)
         const auto &[matchStart, matchLength] = matches.first();
         m_selectionAnchor = Position{lineNumber, 0, matchStart};
         m_selectionCursor = Position{lineNumber, 0, matchStart + matchLength};
+        scheduleSelectionInfo();
 
         // Строка ставится в середину области просмотра, а не к краю: контекст вокруг
         // найденного обычно и есть то, ради чего искали.
@@ -1548,6 +1558,7 @@ void TerminalView::selectRowAt(const QPoint &viewportPoint)
     // HEX один ряд экрана и есть её осмысленная единица, а не весь дамп в несколько рядов.
     m_selectionAnchor = Position{at.lineNumber, at.row, 0};
     m_selectionCursor = Position{at.lineNumber, at.row, int(rowText(*line, at.row).size())};
+    scheduleSelectionInfo();
 }
 
 bool TerminalView::selectionRange(Position *from, Position *to) const
@@ -1671,6 +1682,7 @@ void TerminalView::mousePressEvent(QMouseEvent *event)
     m_selectionAnchor = positionAt(event->pos());
     m_selectionCursor = m_selectionAnchor;
     m_selecting = true;
+    scheduleSelectionInfo();
     viewport()->update();
 }
 
@@ -1682,6 +1694,7 @@ void TerminalView::mouseMoveEvent(QMouseEvent *event)
     }
 
     m_selectionCursor = positionAt(event->pos());
+    scheduleSelectionInfo();
 
     // Протаскивание за край области прокручивает содержимое — иначе выделить больше
     // экрана было бы невозможно.
@@ -1735,6 +1748,7 @@ void TerminalView::mouseDoubleClickEvent(QMouseEvent *event)
 
     m_selectionAnchor = Position{at.lineNumber, at.row, start};
     m_selectionCursor = Position{at.lineNumber, at.row, end};
+    scheduleSelectionInfo();
     viewport()->update();
 }
 
@@ -1782,6 +1796,7 @@ void TerminalView::keyPressEvent(QKeyEvent *event)
             if (mods != Qt::ShiftModifier)
                 m_selectionAnchor = moved;
             m_selectionCursor = moved;
+            scheduleSelectionInfo();
 
             ensureRowVisible(absoluteRowOf(moved));
             viewport()->update();
@@ -1791,6 +1806,18 @@ void TerminalView::keyPressEvent(QKeyEvent *event)
     }
 
     QAbstractScrollArea::keyPressEvent(event);
+}
+
+void TerminalView::focusInEvent(QFocusEvent *event)
+{
+    QAbstractScrollArea::focusInEvent(event);
+    scheduleSelectionInfo();
+}
+
+void TerminalView::focusOutEvent(QFocusEvent *event)
+{
+    QAbstractScrollArea::focusOutEvent(event);
+    scheduleSelectionInfo();
 }
 
 void TerminalView::contextMenuEvent(QContextMenuEvent *event)
@@ -1860,6 +1887,7 @@ void TerminalView::clearSelection()
     m_selectionAnchor = {};
     m_selectionCursor = {};
     m_selecting = false;
+    scheduleSelectionInfo();
     viewport()->update();
 }
 
@@ -1874,6 +1902,7 @@ void TerminalView::selectAll()
     m_selectionAnchor = Position{m_visible.front().lineNumber, 0, 0};
     m_selectionCursor = Position{last.lineNumber, qMax(0, last.rows - 1),
                                  line ? int(rowText(*line, last.rows - 1).size()) : 0};
+    scheduleSelectionInfo();
     viewport()->update();
 }
 
@@ -1920,6 +1949,34 @@ QString TerminalView::selectedText() const
     }
 
     return rows.join(u'\n');
+}
+
+void TerminalView::scheduleSelectionInfo()
+{
+    if (!m_selectionInfoTimer->isActive())
+        m_selectionInfoTimer->start();
+}
+
+TerminalView::SelectionInfo TerminalView::selectionInfo() const
+{
+    SelectionInfo info;
+    if (!m_selectionCursor.isValid())
+        return info;
+
+    info.hasCursor = true;
+    info.line = m_selectionCursor.lineNumber - m_lineNumberOrigin;
+    info.column = m_selectionCursor.column + 1;
+
+    const QString text = selectedText();
+    if (text.isEmpty())
+        return info;
+
+    // Рядов на один больше, чем переводов строки между ними; сами переводы в число
+    // символов не входят — их нет в выводе, их добавляет selectedText().
+    const qint64 breaks = text.count(u'\n');
+    info.rows = breaks + 1;
+    info.characters = text.size() - breaks;
+    return info;
 }
 
 void TerminalView::copySelection()

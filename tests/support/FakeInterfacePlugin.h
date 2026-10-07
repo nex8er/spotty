@@ -66,6 +66,12 @@ public Q_SLOTS:
         Q_EMIT dataReceived(data, monotonicNs);
     }
 
+    /// \brief Изобразить байты, которые чужая программа отправила устройству (перехватчик).
+    void injectTransmitted(const QByteArray &data)
+    {
+        Q_EMIT dataTransmitted(data, monotonicNs);
+    }
+
     /// \brief Изобразить пропажу устройства изнутри канала.
     void injectUnavailable()
     {

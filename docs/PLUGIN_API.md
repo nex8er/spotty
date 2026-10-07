@@ -2,7 +2,7 @@
 
 Полное описание SDK и пошаговое руководство по написанию плагина интерфейса.
 
-**Версия API:** 2 (`SPOTTY_API_VERSION`)
+**Версия API:** 3 (`SPOTTY_API_VERSION`)
 
 ---
 
@@ -270,6 +270,7 @@ QList<SettingsOption> CliCanPlugin::liveOptions(const InterfaceDescriptor &descr
 
 ```cpp
 void dataReceived(const QByteArray &data, qint64 monotonicNs);
+void dataTransmitted(const QByteArray &data, qint64 monotonicNs);   // только перехватчикам
 void stateChanged(spotty::ChannelState state, const QString &detail);
 void errorOccurred(const QString &message);
 void controlLinesChanged();
@@ -277,6 +278,13 @@ void controlLinesChanged();
 
 `dataReceived` отдаёт байты **как есть**. Разбирать их на строки не нужно: правило
 пакетизации выбирает пользователь, и ядро применит его само.
+
+`dataTransmitted` нужен только транспорту-перехватчику (`uartproxy`), который стоит между
+устройством и чужой программой и потому видит оба направления: то, что программа послала
+устройству, ядро покажет как переданное (`<`). Обычный транспорт его не испускает — свою
+отправку ядро знает само. Отметки времени у `dataReceived` и `dataTransmitted` обязаны идти
+от одних часов, иначе направления встанут в терминале не в том порядке, в каком прошли по
+проводу; порядок ядро сохраняет, пропуская оба сигнала через одну очередь.
 
 `errorOccurred` — для восстановимых ошибок (кадрирование, чётность, переполнение). Для
 фатальной нужно дополнительно испустить `stateChanged(ChannelState::Error, ...)`: сам по
@@ -718,6 +726,7 @@ SPOTTY_PLUGIN_PATH=/path/to/my/plugins ./build/spotty.app/Contents/MacOS/spotty
 
 | Версия | Что изменилось |
 |---|---|
+| 3 | Сигнал `IInterfaceChannel::dataTransmitted()` — перехватчик порта видит и то, что чужая программа посылает устройству. Старые плагины не затронуты (сигнал дописан в конец), но новый плагин на прежнем ядре испустил бы сигнал, которого там нет, — это версия и отсекает. Панельный SDK не затронут, `SPOTTY_UI_API_VERSION` прежний |
 | 2 | `liveOptions()` и `SettingsField::live` — пункты списка, известные только после опроса. Сломано и то и другое сразу: новый виртуальный метод сдвигает vtable, новое поле структуры — раскладку `SettingsSchema` |
 | 1 | Первый выпуск |
 
