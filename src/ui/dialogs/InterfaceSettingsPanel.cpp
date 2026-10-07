@@ -71,19 +71,16 @@ InterfaceSettingsPanel::InterfaceSettingsPanel(InterfaceRegistry *registry,
     scroll->setObjectName(QStringLiteral("schemaScroll"));
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
-    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    // Горизонтальная полоса — по необходимости. Наименьшая ширина формы зависит от шрифта и
+    // масштаба системы (на Windows она заметно больше, чем на macOS), и узкое окно без
+    // полосы обрезало бы правый край полей молча. Содержимое при этом не сжимается ниже
+    // своего минимума, а недостающее доступно прокруткой.
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 
     auto *content = new QWidget(scroll);
     auto *contentLayout = new QVBoxLayout(content);
     contentLayout->setContentsMargins(0, 0, 0, 0);
     scroll->setWidget(content);
-    m_content = content;
-
-    // Ширина содержимого не может превышать видимую. QScrollArea считает её до того, как
-    // появилась вертикальная полоса, и содержимое оставалось шире окна на ширину самой
-    // полосы: правый край полей и подсказок обрезался, а горизонтальной прокрутки нет.
-    // Предел обновляется при каждом изменении области — и при появлении полосы тоже.
-    scroll->viewport()->installEventFilter(this);
 
     // setWidget() включает заливку фона у содержимого, и оно становится цветом палитры, а не
     // диалога: на тёмной теме это два чуть разных серых. Прозрачными оба слоя показывают тот
@@ -323,13 +320,6 @@ void InterfaceSettingsPanel::showEntry(const QString &id)
     updateLiveTimer();
     if (!m_liveFields.isEmpty())
         refreshLiveOptions();
-}
-
-bool InterfaceSettingsPanel::eventFilter(QObject *watched, QEvent *event)
-{
-    if (m_content && event->type() == QEvent::Resize && watched == m_content->parentWidget())
-        m_content->setMaximumWidth(static_cast<QWidget *>(watched)->width());
-    return QWidget::eventFilter(watched, event);
 }
 
 void InterfaceSettingsPanel::showEvent(QShowEvent *event)

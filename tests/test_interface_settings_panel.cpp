@@ -12,6 +12,7 @@
 #include <settings/SettingsStore.h>
 
 #include <QComboBox>
+#include <QCoreApplication>
 #include <QScrollArea>
 #include <QScrollBar>
 
@@ -69,15 +70,22 @@ TEST(InterfaceSettingsPanel, LongSchemaScrollsInsteadOfOverlappingFields)
 
     // Заведомо меньше, чем нужно полям: так выглядит диалог, в который схема плагина не
     // поместилась. Прежде Qt в этом случае ужимал поля ниже минимума, и они накладывались.
-    panel.resize(420, 300);
+    panel.resize(200, 300);
     panel.show();
+    // Полосы прокрутки появляются по отложенному запросу раскладки.
+    QCoreApplication::processEvents();
 
     auto *scroll = panel.findChild<QScrollArea *>();
     ASSERT_NE(scroll, nullptr);
-    // Содержимое не шире окна: горизонтальной прокрутки нет, и всё, что вылезло вправо,
-    // оказалось бы просто обрезано — поля с длинными названиями портов так и выглядели.
-    EXPECT_LE(scroll->widget()->width(), scroll->viewport()->width());
-    EXPECT_LE(scroll->widget()->minimumSizeHint().width(), scroll->viewport()->width());
+    // Содержимое не сжато ниже своего минимума, а то, что в окно не влезло, доступно
+    // горизонтальной прокруткой. Наименьшая ширина зависит от шрифта системы (на Windows она
+    // больше, чем на macOS), поэтому проверяется не число, а согласованность.
+    const int minimumWidth = scroll->widget()->minimumSizeHint().width();
+    EXPECT_GE(scroll->widget()->width(), minimumWidth);
+    // Окно сужено заведомо ниже минимума формы на любой системе.
+    ASSERT_GT(minimumWidth, scroll->viewport()->width());
+    EXPECT_TRUE(scroll->horizontalScrollBar()->isVisible());
+    EXPECT_GT(scroll->horizontalScrollBar()->maximum(), 0);
 
     // Каждое поле получило не меньше места, чем ему нужно, и поля не заходят друг на друга.
     int previousBottom = -1;

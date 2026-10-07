@@ -317,7 +317,10 @@ TEST(StreamServerPanel, StopsOnCloseSoTheSocketFileDoesNotLinger)
 {
     PanelFixture fixture;
     ASSERT_TRUE(fixture.panel->startServer());
+#ifndef Q_OS_WIN
+    // У именованного канала Windows файла нет, и проверять там нечего.
     ASSERT_TRUE(QFile::exists(fixture.socketPath));
+#endif
 
     Q_EMIT fixture.host.aboutToClose();
     EXPECT_FALSE(fixture.panel->server()->isListening());
