@@ -101,6 +101,11 @@ spotty_add_test(spotty-ui-tests
         test_plotter_panel.cpp
         test_live_options.cpp
         test_interface_settings_panel.cpp
+        test_stream_server.cpp
+        # Сервер потока и его панель: сокеты и проводка проверяются без экрана и без железа.
+        "${CMAKE_SOURCE_DIR}/plugins/streamserver/StreamServer.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/streamserver/StreamServerPanel.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/streamserver/StreamServerPlugin.cpp"
         test_generator_panel.cpp
         test_logging_panel.cpp
         test_search_panel.cpp
@@ -147,6 +152,7 @@ spotty_add_test(spotty-ui-tests
 # несколько, и второй же добавленный плагин даёт «redefinition». Статический режим заставляет
 # moc назвать функции по классу, и конфликт исчезает.
 target_compile_definitions(spotty-ui-tests PRIVATE QT_STATICPLUGIN)
+target_link_libraries(spotty-ui-tests PRIVATE Qt6::Network)
 
 target_include_directories(spotty-ui-tests PRIVATE
     "${CMAKE_SOURCE_DIR}/src/ui"
@@ -154,7 +160,8 @@ target_include_directories(spotty-ui-tests PRIVATE
     "${CMAKE_SOURCE_DIR}/plugins/generator"
     "${CMAKE_SOURCE_DIR}/plugins/logging"
     "${CMAKE_SOURCE_DIR}/plugins/search"
-    "${CMAKE_SOURCE_DIR}/plugins/jsontree")
+    "${CMAKE_SOURCE_DIR}/plugins/jsontree"
+    "${CMAKE_SOURCE_DIR}/plugins/streamserver")
 
 # Цель `coverage` объявляется после исполняемого файла тестов: инструментам нужен его
 # путь, чтобы прочитать карту покрытия. Меряется только spotty-tests.

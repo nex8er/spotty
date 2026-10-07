@@ -53,6 +53,7 @@ public:
     QVector<TerminalLine> terminalLines;
     TerminalGutterSettings gutterSettings;
     QByteArray lastSent;
+    ChannelState channelStateValue = ChannelState::Closed;
     SendTarget lastSendTarget = SendTarget::FirstAvailable;
     int sendCalls = 0;
     bool dualTransport = false;
@@ -78,7 +79,7 @@ public:
     bool dualTransportEnabled() const override { return dualTransport; }
     bool secondInterfaceAvailable() const override { return secondAvailable; }
 
-    ChannelState channelState() const override { return ChannelState::Closed; }
+    ChannelState channelState() const override { return channelStateValue; }
     QString interfaceId() const override { return {}; }
     QString interfaceName() const override { return alias; }
     QString interfaceAlias() const override { return alias; }

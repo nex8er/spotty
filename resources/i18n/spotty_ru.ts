@@ -3076,6 +3076,119 @@ Continue?</source>
     </message>
 </context>
 <context>
+    <name>spotty::StreamServer</name>
+    <message>
+        <source>Enter the socket path.</source>
+        <translation>Введите путь сокета.</translation>
+    </message>
+    <message>
+        <source>%1 is already used by another program.</source>
+        <translation>%1 уже занят другой программой.</translation>
+    </message>
+    <message>
+        <source>all interfaces</source>
+        <translation>все интерфейсы</translation>
+    </message>
+    <message>
+        <source>A client was disconnected: it does not read the stream fast enough.</source>
+        <translation>Клиент отключён: он не успевает читать поток.</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::StreamServerPanel</name>
+    <message>
+        <source>Stream server</source>
+        <translation>Сервер потока</translation>
+    </message>
+    <message>
+        <source>TCP</source>
+        <translation>TCP</translation>
+    </message>
+    <message>
+        <source>Transport</source>
+        <translation>Способ</translation>
+    </message>
+    <message>
+        <source>Socket</source>
+        <translation>Сокет</translation>
+    </message>
+    <message>
+        <source>This computer only</source>
+        <translation>Только этот компьютер</translation>
+    </message>
+    <message>
+        <source>All interfaces (remote access)</source>
+        <translation>Все интерфейсы (удалённый доступ)</translation>
+    </message>
+    <message>
+        <source>Listen on</source>
+        <translation>Слушать на</translation>
+    </message>
+    <message>
+        <source>Port</source>
+        <translation>Порт</translation>
+    </message>
+    <message>
+        <source>Start when Spotty starts</source>
+        <translation>Запускать вместе со Spotty</translation>
+    </message>
+    <message>
+        <source>Stream server: %1</source>
+        <translation>Сервер потока: %1</translation>
+    </message>
+    <message>
+        <source>Cannot start: %1</source>
+        <translation>Не удалось запустить: %1</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Стоп</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>Путь</translation>
+    </message>
+    <message>
+        <source>Pass on sent data</source>
+        <translation>Передавать отправленное</translation>
+    </message>
+    <message>
+        <source>No authentication: the port is open to everyone on the network.</source>
+        <translation>Авторизации нет: порт открыт для всех в сети.</translation>
+    </message>
+    <message>
+        <source>Start</source>
+        <translation>Пуск</translation>
+    </message>
+    <message>
+        <source>Stopped.</source>
+        <translation>Остановлен.</translation>
+    </message>
+    <message>
+        <source>Listening on %1.</source>
+        <translation>Слушает на %1.</translation>
+    </message>
+    <message>
+        <source>Connect to: %1.</source>
+        <translation>Подключаться к: %1.</translation>
+    </message>
+    <message>
+        <source>Clients: %1 · to clients %2 · from clients %3</source>
+        <translation>Клиентов: %1 · клиентам %2 · от клиентов %3</translation>
+    </message>
+    <message>
+        <source>Dropped %1: the interface is not open.</source>
+        <translation>Отброшено %1: интерфейс не открыт.</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::StreamServerPlugin</name>
+    <message>
+        <source>Stream server</source>
+        <translation>Сервер потока</translation>
+    </message>
+</context>
+<context>
     <name>spotty::TerminalView</name>
     <message>
         <source>No lines match the filter</source>

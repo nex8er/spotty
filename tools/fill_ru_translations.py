@@ -104,6 +104,32 @@ TRANSLATIONS = {
     "Control lines: uppercase means asserted":
         "Линии управления: заглавные — линия поднята",
     "RX %1  TX %2": "Принято %1  Отправлено %2",
+    # --- Сервер потока (streamserver) ---
+    "Stream server": "Сервер потока",
+    "Stream server: %1": "Сервер потока: %1",
+    "Transport": "Способ",
+    "Socket": "Сокет",
+    "Path": "Путь",
+    "TCP": "TCP",
+    "Listen on": "Слушать на",
+    "This computer only": "Только этот компьютер",
+    "All interfaces (remote access)": "Все интерфейсы (удалённый доступ)",
+    "Pass on sent data": "Передавать отправленное",
+    "Start when Spotty starts": "Запускать вместе со Spotty",
+    "No authentication: the port is open to everyone on the network.":
+        "Авторизации нет: порт открыт для всех в сети.",
+    "Stopped.": "Остановлен.",
+    "Cannot start: %1": "Не удалось запустить: %1",
+    "Listening on %1.": "Слушает на %1.",
+    "Connect to: %1.": "Подключаться к: %1.",
+    "Clients: %1 · to clients %2 · from clients %3":
+        "Клиентов: %1 · клиентам %2 · от клиентов %3",
+    "Dropped %1: the interface is not open.": "Отброшено %1: интерфейс не открыт.",
+    "all interfaces": "все интерфейсы",
+    "Enter the socket path.": "Введите путь сокета.",
+    "%1 is already used by another program.": "%1 уже занят другой программой.",
+    "A client was disconnected: it does not read the stream fast enough.":
+        "Клиент отключён: он не успевает читать поток.",
     # --- Перехват порта (uartproxy) ---
     "\"%1\" is not a valid name in /dev.": "\"%1\" не годится как имя в /dev.",
     "%1 - in port lists (administrator rights, once per boot)":

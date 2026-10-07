@@ -95,5 +95,6 @@ inline constexpr char32_t SawtoothWave = 0xF147A;
 inline constexpr char32_t StepForward = 0xF04D7;
 inline constexpr char32_t CodeJson = 0xF0626;
 inline constexpr char32_t FileTree = 0xF0645;
+inline constexpr char32_t Connection = 0xF1616;
 
 } // namespace spotty::mdi

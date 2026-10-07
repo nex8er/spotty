@@ -50,6 +50,10 @@ add_subdirectory(search)
 add_subdirectory(plotter)
 add_subdirectory(filesend)
 
+# Доступ к потоку интерфейса для скриптов и других программ: локальный сокет или TCP, без
+# протокола. Сервер не знает о виджетах и проверяется отдельно, панель — только проводка.
+add_subdirectory(streamserver)
+
 # Разбор JSON из потока: дерево путей со значением и частотой у каждого поля. Логика
 # (JsonFramer, JsonTreeModel) лежит в SDK и проверяется без виджетов, здесь только показ.
 add_subdirectory(jsontree)
