@@ -1689,7 +1689,7 @@ Double-click to edit, right-click for options</source>
     </message>
     <message>
         <source>&lt;b&gt;Spotty %1&lt;/b&gt;&lt;br&gt;Modular terminal port monitor.&lt;br&gt;&lt;br&gt;Author: %2&lt;br&gt;&lt;a href=&quot;%3&quot;&gt;%3&lt;/a&gt;&lt;br&gt;&lt;br&gt;Configuration: %4</source>
-        <translation>&lt;b&gt;Spotty %1&lt;/b&gt;&lt;br&gt;Модульный терминал-монитор портов.&lt;br&gt;&lt;br&gt;Автор: %2&lt;br&gt;&lt;a href="%3"&gt;%3&lt;/a&gt;&lt;br&gt;&lt;br&gt;Настройки: %4</translation>
+        <translation>&lt;b&gt;Spotty %1&lt;/b&gt;&lt;br&gt;Модульный терминал-монитор портов.&lt;br&gt;&lt;br&gt;Автор: %2&lt;br&gt;&lt;a href=&quot;%3&quot;&gt;%3&lt;/a&gt;&lt;br&gt;&lt;br&gt;Настройки: %4</translation>
     </message>
     <message numerus="yes">
         <source>Selected: %1 (%n line(s))</source>
@@ -1800,6 +1800,10 @@ Double-click to edit, right-click for options</source>
         <translation>Язык, режим единственного экземпляра и набор включённых плагинов вступят в силу после перезапуска Spotty.</translation>
     </message>
     <message>
+        <source>Update checks are off. You can turn them back on in Settings.</source>
+        <translation>Проверка обновлений выключена. Вернуть её можно в настройках.</translation>
+    </message>
+    <message>
         <source>Open</source>
         <translation>Открыт</translation>
     </message>
@@ -1886,6 +1890,40 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Viewing log: %1</source>
         <translation>Просмотр лога: %1</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::NabChannel</name>
+    <message>
+        <source>Could not open NAB USB interface %1: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not configure NAB USB interface %1: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>USB interface %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>NAB USB transfer failed: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>spotty::NabPlugin</name>
+    <message>
+        <source>USB interface %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>NAB USB interface %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>NAB USB</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -2335,37 +2373,6 @@ Double-click to edit, right-click for options</source>
     </message>
 </context>
 <context>
-    <name>spotty::PtyPort</name>
-    <message>
-        <source>Cannot create a virtual port (%1).</source>
-        <translation>Не удалось создать виртуальный порт (%1).</translation>
-    </message>
-    <message>
-        <source>This system does not allow creating names in /dev, even with administrator rights. Use a path outside /dev, for example %1.</source>
-        <translation>Эта система не позволяет создавать имена в /dev, даже с правами администратора. Используйте путь вне /dev, например %1.</translation>
-    </message>
-    <message>
-        <source>&quot;%1&quot; is not a valid name in /dev.</source>
-        <translation>&quot;%1&quot; не годится как имя в /dev.</translation>
-    </message>
-    <message>
-        <source>%1 is already used by something else: choose another name.</source>
-        <translation>%1 уже занято чем-то другим: выберите другое имя.</translation>
-    </message>
-    <message>
-        <source>%1 already exists and is not a link.</source>
-        <translation>%1 уже существует и не является ссылкой.</translation>
-    </message>
-    <message>
-        <source>Cannot create %1: %2</source>
-        <translation>Не удалось создать %1: %2</translation>
-    </message>
-    <message>
-        <source>Virtual port failed: %1</source>
-        <translation>Сбой виртуального порта: %1</translation>
-    </message>
-</context>
-<context>
     <name>spotty::ScaleLimitsDialog</name>
     <message>
         <source>Scale limits — %1</source>
@@ -2753,6 +2760,22 @@ Double-click to edit, right-click for options</source>
         <translation>Повторный запуск покажет уже открытое окно вместо второго.</translation>
     </message>
     <message>
+        <source>Updates</source>
+        <translation>Обновления</translation>
+    </message>
+    <message>
+        <source>Check for updates on startup</source>
+        <translation>Проверять обновления при запуске</translation>
+    </message>
+    <message>
+        <source>Asks GitHub for the latest release when Spotty starts. Nothing is downloaded or installed automatically.</source>
+        <translation>При запуске спрашивает у GitHub последний релиз. Ничего не скачивается и не устанавливается само.</translation>
+    </message>
+    <message>
+        <source>Check now</source>
+        <translation>Проверить сейчас</translation>
+    </message>
+    <message>
         <source>Reset</source>
         <translation>Сброс</translation>
     </message>
@@ -2775,6 +2798,22 @@ Continue?</source>
         <translation>Это сотрёт все настройки, запомненные интерфейсы и историю отправки — действие необратимо.
 
 Продолжить?</translation>
+    </message>
+    <message>
+        <source>Version %1 is available. &lt;a href=&quot;%2&quot;&gt;Download&lt;/a&gt; · &lt;a href=&quot;%3&quot;&gt;What&apos;s new&lt;/a&gt;</source>
+        <translation>Доступна версия %1. &lt;a href="%2"&gt;Скачать&lt;/a&gt; · &lt;a href="%3"&gt;Что нового&lt;/a&gt;</translation>
+    </message>
+    <message>
+        <source>You have the latest version (%1).</source>
+        <translation>У вас последняя версия (%1).</translation>
+    </message>
+    <message>
+        <source>Could not check for updates: %1</source>
+        <translation>Не удалось проверить обновления: %1</translation>
+    </message>
+    <message>
+        <source>Checking…</source>
+        <translation>Проверка…</translation>
     </message>
     <message>
         <source>Font</source>
@@ -3577,48 +3616,83 @@ Continue?</source>
         <source>Serial proxy</source>
         <translation>Перехват порта</translation>
     </message>
-</context>
-<context>
-    <name>spotty::uartproxy</name>
     <message>
-        <source>macOS does not allow creating names in /dev.</source>
-        <translation>macOS не позволяет создавать имена в /dev.</translation>
+        <source>Could not start %1: %2</source>
+        <translation>Не удалось запустить %1: %2</translation>
     </message>
     <message>
-        <source>pkexec is not installed, so Spotty cannot ask for administrator rights. Choose a path outside /dev or create the link yourself.</source>
-        <translation>pkexec не установлен, и Spotty не может запросить права администратора. Выберите путь вне /dev или создайте ссылку сами.</translation>
+        <source>com0com is not installed: Spotty needs it to create a virtual port.</source>
+        <translation>com0com не установлен, а без него Spotty не может создать виртуальный порт.</translation>
     </message>
     <message>
-        <source>Could not run %1.</source>
-        <translation>Не удалось запустить %1.</translation>
+        <source>%1 is already used by another device.</source>
+        <translation>%1 уже занят другим устройством.</translation>
     </message>
     <message>
-        <source>The command failed.</source>
-        <translation>Команда завершилась с ошибкой.</translation>
-    </message>
-    <message>
-        <source>&quot;%1&quot; is not a valid name in /dev.</source>
-        <translation>&quot;%1&quot; не годится как имя в /dev.</translation>
-    </message>
-    <message>
-        <source>%1 is already used by something else: choose another name.</source>
-        <translation>%1 уже занято чем-то другим: выберите другое имя.</translation>
+        <source>The com0com program setupc.exe was not found.</source>
+        <translation>Программа com0com setupc.exe не найдена.</translation>
     </message>
     <message>
         <source>Administrator rights are needed to create %1.</source>
         <translation>Чтобы создать %1, нужны права администратора.</translation>
     </message>
     <message>
-        <source>%1 was not created.</source>
-        <translation>%1 не создан.</translation>
+        <source>com0com did not create %1. Try the com0com setup.</source>
+        <translation>com0com не создал %1. Попробуйте через настройку com0com.</translation>
     </message>
     <message>
-        <source>%1 was not created by Spotty and is left untouched.</source>
-        <translation>%1 создан не Spotty, поэтому его не трогаем.</translation>
+        <source>The com0com setup program was not found.</source>
+        <translation>Программа настройки com0com не найдена.</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::UpdateChecker</name>
+    <message>
+        <source>No releases have been published yet.</source>
+        <translation>Релизов пока нет.</translation>
     </message>
     <message>
-        <source>Administrator rights are needed to remove %1.</source>
-        <translation>Чтобы удалить %1, нужны права администратора.</translation>
+        <source>Unexpected reply from the update server.</source>
+        <translation>Неожиданный ответ сервера обновлений.</translation>
+    </message>
+    <message>
+        <source>The latest release has no version number.</source>
+        <translation>У последнего релиза нет номера версии.</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::UpdatePrompt</name>
+    <message>
+        <source>Update available</source>
+        <translation>Доступно обновление</translation>
+    </message>
+    <message>
+        <source>&lt;b&gt;Spotty %1 is available.&lt;/b&gt;&lt;br&gt;You have %2.</source>
+        <translation>&lt;b&gt;Вышел Spotty %1.&lt;/b&gt;&lt;br&gt;У вас %2.</translation>
+    </message>
+    <message>
+        <source>Download will start with %1.</source>
+        <translation>Будет загружен файл %1.</translation>
+    </message>
+    <message>
+        <source>The release page will open in your browser.</source>
+        <translation>Страница релиза откроется в браузере.</translation>
+    </message>
+    <message>
+        <source>You can turn update checks back on in Settings → General.</source>
+        <translation>Проверку обновлений можно вернуть в Настройки → Общие.</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Скачать</translation>
+    </message>
+    <message>
+        <source>Later</source>
+        <translation>Позже</translation>
+    </message>
+    <message>
+        <source>Don&apos;t check for updates</source>
+        <translation>Больше не проверять обновления</translation>
     </message>
 </context>
 </TS>

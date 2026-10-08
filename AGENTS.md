@@ -88,6 +88,16 @@ com0com» — поля схемы `SettingsField::Note` и `SettingsField::Actio
 (`loopback`, `signalgen`, `jsongen`) выключены по умолчанию: они выдают данные, не имея за
 собой ни одного устройства, и в списке интерфейсов стоят вперемешку с настоящими портами.
 
+Обновления: при запуске `MainWindow` через 3 с зовёт `UpdateChecker` (ядро, `Qt6::Network`
+скрыт за `PRIVATE`), тот читает GitHub `releases/latest` и сравнивает тег с `SPOTTY_VERSION`.
+Установки нет намеренно: найдя версию, программа лишь открывает в браузере пакет под
+систему и архитектуру (имена файлов разбирает `parseRelease()` по схеме из
+`SpottyPackaging.cmake`) или страницу релиза. Отключение — `AppSettings::checkForUpdates`:
+кнопка «Больше не проверять» в окне предложения, обратно — флажок и «Check now» в разделе
+General. **Версия сравнивается с тегом релиза, поэтому `project(VERSION)` в
+`CMakeLists.txt` нужно поднимать до тега, а не после:** собранный с прежним номером пакет
+вечно предлагал бы обновиться на самого себя.
+
 Ни одной панели в исполняемом файле не осталось: макросы, журнал, поиск и генератор
 загружаются тем же путём, что и сторонние, и ничем не привилегированы. Это и есть проверка
 API на прочность — главная цель версии.
@@ -139,7 +149,7 @@ cmake --build build                               # lrelease соберёт .qm 
 Категории журналирования: `spotty.paths`, `spotty.files`, `spotty.settings`,
 `spotty.plugins`, `spotty.plugins.jlinkrtt`, `spotty.plugins.clican`, `spotty.registry`,
 `spotty.session`,
-`spotty.icons`, `spotty.history`, `spotty.log`, `spotty.macros`, `spotty.instance`.
+`spotty.icons`, `spotty.history`, `spotty.log`, `spotty.macros`, `spotty.instance`, `spotty.updates`.
 
 ## Соглашения по коду
 

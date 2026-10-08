@@ -13,7 +13,9 @@ class QCheckBox;
 class QComboBox;
 class QFontComboBox;
 class QKeySequenceEdit;
+class QLabel;
 class QLineEdit;
+class QPushButton;
 class QListWidget;
 class QSpinBox;
 class QStackedWidget;
@@ -23,6 +25,7 @@ class QTreeWidgetItem;
 
 namespace spotty {
 
+class UpdateChecker;
 class PanelPluginRegistry;
 class SchemaForm;
 
@@ -123,6 +126,9 @@ Q_SIGNALS:
 
 private:
     QWidget *buildGeneralPage();
+
+    /// rief Запросить последний релиз и показать результат рядом с кнопкой.
+    void checkForUpdatesNow();
     QWidget *buildTerminalPage();
     QWidget *buildSendPage();
     QWidget *buildDataPage();
@@ -197,6 +203,12 @@ private:
     QComboBox *m_theme = nullptr;
     QCheckBox *m_autoOpen = nullptr;
     QCheckBox *m_singleInstance = nullptr;
+    QCheckBox *m_checkForUpdates = nullptr;
+    QPushButton *m_checkNow = nullptr;
+    QLabel *m_updateStatus = nullptr;
+
+    /// rief Ручная проверка из кнопки «Check now»; создаётся при первом нажатии.
+    UpdateChecker *m_updateChecker = nullptr;
 
     // Терминал
     QFontComboBox *m_fontFamily = nullptr;

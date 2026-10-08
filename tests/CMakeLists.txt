@@ -68,6 +68,7 @@ spotty_add_test(spotty-tests
         test_session.cpp
         test_data_filter.cpp
         test_single_instance.cpp
+        test_update_checker.cpp
         test_paths.cpp
         # Протокол туннеля CLI-CAN: вся его арифметика вынесена в заголовок плагина
         # именно ради проверки без адаптера и без драйвера PEAK.

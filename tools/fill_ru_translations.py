@@ -494,6 +494,34 @@ TRANSLATIONS = {
     "Only one running copy of Spotty": "Только одна работающая копия Spotty",
     "Starting Spotty again raises the existing window instead of opening a second one.":
         "Повторный запуск покажет уже открытое окно вместо второго.",
+    # --- Обновления ---
+    "Updates": "Обновления",
+    "Check for updates on startup": "Проверять обновления при запуске",
+    "Asks GitHub for the latest release when Spotty starts. Nothing is downloaded or "
+    "installed automatically.":
+        "При запуске спрашивает у GitHub последний релиз. Ничего не скачивается и не "
+        "устанавливается само.",
+    "Check now": "Проверить сейчас",
+    "Checking…": "Проверка…",
+    "Version %1 is available. <a href=\"%2\">Download</a> · <a href=\"%3\">What's new</a>":
+        "Доступна версия %1. <a href=\"%2\">Скачать</a> · <a href=\"%3\">Что нового</a>",
+    "You have the latest version (%1).": "У вас последняя версия (%1).",
+    "Could not check for updates: %1": "Не удалось проверить обновления: %1",
+    "Update available": "Доступно обновление",
+    "<b>Spotty %1 is available.</b><br>You have %2.":
+        "<b>Вышел Spotty %1.</b><br>У вас %2.",
+    "Download will start with %1.": "Будет загружен файл %1.",
+    "The release page will open in your browser.": "Страница релиза откроется в браузере.",
+    "You can turn update checks back on in Settings → General.":
+        "Проверку обновлений можно вернуть в Настройки → Общие.",
+    "Download": "Скачать",
+    "Later": "Позже",
+    "Don't check for updates": "Больше не проверять обновления",
+    "Update checks are off. You can turn them back on in Settings.":
+        "Проверка обновлений выключена. Вернуть её можно в настройках.",
+    "No releases have been published yet.": "Релизов пока нет.",
+    "Unexpected reply from the update server.": "Неожиданный ответ сервера обновлений.",
+    "The latest release has no version number.": "У последнего релиза нет номера версии.",
     "The language, single-instance and enabled-plugin settings take effect after "
     "Spotty is restarted.":
         "Язык, режим единственного экземпляра и набор включённых плагинов вступят в силу "

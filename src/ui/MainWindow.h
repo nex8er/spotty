@@ -40,6 +40,8 @@ class Session;
 class OverlayLayer;
 class PanelHostImpl;
 class SendBar;
+class UpdateChecker;
+struct ReleaseInfo;
 
 /**
  * \class MainWindow
@@ -204,6 +206,18 @@ private:
 
     /// \brief Показать диалог настроек и применить результат.
     void showSettingsDialog();
+
+    /**
+     * \brief Спросить у GitHub, не вышла ли новая версия, если проверка не отключена.
+     *
+     * Молчит обо всём, кроме найденного обновления: ни «у вас последняя версия», ни
+     * ошибка сети не стоят того, чтобы прерывать человека на запуске. Ручная проверка с
+     * разбором результата живёт в настройках.
+     */
+    void checkForUpdatesOnStartup();
+
+    /// \brief Предложить новую версию; ответ «не проверять» сохраняется в настройках.
+    void offerUpdate(const ReleaseInfo &release);
 
     /**
      * \brief Стереть настройки, реестр интерфейсов и историю отправки, вернуть умолчания.
@@ -453,6 +467,9 @@ private:
 
     /// \brief Тикает раз в секунду, пока канал открыт.
     QTimer *m_uptimeTimer = nullptr;
+
+    /// rief Проверка обновлений при запуске; создаётся при первой надобности.
+    UpdateChecker *m_updateChecker = nullptr;
 
     /// \brief Собрать разделитель секций строки состояния.
     QWidget *makeStatusSeparator();

@@ -34,6 +34,10 @@ TEST(AppSettings, DefaultsOnEmptyStore)
     // Открытие порта дёргает DTR и перехватывает порт у другой программы: делать это молча
     // при каждом запуске нельзя.
     EXPECT_FALSE(settings.autoOpenLastInterface);
+
+    // Проверка обновлений включена: файл настроек, написанный до её появления, не должен
+    // молча отключать её у всех существующих пользователей.
+    EXPECT_TRUE(settings.checkForUpdates);
 }
 
 TEST(AppSettings, RoundTripThroughStore)
@@ -46,6 +50,7 @@ TEST(AppSettings, RoundTripThroughStore)
     original.theme = QStringLiteral("light");
     original.autoOpenLastInterface = true;
     original.singleInstance = false;
+    original.checkForUpdates = false;
     original.fontFamily = QStringLiteral("Menlo");
     original.fontSize = 13;
     original.maxLines = 5000;
@@ -87,6 +92,7 @@ TEST(AppSettings, RoundTripThroughStore)
     EXPECT_EQ(restored.theme, original.theme);
     EXPECT_EQ(restored.autoOpenLastInterface, original.autoOpenLastInterface);
     EXPECT_EQ(restored.singleInstance, original.singleInstance);
+    EXPECT_EQ(restored.checkForUpdates, original.checkForUpdates);
     EXPECT_EQ(restored.fontFamily, original.fontFamily);
     EXPECT_EQ(restored.fontSize, original.fontSize);
     EXPECT_EQ(restored.maxLines, original.maxLines);

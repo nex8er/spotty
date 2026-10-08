@@ -10,6 +10,7 @@
 #include "dialogs/InterfaceSettingsDialog.h"
 #include "dialogs/InterfaceSettingsPanel.h"
 #include "dialogs/SettingsDialog.h"
+#include "dialogs/UpdatePrompt.h"
 #include "OverlayLayer.h"
 #include "PanelHostImpl.h"
 #include "PanelPluginRegistry.h"
@@ -20,6 +21,7 @@
 #include <InterfaceRegistry.h>
 #include <PluginManager.h>
 #include <Session.h>
+#include <UpdateChecker.h>
 #include <settings/Paths.h>
 #include <settings/SettingsStore.h>
 
@@ -27,6 +29,7 @@
 #include <QApplication>
 #include <QButtonGroup>
 #include <QCloseEvent>
+#include <QDesktopServices>
 #include <QComboBox>
 #include <QFile>
 #include <QFileInfo>
@@ -150,6 +153,11 @@ MainWindow::MainWindow(const AppContext &context, QWidget *parent)
     if (m_context.theme)
         connect(m_context.theme, &ThemeManager::themeChanged, this, [this] { updateIcons(); });
     updateIcons();
+
+    // Не в самом конструкторе: запрос к сети не должен конкурировать с построением окна
+    // и открытием порта, а ответ с диалогом поверх ещё не показанного окна выглядел бы
+    // как сбой. Несколько секунд задержки ничего не стоят — версия не горит.
+    QTimer::singleShot(3000, this, &MainWindow::checkForUpdatesOnStartup);
 
     // Список интерфейсов всегда стартует с «не выбрано»: выбор теперь сам открывает канал
     // (обработчик interfaceSelected ниже), и показывать выбранным то, что на самом деле
@@ -1232,6 +1240,43 @@ void MainWindow::showSettingsDialog()
         QMessageBox::information(this, tr("Settings"),
                                  tr("The language, single-instance and enabled-plugin "
                                     "settings take effect after Spotty is restarted."));
+    }
+}
+
+void MainWindow::checkForUpdatesOnStartup()
+{
+    if (!m_settings.checkForUpdates)
+        return;
+
+    if (!m_updateChecker) {
+        m_updateChecker = new UpdateChecker(this);
+        connect(m_updateChecker, &UpdateChecker::updateAvailable, this,
+                &MainWindow::offerUpdate);
+        // failed() и upToDate() не подключены намеренно: офлайновый запуск не повод для
+        // окна, а причина ошибки уже записана в журнал самим UpdateChecker.
+    }
+    m_updateChecker->check(QLatin1String(SPOTTY_VERSION));
+}
+
+void MainWindow::offerUpdate(const ReleaseInfo &release)
+{
+    // Настройка могла быть выключена, пока шёл запрос (диалог настроек открыт поверх).
+    if (!m_settings.checkForUpdates)
+        return;
+
+    switch (UpdatePrompt::ask(this, QLatin1String(SPOTTY_VERSION), release)) {
+    case UpdatePrompt::Choice::Download:
+        QDesktopServices::openUrl(release.downloadUrl());
+        break;
+    case UpdatePrompt::Choice::Disable:
+        m_settings.checkForUpdates = false;
+        m_settings.save(*m_context.settings);
+        m_context.settings->save();
+        statusBar()->showMessage(
+            tr("Update checks are off. You can turn them back on in Settings."), 8000);
+        break;
+    case UpdatePrompt::Choice::Later:
+        break;
     }
 }
 

@@ -59,6 +59,8 @@ qt_add_executable(spotty
     dialogs/InterfaceSettingsPanel.h
     dialogs/SettingsDialog.cpp
     dialogs/SettingsDialog.h
+    dialogs/UpdatePrompt.cpp
+    dialogs/UpdatePrompt.h
     theme/AnsiPalette.cpp
     theme/AnsiPalette.h
     theme/EmbeddedFonts.cpp

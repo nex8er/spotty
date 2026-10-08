@@ -19,6 +19,7 @@ constexpr auto kLanguage = "general/language";
 constexpr auto kTheme = "appearance/theme";
 constexpr auto kAutoOpen = "session/autoOpen";
 constexpr auto kSingleInstance = "general/singleInstance";
+constexpr auto kCheckForUpdates = "general/checkForUpdates";
 
 constexpr auto kFontFamily = "terminal/fontFamily";
 constexpr auto kFontSize = "terminal/fontSize";
@@ -70,6 +71,8 @@ AppSettings AppSettings::load(const SettingsStore &store)
         store.value(QLatin1String(kAutoOpen), settings.autoOpenLastInterface).toBool();
     settings.singleInstance =
         store.value(QLatin1String(kSingleInstance), settings.singleInstance).toBool();
+    settings.checkForUpdates =
+        store.value(QLatin1String(kCheckForUpdates), settings.checkForUpdates).toBool();
 
     settings.fontFamily = store.value(QLatin1String(kFontFamily)).toString();
     settings.fontSize = store.value(QLatin1String(kFontSize), settings.fontSize).toInt();
@@ -134,6 +137,7 @@ void AppSettings::save(SettingsStore &store) const
     store.setValue(QLatin1String(kTheme), theme);
     store.setValue(QLatin1String(kAutoOpen), autoOpenLastInterface);
     store.setValue(QLatin1String(kSingleInstance), singleInstance);
+    store.setValue(QLatin1String(kCheckForUpdates), checkForUpdates);
 
     store.setValue(QLatin1String(kFontFamily), fontFamily);
     store.setValue(QLatin1String(kFontSize), fontSize);

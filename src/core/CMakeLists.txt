@@ -19,6 +19,8 @@ add_library(spotty-core STATIC
     Session.h
     SingleInstanceGuard.cpp
     SingleInstanceGuard.h
+    UpdateChecker.cpp
+    UpdateChecker.h
     settings/AppSettings.cpp
     settings/AppSettings.h
     settings/Paths.cpp
@@ -44,8 +46,9 @@ target_link_libraries(spotty-core
         Qt6::Core
         Spotty::Api
     PRIVATE
-        # Только ради QLocalServer в SingleInstanceGuard: сети как таковой ядру не нужно,
-        # и PRIVATE не пускает эту зависимость дальше в плагины и в UI.
+        # QLocalServer в SingleInstanceGuard и QNetworkAccessManager в UpdateChecker.
+        # Заголовки обоих сетевых типов наружу не показывают, и PRIVATE не пускает
+        # зависимость дальше в плагины и в UI.
         Qt6::Network
 )
 

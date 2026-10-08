@@ -13,6 +13,7 @@
 #include "theme/ThemeManager.h"
 
 #include <spotty/data/DataCodec.h>
+#include <UpdateChecker.h>
 #include <terminal/Packetizer.h>
 
 #include <QCheckBox>
@@ -248,6 +249,32 @@ QWidget *SettingsDialog::buildGeneralPage()
                                     "instead of opening a second one."));
     layout->addWidget(m_singleInstance);
 
+    // Флажок правит копию настроек, как и все остальные, а «Check now» от него не зависит:
+    // отключённая автоматическая проверка не мешает проверить вручную, когда захотелось.
+    auto *updatesBox = new QGroupBox(tr("Updates"), page);
+    auto *updatesLayout = new QVBoxLayout(updatesBox);
+
+    m_checkForUpdates = new QCheckBox(tr("Check for updates on startup"), updatesBox);
+    m_checkForUpdates->setChecked(m_initial.checkForUpdates);
+    m_checkForUpdates->setToolTip(tr("Asks GitHub for the latest release when Spotty starts. "
+                                     "Nothing is downloaded or installed automatically."));
+    updatesLayout->addWidget(m_checkForUpdates);
+
+    auto *checkRow = new QHBoxLayout;
+    m_checkNow = new QPushButton(tr("Check now"), updatesBox);
+    m_updateStatus = new QLabel(updatesBox);
+    m_updateStatus->setObjectName(QStringLiteral("hintLabel"));
+    m_updateStatus->setWordWrap(true);
+    m_updateStatus->setTextFormat(Qt::RichText);
+    // Ссылка на пакет и на описание релиза открываются прямо из строки состояния.
+    m_updateStatus->setOpenExternalLinks(true);
+    checkRow->addWidget(m_checkNow);
+    checkRow->addWidget(m_updateStatus, 1);
+    updatesLayout->addLayout(checkRow);
+
+    connect(m_checkNow, &QPushButton::clicked, this, &SettingsDialog::checkForUpdatesNow);
+    layout->addWidget(updatesBox);
+
     layout->addStretch(1);
 
     // Внизу страницы и в собственной рамке: действие необратимо и не должно попасться под
@@ -282,6 +309,36 @@ QWidget *SettingsDialog::buildGeneralPage()
 
     layout->addWidget(resetBox);
     return page;
+}
+
+void SettingsDialog::checkForUpdatesNow()
+{
+    if (!m_updateChecker) {
+        m_updateChecker = new UpdateChecker(this);
+        connect(m_updateChecker, &UpdateChecker::updateAvailable, this,
+                [this](const ReleaseInfo &release) {
+                    m_checkNow->setEnabled(true);
+                    m_updateStatus->setText(
+                        tr("Version %1 is available. <a href=\"%2\">Download</a> · "
+                           "<a href=\"%3\">What's new</a>")
+                            .arg(release.version.toHtmlEscaped(),
+                                 release.downloadUrl().toString(QUrl::FullyEncoded),
+                                 release.pageUrl.toString(QUrl::FullyEncoded)));
+                });
+        connect(m_updateChecker, &UpdateChecker::upToDate, this, [this](const QString &) {
+            m_checkNow->setEnabled(true);
+            m_updateStatus->setText(tr("You have the latest version (%1).")
+                                        .arg(QLatin1String(SPOTTY_VERSION)));
+        });
+        connect(m_updateChecker, &UpdateChecker::failed, this, [this](const QString &message) {
+            m_checkNow->setEnabled(true);
+            m_updateStatus->setText(tr("Could not check for updates: %1").arg(message.toHtmlEscaped()));
+        });
+    }
+
+    m_checkNow->setEnabled(false);
+    m_updateStatus->setText(tr("Checking…"));
+    m_updateChecker->check(QLatin1String(SPOTTY_VERSION));
 }
 
 QWidget *SettingsDialog::buildTerminalPage()
@@ -742,6 +799,7 @@ AppSettings SettingsDialog::settings() const
     result.theme = m_theme->currentData().toString();
     result.autoOpenLastInterface = m_autoOpen->isChecked();
     result.singleInstance = m_singleInstance->isChecked();
+    result.checkForUpdates = m_checkForUpdates->isChecked();
 
     result.fontFamily = m_fontFamily->currentFont().family();
     result.fontSize = m_fontSize->value();
