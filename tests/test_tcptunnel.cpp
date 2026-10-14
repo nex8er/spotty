@@ -19,6 +19,7 @@
 
 #include <QElapsedTimer>
 #include <QSet>
+#include <QRandomGenerator>
 #include <QTcpServer>
 #include <QTcpSocket>
 
@@ -514,18 +515,21 @@ NetworkScanner::Options localOptions(quint16 firstPort)
  */
 bool listenConsecutive(std::vector<std::unique_ptr<QTcpServer>> &servers, int count)
 {
+    QString lastError;
+    // Первые попытки — порты, которые выдаёт система, дальше берём подряд идущие сами: на Windows
+    // соседний с выданным занять не удавалось ни разу.
+    const quint16 fixedStart = quint16(20000 + QRandomGenerator::global()->bounded(20000));
     for (int attempt = 0; attempt < 100; ++attempt) {
         servers.clear();
-        auto first = std::make_unique<QTcpServer>();
-        if (!first->listen(QHostAddress::LocalHost, 0))
-            return false;
-        const quint16 base = first->serverPort();
-        servers.push_back(std::move(first));
-
+        quint16 base = attempt < 50 ? quint16(0) : quint16(fixedStart + (attempt - 50) * (count + 2));
         bool all = true;
-        for (int i = 1; i < count && all; ++i) {
+        for (int i = 0; i < count && all; ++i) {
             auto next = std::make_unique<QTcpServer>();
-            all = next->listen(QHostAddress::LocalHost, quint16(base + i));
+            all = next->listen(QHostAddress::LocalHost, i == 0 ? base : quint16(base + i));
+            if (!all)
+                lastError = next->errorString();
+            else if (i == 0)
+                base = next->serverPort();
             if (all)
                 servers.push_back(std::move(next));
         }
@@ -542,8 +546,17 @@ bool listenConsecutive(std::vector<std::unique_ptr<QTcpServer>> &servers, int co
         }
         if (!foreignNeighbour)
             return true;
+        lastError = QStringLiteral("a foreign server next to the block");
     }
+    ADD_FAILURE() << "no " << count << " consecutive free ports: " << qPrintable(lastError);
     return false;
+}
+
+/// \brief Дождаться конца прохода. Долго: Windows сообщает об отказе на петле лишь через 1–2 с (повторы SYN),
+///        и каждый закрытый порт стоит столько.
+bool waitForScan(const NetworkScanner &scanner)
+{
+    return waitFor([&] { return !scanner.isRunning(); }, 30000);
 }
 
 QList<int> portsOf(const NetworkScanner &scanner, const QString &address)
@@ -571,7 +584,7 @@ TEST(NetworkScanner, FindsAnOpenPort)
     options.maxPorts = 1;
     scanner.start(options);
     EXPECT_TRUE(scanner.isRunning());
-    ASSERT_TRUE(waitFor([&] { return !scanner.isRunning(); }));
+    ASSERT_TRUE(waitForScan(scanner));
 
     EXPECT_EQ(portsOf(scanner, QStringLiteral("127.0.0.1")), QList<int>{server.serverPort()});
     EXPECT_EQ(scanner.hostsDone(), 1);
@@ -583,7 +596,7 @@ TEST(NetworkScanner, ClosedPortFindsNothingAndStillFinishes)
 {
     NetworkScanner scanner;
     scanner.start(localOptions(kClosedPort));
-    ASSERT_TRUE(waitFor([&] { return !scanner.isRunning(); }));
+    ASSERT_TRUE(waitForScan(scanner));
 
     EXPECT_TRUE(scanner.results().isEmpty());
     EXPECT_EQ(scanner.hostsDone(), 1);
@@ -597,7 +610,7 @@ TEST(NetworkScanner, FollowsConsecutivePortsUpToTheFirstClosedOne)
 
     NetworkScanner scanner;
     scanner.start(localOptions(base));
-    ASSERT_TRUE(waitFor([&] { return !scanner.isRunning(); }));
+    ASSERT_TRUE(waitForScan(scanner));
 
     EXPECT_EQ(portsOf(scanner, QStringLiteral("127.0.0.1")),
               (QList<int>{base, base + 1, base + 2}));
@@ -614,7 +627,7 @@ TEST(NetworkScanner, StopsAtAGapEvenIfALaterPortIsOpen)
 
     NetworkScanner scanner;
     scanner.start(localOptions(base));
-    ASSERT_TRUE(waitFor([&] { return !scanner.isRunning(); }));
+    ASSERT_TRUE(waitForScan(scanner));
 
     EXPECT_EQ(portsOf(scanner, QStringLiteral("127.0.0.1")), (QList<int>{base, base + 1}));
 }
@@ -628,7 +641,7 @@ TEST(NetworkScanner, HostWhoseFirstPortIsClosedIsNotProbedFurther)
 
     NetworkScanner scanner;
     scanner.start(localOptions(base));
-    ASSERT_TRUE(waitFor([&] { return !scanner.isRunning(); }));
+    ASSERT_TRUE(waitForScan(scanner));
 
     EXPECT_TRUE(scanner.results().isEmpty());
 }
@@ -645,7 +658,7 @@ TEST(NetworkScanner, ByDefaultTheFirstPortAndThreeFollowingAreChecked)
     NetworkScanner::Options options = localOptions(base);
     options.maxPorts = NetworkScanner::Options{}.maxPorts; // умолчание, а не тестовые восемь
     scanner.start(options);
-    ASSERT_TRUE(waitFor([&] { return !scanner.isRunning(); }));
+    ASSERT_TRUE(waitForScan(scanner));
 
     // Пятый порт открыт, но за пределом: дальше трёх следующих агентов на одной машине не бывает.
     EXPECT_EQ(portsOf(scanner, QStringLiteral("127.0.0.1")), (QList<int>{base, base + 1, base + 2, base + 3}));
@@ -667,7 +680,7 @@ TEST(NetworkScanner, HostThatAcceptsEveryPortIsDroppedAsIntercepted)
     options.maxPorts = 1;
     options.controlPorts = {catchAll.serverPort()};
     scanner.start(options);
-    ASSERT_TRUE(waitFor([&] { return !scanner.isRunning(); }));
+    ASSERT_TRUE(waitForScan(scanner));
 
     EXPECT_TRUE(scanner.results().isEmpty());
     EXPECT_EQ(scanner.interceptedCount(), 1);
@@ -689,7 +702,7 @@ TEST(NetworkScanner, InterceptedHostGetsNoFollowUpProbes)
     options.maxPorts = 2; // base и base + 1; контрольный порт — за пределами
     options.controlPorts = {catchAll.serverPort()};
     scanner.start(options);
-    ASSERT_TRUE(waitFor([&] { return !scanner.isRunning(); }));
+    ASSERT_TRUE(waitForScan(scanner));
     waitFor([] { return false; }, 100);
 
     // Второй порт хоста, признанного перехватом, никто не опрашивал: тратить на него время незачем.
@@ -709,7 +722,7 @@ TEST(NetworkScanner, VerificationCanBeSwitchedOffAndControlPortsInsideTheSearchA
         options.controlPorts = {other.serverPort()};
         options.verifyHosts = false;
         scanner.start(options);
-        ASSERT_TRUE(waitFor([&] { return !scanner.isRunning(); }));
+        ASSERT_TRUE(waitForScan(scanner));
         EXPECT_EQ(scanner.results().size(), 1);
         EXPECT_EQ(scanner.interceptedCount(), 0);
     }
@@ -720,7 +733,7 @@ TEST(NetworkScanner, VerificationCanBeSwitchedOffAndControlPortsInsideTheSearchA
         options.maxPorts = 1;
         options.controlPorts = {agent.serverPort()};
         scanner.start(options);
-        ASSERT_TRUE(waitFor([&] { return !scanner.isRunning(); }));
+        ASSERT_TRUE(waitForScan(scanner));
         EXPECT_EQ(scanner.results().size(), 1);
         EXPECT_EQ(scanner.interceptedCount(), 0);
     }
@@ -736,7 +749,7 @@ TEST(NetworkScanner, NumberOfPortsPerHostIsLimited)
     NetworkScanner::Options options = localOptions(base);
     options.maxPorts = 2;
     scanner.start(options);
-    ASSERT_TRUE(waitFor([&] { return !scanner.isRunning(); }));
+    ASSERT_TRUE(waitForScan(scanner));
 
     EXPECT_EQ(portsOf(scanner, QStringLiteral("127.0.0.1")), (QList<int>{base, base + 1}));
 }
@@ -747,14 +760,14 @@ TEST(NetworkScanner, NewScanForgetsTheOldResults)
     ASSERT_TRUE(server.listen(QHostAddress::LocalHost, 0));
     NetworkScanner scanner;
     scanner.start(localOptions(server.serverPort()));
-    ASSERT_TRUE(waitFor([&] { return !scanner.isRunning(); }));
+    ASSERT_TRUE(waitForScan(scanner));
     ASSERT_EQ(scanner.results().size(), 1);
 
     server.close();
     scanner.start(localOptions(server.serverPort() ? server.serverPort() : 1));
     // Результаты сброшены уже в момент запуска, а не после прохода.
     EXPECT_TRUE(scanner.results().isEmpty());
-    ASSERT_TRUE(waitFor([&] { return !scanner.isRunning(); }));
+    ASSERT_TRUE(waitForScan(scanner));
 }
 
 TEST(NetworkScanner, ManyTargetsAreProbedInParallelButNeverAboveTheLimit)
@@ -885,7 +898,7 @@ TEST(TcpTunnelPlugin, FoundHostsAndPortsAreOfferedThroughTheLiveFields)
     ASSERT_TRUE(waitFor([&] {
         const auto status = plugin.liveOptions(none, QStringLiteral("scanStatus"), {});
         return !status.isEmpty() && status.first().label.contains(QStringLiteral("finished"));
-    }));
+    }, 30000)); // три раунда по таймауту пробы: на Windows закрытые порты петли отвечают не сразу
 
     // Найденное — успех: значок «сделано», а не нейтральная строка.
     EXPECT_EQ(plugin.liveOptions(none, QStringLiteral("scanStatus"), {}).first().value.toInt(),
@@ -921,7 +934,7 @@ TEST(TcpTunnelPlugin, ScanThatFindsNothingSaysWhereItLooked)
     ASSERT_TRUE(waitFor([&] {
         const auto status = plugin.liveOptions({}, QStringLiteral("scanStatus"), {});
         return !status.isEmpty() && status.first().label.startsWith(QStringLiteral("Nothing found"));
-    }));
+    }, 30000));
     EXPECT_TRUE(plugin.liveOptions({}, QStringLiteral("scanStatus"), {}).first().label.contains(
         QStringLiteral("127.0.0.1")));
     // Пустой итог — предупреждение, а не сбой и не успех: искать надо иначе, но ничего не сломалось.

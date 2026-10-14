@@ -1,0 +1,7 @@
+# Файлы агента вшиваются в пакет и заливаются на удалённую машину как есть: CRLF, который git ставит
+# в рабочей копии на Windows, сломал бы `sh` (команда не найдена: \r) и шаблон конфига.
+agent/** text eol=lf
+*.sh text eol=lf
+resources/agent/VERSION text eol=lf
+# Бинарники агента git не должен трогать никак.
+resources/agent/*/spotty-uartd binary
