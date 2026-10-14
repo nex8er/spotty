@@ -21,24 +21,32 @@ find_package(libssh2 CONFIG QUIET)
 foreach(candidate IN ITEMS libssh2::libssh2 libssh2::libssh2_shared libssh2::libssh2_static
                            Libssh2::libssh2_shared Libssh2::libssh2_static)
     if(TARGET ${candidate})
+        # Имя libssh2::libssh2 в конфиге — ALIAS (CMake 3.18+), а у псевдонима свойств не поменять:
+        # дальше работаем с настоящей целью.
+        get_target_property(aliased ${candidate} ALIASED_TARGET)
+        if(aliased)
+            set(candidate ${aliased})
+        endif()
         # Цель из конфига видна только в каталоге, где её нашли; без GLOBAL соседний каталог
         # получил бы ошибку «target not found» на имя с `::`.
         set_property(TARGET ${candidate} PROPERTY IMPORTED_GLOBAL TRUE)
         add_library(Libssh2::libssh2 INTERFACE IMPORTED GLOBAL)
         target_link_libraries(Libssh2::libssh2 INTERFACE ${candidate})
 
-        # Статическая библиотека не несёт своих зависимостей: у vcpkg (libssh2[openssl,zlib]) конфиг о
-        # них молчит, и линковка плагина падала на сотне символов OpenSSL и zlib. Берём их сами, и тоже
-        # глобально: цель с `::` видна только в каталоге, где её нашли, а плагин и тесты лежат в соседних.
+        # Статическая libssh2 своих зависимостей не несёт: конфиг их находит (find_dependency), но
+        # в связях цели их нет, и линковка падает на сотне символов OpenSSL и zlib. Добавляем сами,
+        # тоже глобально по той же причине.
         get_target_property(libssh2Kind ${candidate} TYPE)
         if(libssh2Kind STREQUAL "STATIC_LIBRARY")
-            set(OPENSSL_USE_STATIC_LIBS ON)
-            find_package(OpenSSL REQUIRED)
-            find_package(ZLIB REQUIRED)
-            set_property(TARGET OpenSSL::Crypto ZLIB::ZLIB PROPERTY IMPORTED_GLOBAL TRUE)
-            target_link_libraries(Libssh2::libssh2 INTERFACE OpenSSL::Crypto ZLIB::ZLIB)
+            find_package(OpenSSL QUIET)
+            find_package(ZLIB QUIET)
+            foreach(dependency IN ITEMS OpenSSL::Crypto ZLIB::ZLIB)
+                if(TARGET ${dependency})
+                    set_property(TARGET ${dependency} PROPERTY IMPORTED_GLOBAL TRUE)
+                    target_link_libraries(Libssh2::libssh2 INTERFACE ${dependency})
+                endif()
+            endforeach()
             if(WIN32)
-                # Системные библиотеки, которых ждут OpenSSL (крипто-API, Winsock) и сама libssh2.
                 target_link_libraries(Libssh2::libssh2 INTERFACE ws2_32 crypt32 bcrypt user32 advapi32)
             endif()
         endif()
@@ -58,9 +66,23 @@ if(Libssh2_FOUND)
     set_target_properties(Libssh2::libssh2 PROPERTIES
         IMPORTED_LOCATION "${LIBSSH2_LIBRARY}"
         INTERFACE_INCLUDE_DIRECTORIES "${LIBSSH2_INCLUDE_DIR}")
-    # На Windows libssh2 требует Winsock; импортированная библиотека о нём не знает.
+    # На Windows библиотека статическая (vcpkg, x64-windows-static-md) и о своих зависимостях не знает.
+    # vcpkg кладёт OpenSSL и zlib в тот же каталог lib, что и libssh2.lib, — берём оттуда, а не через
+    # FindOpenSSL: на машине сборки бывает и чужой OpenSSL, а смешать два нельзя. Сборка libssh2 на
+    # WinCNG обходится без них — тогда рядом ничего нет, и ничего не добавляется.
     if(WIN32)
-        set_property(TARGET Libssh2::libssh2 APPEND PROPERTY INTERFACE_LINK_LIBRARIES ws2_32 crypt32)
+        get_filename_component(libssh2LibDir "${LIBSSH2_LIBRARY}" DIRECTORY)
+        find_library(LIBSSH2_CRYPTO_LIBRARY NAMES libcrypto crypto HINTS "${libssh2LibDir}" NO_DEFAULT_PATH)
+        find_library(LIBSSH2_ZLIB_LIBRARY NAMES zlib z HINTS "${libssh2LibDir}" NO_DEFAULT_PATH)
+        mark_as_advanced(LIBSSH2_CRYPTO_LIBRARY LIBSSH2_ZLIB_LIBRARY)
+        # Ненайденная библиотека — «…-NOTFOUND», и в связи цели она сломала бы конфигурацию.
+        set(libssh2Dependencies ws2_32 crypt32 bcrypt user32 advapi32)
+        foreach(dependency IN ITEMS LIBSSH2_CRYPTO_LIBRARY LIBSSH2_ZLIB_LIBRARY)
+            if(${dependency})
+                list(PREPEND libssh2Dependencies "${${dependency}}")
+            endif()
+        endforeach()
+        set_property(TARGET Libssh2::libssh2 APPEND PROPERTY INTERFACE_LINK_LIBRARIES ${libssh2Dependencies})
     endif()
 endif()
 mark_as_advanced(LIBSSH2_INCLUDE_DIR LIBSSH2_LIBRARY)
