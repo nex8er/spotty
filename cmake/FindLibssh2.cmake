@@ -9,8 +9,8 @@
 # апстрима и у vcpkg). Проекту нужно одно стабильное имя, поэтому найденная цель оборачивается в
 # `Libssh2::libssh2` — глобальную, чтобы её видели и плагин, и тесты из соседних каталогов.
 #
-# Найденная библиотека тянет OpenSSL (или mbedTLS, WinCNG) сама — через собственные записи о
-# зависимостях; проекту знать об этом не нужно.
+# Разделяемая библиотека тянет OpenSSL (или mbedTLS, WinCNG) сама — через собственные записи о
+# зависимостях. Статическая из конфига пакета — нет: её зависимости добавляются ниже.
 if(TARGET Libssh2::libssh2)
     set(Libssh2_FOUND TRUE)
     return()
@@ -26,6 +26,22 @@ foreach(candidate IN ITEMS libssh2::libssh2 libssh2::libssh2_shared libssh2::lib
         set_property(TARGET ${candidate} PROPERTY IMPORTED_GLOBAL TRUE)
         add_library(Libssh2::libssh2 INTERFACE IMPORTED GLOBAL)
         target_link_libraries(Libssh2::libssh2 INTERFACE ${candidate})
+
+        # Статическая библиотека не несёт своих зависимостей: у vcpkg (libssh2[openssl,zlib]) конфиг о
+        # них молчит, и линковка плагина падала на сотне символов OpenSSL и zlib. Берём их сами, и тоже
+        # глобально: цель с `::` видна только в каталоге, где её нашли, а плагин и тесты лежат в соседних.
+        get_target_property(libssh2Kind ${candidate} TYPE)
+        if(libssh2Kind STREQUAL "STATIC_LIBRARY")
+            set(OPENSSL_USE_STATIC_LIBS ON)
+            find_package(OpenSSL REQUIRED)
+            find_package(ZLIB REQUIRED)
+            set_property(TARGET OpenSSL::Crypto ZLIB::ZLIB PROPERTY IMPORTED_GLOBAL TRUE)
+            target_link_libraries(Libssh2::libssh2 INTERFACE OpenSSL::Crypto ZLIB::ZLIB)
+            if(WIN32)
+                # Системные библиотеки, которых ждут OpenSSL (крипто-API, Winsock) и сама libssh2.
+                target_link_libraries(Libssh2::libssh2 INTERFACE ws2_32 crypt32 bcrypt user32 advapi32)
+            endif()
+        endif()
         set(Libssh2_FOUND TRUE)
         return()
     endif()

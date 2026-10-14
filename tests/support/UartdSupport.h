@@ -21,6 +21,7 @@
 #include <csignal>
 #include <cstdlib>
 #include <fcntl.h>
+#include <sys/ioctl.h>
 #include <memory>
 #include <termios.h>
 #include <unistd.h>
@@ -127,6 +128,15 @@ public:
 
     /// \brief Настройки порта, какими их оставил агент.
     bool termios(struct termios *out) const { return ::tcgetattr(m_slave, out) == 0; }
+
+    /**
+     * \brief Снять эксклюзивный доступ (TIOCEXCL), который взял агент.
+     *
+     * У настоящего порта он снимается, когда агент закрывает последний дескриптор. Здесь тест держит
+     * свой, и в Linux флаг переживает агента: следующий не откроет порт, если не root. Звать между
+     * остановкой агента и запуском нового на том же псевдотерминале.
+     */
+    void releaseExclusive() const { ::ioctl(m_slave, TIOCNXCL); }
 
 private:
     int m_master = -1;

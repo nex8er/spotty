@@ -429,6 +429,7 @@ TEST(RemoteInstallerInstall, ReinstallAppliesTheNewSettingsAndRestartsTheAgent)
                                           .arg(port, 0, 16)));
     params.baud = 9600;
     params.format = QStringLiteral("7E1");
+    uart.releaseExclusive(); // первый агент ещё держит порт, а у настоящего он освободился бы с его выходом
     ASSERT_TRUE(f.installer.install(info, params, &error)) << qPrintable(error);
 
     const QString secondPid = readText(pidFile).trimmed();

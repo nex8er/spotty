@@ -10,6 +10,24 @@
 
 using namespace spotty::test;
 
+namespace {
+
+/**
+ * \brief Сохраняет ли псевдотерминал размер символа и чётность, которые выставил агент.
+ *
+ * Драйвер pty в Linux (pty_set_termios) всегда оставляет 8 бит без чётности, что бы ни просили, поэтому
+ * проверить эти два признака через псевдотерминал можно только на macOS. Скорость, нечётность и стоп-биты
+ * сохраняются везде. Разбор формата в агенте от этого не страдает: он проверяется на macOS и в
+ * `--check` без порта.
+ */
+#ifdef __linux__
+constexpr bool kPtyKeepsCharacterFormat = false;
+#else
+constexpr bool kPtyKeepsCharacterFormat = true;
+#endif
+
+} // namespace
+
 TEST(Uartd, RelaysBothDirectionsByteForByte)
 {
     FakeUart uart;
@@ -70,8 +88,10 @@ TEST(Uartd, AppliesBaudAndFrameFormatToThePort)
     ASSERT_TRUE(uart.termios(&tio));
     EXPECT_EQ(cfgetispeed(&tio), speed_t(B9600));
     EXPECT_EQ(cfgetospeed(&tio), speed_t(B9600));
-    EXPECT_EQ(tio.c_cflag & CSIZE, tcflag_t(CS7));
-    EXPECT_TRUE(tio.c_cflag & PARENB);
+    if (kPtyKeepsCharacterFormat) {
+        EXPECT_EQ(tio.c_cflag & CSIZE, tcflag_t(CS7));
+        EXPECT_TRUE(tio.c_cflag & PARENB);
+    }
     EXPECT_FALSE(tio.c_cflag & PARODD);
     EXPECT_TRUE(tio.c_cflag & CSTOPB);
     // Сырой режим: иначе драйвер терминала переводил бы строки и отражал ввод обратно.
@@ -149,9 +169,13 @@ TEST(Uartd, DisconnectsClientsWhenUartDisappearsAndServesAgainWhenItReturns)
     ASSERT_TRUE(waitFor(
         [&] { return agent.log().count(QStringLiteral("serial port opened")) == 2; }, 5000));
 
+    // Строка «connected (1 total)» уже есть от первого клиента: ждать нужно новой, иначе байты уйдут
+    // раньше, чем агент примет клиента, — нулю клиентов, и тест падает через раз на медленной машине.
+    const auto connectedLines = [&] { return agent.log().count(QStringLiteral("connected (1 total)")); };
+    const int connectedBefore = connectedLines();
     Client after(port);
     ASSERT_TRUE(after.connected);
-    ASSERT_TRUE(agent.waitForLog(QStringLiteral("connected (1 total)")));
+    ASSERT_TRUE(waitFor([&] { return connectedLines() > connectedBefore; }, 10000));
     second.emitBytes("back");
     EXPECT_TRUE(after.waitForBytes(4));
     EXPECT_EQ(after.received, QByteArray("back"));
@@ -260,7 +284,8 @@ TEST(Uartd, ReadsTheConfigFileAndLetsTheCommandLineOverrideIt)
     struct termios tio;
     ASSERT_TRUE(uart.termios(&tio));
     EXPECT_EQ(cfgetispeed(&tio), speed_t(B19200));
-    EXPECT_TRUE(tio.c_cflag & PARENB);
+    if (kPtyKeepsCharacterFormat)
+        EXPECT_TRUE(tio.c_cflag & PARENB);
     EXPECT_TRUE(tio.c_cflag & PARODD);
 
     Client onOverride(overriding);
