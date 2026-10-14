@@ -68,6 +68,15 @@ public:
     static QString macrosDir();
 
     /**
+     * \return Каталог `plugin-data` — по подкаталогу на плагин, которому нужно хранить своё
+     *         (см. spotty::IInterfacePlugin::setDataDirectory()).
+     *
+     * Отдельно от `plugins`: там лежат сами модули, и смешивать код с данными нельзя —
+     * пользователь, чистя данные, не должен удалять плагины.
+     */
+    static QString pluginDataDir();
+
+    /**
      * \brief Каталог логов по умолчанию.
      * \return В переносном режиме — `<каталог приложения>/logs`, иначе
      *         `<Документы>/Spotty/logs`.

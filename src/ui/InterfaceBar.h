@@ -87,6 +87,14 @@ Q_SIGNALS:
     /// \brief Нажата кнопка настроек интерфейса.
     void settingsRequested(const QString &id);
 
+    /**
+     * \brief Выбран пункт «New connection…» плагина, у которого подключения заводит пользователь.
+     * \param pluginId Идентификатор плагина.
+     *
+     * Выбор в списке при этом не меняется: пункт — действие, а не интерфейс.
+     */
+    void newConnectionRequested(const QString &pluginId);
+
     /// \brief Нажата кнопка открытия или закрытия канала.
     void toggleOpenRequested();
 
@@ -141,6 +149,9 @@ private:
 
     /// \brief Признак идущего перестроения — глушит обработчик смены пункта.
     bool m_rebuilding = false;
+
+    /// \brief Последний выбранный интерфейс — туда возвращается список после пункта-действия.
+    QString m_lastSelectedId;
 
     /// \brief Тикает время обнаружения у уже построенных пунктов; см. refreshSecondaryTexts().
     QTimer *m_secondaryTextTimer = nullptr;

@@ -7,6 +7,8 @@
 #include <spotty/api/SettingsSchema.h>
 
 #include <QHash>
+#include <QList>
+#include <QPair>
 #include <QVariantMap>
 #include <QWidget>
 
@@ -15,6 +17,7 @@ class QComboBox;
 class QFormLayout;
 class QLabel;
 class QLineEdit;
+class QPushButton;
 class QTimer;
 class QVBoxLayout;
 
@@ -68,6 +71,26 @@ public:
     void selectInterface(const QString &id);
 
     /**
+     * \brief Считать устройство созданным здесь и ещё не настроенным.
+     * \param id Идентификатор устройства пользователя.
+     *
+     * Нужно тому, кто завёл устройство в обход панели (кнопка «новое подключение» в
+     * spotty::InterfaceBar), но открыл её, чтобы пользователь его заполнил. См.
+     * discardUnconfigured().
+     */
+    void markCreated(const QString &id);
+
+    /**
+     * \brief Удалить созданные здесь устройства, у которых так и не заполнены обязательные поля.
+     *
+     * Зовётся при закрытии диалога. Новое подключение без адреса ни к чему не пригодно, и
+     * оставлять его в списке значило бы засорять его каждым случайным нажатием «New». Только
+     * созданные в этом сеансе панели: подключение, у которого поле опустошили руками,
+     * молча пропасть не должно.
+     */
+    void discardUnconfigured();
+
+    /**
      * \brief Подсветить обязательные поля текущего устройства как ошибочные.
      * \param fieldKeys Ключи полей схемы (SettingsField::key). Устройство, к которому они
      *        относятся, — то, что уже выбрано в панели (см. selectInterface()); вызывающая
@@ -97,6 +120,15 @@ Q_SIGNALS:
     void settingsApplied(const QString &id);
 
 private:
+    /// \brief Завести устройство пользователя у плагина и выбрать его.
+    void addUserDevice(const QString &pluginId);
+
+    /// \brief Удалить выбранное устройство пользователя (после подтверждения).
+    void removeCurrentUserDevice();
+
+    /// \brief Плагины, у которых устройства создаёт пользователь: идентификатор и название.
+    QList<QPair<QString, QString>> userDevicePlugins() const;
+
     /// \brief Перечитать список устройств, сохранив текущий выбор, если он всё ещё есть.
     void rebuildList();
 
@@ -149,6 +181,17 @@ private:
      */
     void applyLiveOptions(const QString &key, const QList<SettingsOption> &options);
 
+    /**
+     * \brief Показать в строке сведений текст пункта вместе с его подачей (SettingsOption::value).
+     *
+     * Значок и свойство `severity` для таблицы стилей. Ничего не делает, если вид строки не изменился:
+     * вызывается раз в секунду, а перекраска дорога.
+     */
+    void applyNote(QLabel *note, const SettingsOption &option);
+
+    /// \brief Сделать колонку подписей одной ширины во всех формах, чтобы поля начинались с одного места.
+    static void alignFormLabels(const QList<QFormLayout *> &forms);
+
     /// \brief Запустить или остановить опрос живых полей по состоянию панели и схемы.
     void updateLiveTimer();
 
@@ -159,6 +202,18 @@ private:
     PluginManager *m_plugins;
 
     QComboBox *m_deviceCombo = nullptr;
+    QPushButton *m_addButton = nullptr;    ///< «New connection…»; скрыта, если создавать нечего.
+    QPushButton *m_removeButton = nullptr; ///< «Remove»; доступна для устройства пользователя.
+    QFormLayout *m_infoForm = nullptr;     ///< Строки группы «Interface».
+    QStringList m_createdIds;              ///< Созданные здесь и ещё не настроенные устройства.
+
+    /**
+     * \brief Прошлый ввод в окнах вопроса перед действием, по устройству.
+     *
+     * Только память этой панели: имя и пароль ssh не должны пережить окно настроек и не попадают ни
+     * в реестр, ни в файл (см. spotty::IInterfacePlugin::promptSchema()).
+     */
+    QHash<QString, QVariantMap> m_promptMemory;
 
     QLineEdit *m_alias = nullptr;
     QCheckBox *m_hidden = nullptr;

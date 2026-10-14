@@ -1,0 +1,20 @@
+# Settings of one spotty-uartd instance. Written by Spotty when the agent is installed; it is
+# fine to edit by hand (then: systemctl restart spotty-uartd@@PORT@).
+#
+# device: the serial port of this machine. A stable name from /dev/serial/by-id/ is best -
+# ttyUSBn numbers change whenever the adapter is replugged.
+device = @DEVICE@
+baud = @BAUD@
+format = @FORMAT@
+flow = @FLOW@
+
+# TCP port and address to listen on. 0.0.0.0 - every interface; 127.0.0.1 - this machine only
+# (for example behind an ssh tunnel); :: - every interface including IPv6.
+port = @PORT@
+bind = @BIND@
+
+# Who may connect: addresses and networks, comma separated, for example
+# 192.168.1.0/24, 10.0.0.5. Empty - everyone. There is no authentication in the protocol: raw
+# TCP hands the serial port to anyone who can reach the port, and this list is the only
+# protection.
+allow = @ALLOW@

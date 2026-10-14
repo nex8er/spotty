@@ -30,6 +30,10 @@ if(WIN32)
     add_subdirectory(nab)
 endif()
 
+# UART удалённой машины по raw TCP: клиент агента agent/spotty-uartd. Подключения заводит сам
+# пользователь (supportsUserDevices()), перечислять нечего.
+add_subdirectory(tcptunnel)
+
 # Виртуальный источник математических сигналов — отладочный транспорт для плоттера, второй
 # после loopback пример "не требует железа".
 add_subdirectory(signalgen)

@@ -199,6 +199,10 @@ bool PluginManager::registerInstance(QObject *instance, const QString &origin,
     }
 
     m_plugins.append(plugin);
+    // Каталог отдаётся только принятому плагину: выключенный и отвергнутый ничего хранить не
+    // будут, и подкаталоги для них никто не создаст.
+    if (!m_dataRoot.isEmpty())
+        plugin->setDataDirectory(QDir(m_dataRoot).filePath(id));
     qCInfo(lcPlugins) << "loaded" << id << "from" << origin;
     return true;
 }

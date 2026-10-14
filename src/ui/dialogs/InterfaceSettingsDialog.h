@@ -41,6 +41,9 @@ public:
     /// \return Панель внутри диалога — чтобы подключиться к её settingsApplied().
     InterfaceSettingsPanel *panel() const { return m_panel; }
 
+    /// \brief Закрыть диалог; незаполненные новые подключения при этом отбрасываются.
+    void done(int result) override;
+
 private:
     InterfaceSettingsPanel *m_panel = nullptr;
 };

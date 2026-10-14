@@ -29,6 +29,8 @@ qt_add_executable(spotty
     # регенерировать при каждой сборке незачем, дизайн иконки не меняется от сборки к сборке.
     $<$<PLATFORM_ID:Windows>:${CMAKE_SOURCE_DIR}/resources/icons/spotty.rc>
     AppContext.h
+    CollapsibleSection.cpp
+    CollapsibleSection.h
     InterfaceBar.cpp
     InterfaceBar.h
     InterfaceCombo.cpp
@@ -53,6 +55,8 @@ qt_add_executable(spotty
     SendBar.h
     TerminalView.cpp
     TerminalView.h
+    dialogs/ActionPromptDialog.cpp
+    dialogs/ActionPromptDialog.h
     dialogs/InterfaceSettingsDialog.cpp
     dialogs/InterfaceSettingsDialog.h
     dialogs/InterfaceSettingsPanel.cpp

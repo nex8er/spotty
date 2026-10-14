@@ -34,6 +34,15 @@ constexpr int kStatusGlyphSize = 14; ///< Размер кружка состоя
 constexpr int kButtonGlyphSize = 18; ///< Размер значка на кнопке, px.
 
 /**
+ * \brief Начало данных пункта-действия «New connection…»; дальше идёт идентификатор плагина.
+ *
+ * Данные у всех пунктов списка — идентификатор интерфейса, и пункт-действие обязан быть
+ * неотличим по виду, но не по смыслу: идентификатор настоящего интерфейса так начаться не
+ * может, потому что у него первая часть — идентификатор плагина (строчные буквы), а не `@`.
+ */
+const QString kNewConnectionPrefix = QStringLiteral("@new:");
+
+/**
  * \brief Как часто пересчитывать «N назад» у уже построенных пунктов списка.
  *
  * Formatting::timeAgo() после первой минуты считает минутами — более частый тик менял бы
@@ -117,6 +126,22 @@ InterfaceBar::InterfaceBar(const AppContext &context, QWidget *parent)
         if (m_rebuilding)
             return;
         const QString id = m_combo->itemData(index).toString();
+
+        if (id.startsWith(kNewConnectionPrefix)) {
+            // Пункт-действие: вернуть прежний выбор и только сообщить о просьбе. Диалог
+            // открывается позже, из очереди, — не изнутри обработчика закрывающегося списка.
+            const QString pluginId = id.mid(kNewConnectionPrefix.size());
+            {
+                const QSignalBlocker blocker(m_combo);
+                const int previous = m_combo->findData(m_lastSelectedId);
+                m_combo->setCurrentIndex(previous >= 0 ? previous : 0);
+            }
+            QMetaObject::invokeMethod(this, [this, pluginId] { Q_EMIT newConnectionRequested(pluginId); },
+                                      Qt::QueuedConnection);
+            return;
+        }
+
+        m_lastSelectedId = id;
         m_settingsButton->setEnabled(!id.isEmpty());
         m_openButton->setEnabled(!id.isEmpty());
         Q_EMIT interfaceSelected(id);
@@ -249,6 +274,20 @@ void InterfaceBar::rebuild()
         }
     }
 
+    // Плагин, у которого подключения заводит пользователь, нужен в списке и тогда, когда ни
+    // одного подключения ещё нет: иначе завести первое было бы негде.
+    QStringList userPlugins;
+    if (m_context.plugins) {
+        for (IInterfacePlugin *plugin : m_context.plugins->plugins()) {
+            if (!plugin->supportsUserDevices())
+                continue;
+            userPlugins.append(plugin->pluginId());
+            if (!groupLabels.contains(plugin->pluginId()))
+                groupLabels.insert(plugin->pluginId(), plugin->displayName());
+            groups[plugin->pluginId()]; // пустая группа, но заголовок будет
+        }
+    }
+
     QStringList pluginIds = groups.keys();
     std::sort(pluginIds.begin(), pluginIds.end(), [&groupLabels](const QString &a, const QString &b) {
         return groupLabels.value(a).localeAwareCompare(groupLabels.value(b)) < 0;
@@ -280,10 +319,19 @@ void InterfaceBar::rebuild()
                                      Qt::ForegroundRole);
             }
         }
+
+        if (userPlugins.contains(pluginId)) {
+            m_combo->addItem(tr("New connection…"), kNewConnectionPrefix + pluginId);
+            if (m_context.theme) {
+                m_combo->setItemData(m_combo->count() - 1, m_context.theme->colors().textMuted,
+                                     Qt::ForegroundRole);
+            }
+        }
     }
 
     const int restored = m_combo->findData(previous);
     m_combo->setCurrentIndex(restored >= 0 ? restored : 0);
+    m_lastSelectedId = currentInterfaceId();
     m_settingsButton->setEnabled(!currentInterfaceId().isEmpty());
 
     m_rebuilding = false;
@@ -320,6 +368,7 @@ void InterfaceBar::setCurrentInterfaceId(const QString &id)
     const int index = m_combo->findData(id);
     const QSignalBlocker blocker(m_combo);
     m_combo->setCurrentIndex(index >= 0 ? index : 0);
+    m_lastSelectedId = currentInterfaceId();
 
     const bool hasId = !currentInterfaceId().isEmpty();
     m_settingsButton->setEnabled(hasId);

@@ -84,6 +84,11 @@ add_subdirectory(src/ui)
 
 if(SPOTTY_BUILD_TESTS)
     enable_testing()
+    # Агент для удалённого хоста — POSIX-программа на C; нативная копия собирается ради
+    # тестов. Раньше tests/: тесты ссылаются на её цель.
+    if(UNIX)
+        add_subdirectory(agent)
+    endif()
     add_subdirectory(tests)
 endif()
 

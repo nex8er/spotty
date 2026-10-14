@@ -110,3 +110,38 @@ TEST(PluginManagerDisable, MismatchedApiVersionOutranksDisabling)
     EXPECT_EQ(manager.failures().size(), 1);
     EXPECT_TRUE(manager.disabledInterfacePlugins().isEmpty());
 }
+
+TEST(PluginManager, AcceptedPluginGetsItsOwnDataDirectoryUnderTheRoot)
+{
+    PluginManager manager;
+    manager.setDataRoot(QStringLiteral("/data/root"));
+    FakeInterfacePlugin plugin(QStringLiteral("alpha"));
+
+    ASSERT_TRUE(manager.addPlugin(&plugin));
+
+    EXPECT_EQ(plugin.dataDirectory, QStringLiteral("/data/root/alpha"));
+}
+
+TEST(PluginManager, RejectedAndDisabledPluginsGetNoDataDirectory)
+{
+    PluginManager manager;
+    manager.setDataRoot(QStringLiteral("/data/root"));
+    manager.setDisabledPlugins({QStringLiteral("off")});
+
+    FakeInterfacePlugin disabled(QStringLiteral("off"));
+    EXPECT_FALSE(manager.addPlugin(&disabled));
+    EXPECT_TRUE(disabled.dataDirectory.isEmpty());
+
+    FakeInterfacePlugin wrongVersion(QStringLiteral("old"));
+    wrongVersion.apiVersionOverride = SPOTTY_API_VERSION + 1;
+    EXPECT_FALSE(manager.addPlugin(&wrongVersion));
+    EXPECT_TRUE(wrongVersion.dataDirectory.isEmpty());
+}
+
+TEST(PluginManager, NoRootMeansNoDataDirectory)
+{
+    PluginManager manager;
+    FakeInterfacePlugin plugin;
+    ASSERT_TRUE(manager.addPlugin(&plugin));
+    EXPECT_TRUE(plugin.dataDirectory.isEmpty());
+}

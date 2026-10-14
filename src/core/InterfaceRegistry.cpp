@@ -13,6 +13,7 @@
 #include <QLoggingCategory>
 #include <QThread>
 #include <QTimer>
+#include <QUuid>
 
 #include <algorithm>
 
@@ -82,6 +83,10 @@ void InterfaceRegistry::start()
         m_pollTimer->start();
     }
 
+    // Устройства пользователя читаются до первого обхода: перечислять их некому, и без этого
+    // шага они появились бы в списке лишь после первого же изменения настроек.
+    restoreUserDevices();
+
     // Самый первый обход — синхронно и напрямую через refresh(), не через pollAsync():
     // вызывающая сторона (MainWindow) должна увидеть уже подключённые устройства сразу по
     // возврату из start(), а не через неопределённое время после того, как отработает
@@ -123,6 +128,79 @@ void InterfaceRegistry::restorePersisted(InterfaceEntry &entry, const QString &i
     entry.alias = record.value(QStringLiteral("alias")).toString();
     entry.hidden = record.value(QStringLiteral("hidden")).toBool();
     entry.settings = record.value(QStringLiteral("settings")).toMap();
+}
+
+void InterfaceRegistry::restoreUserDevices()
+{
+    const QVariantMap stored = m_store->data();
+    for (auto it = stored.constBegin(); it != stored.constEnd(); ++it) {
+        const QVariantMap record = it.value().toMap();
+        if (!record.value(QStringLiteral("user")).toBool())
+            continue;
+
+        IInterfacePlugin *plugin = m_plugins->plugin(record.value(QStringLiteral("pluginId")).toString());
+        if (!plugin || !plugin->supportsUserDevices())
+            continue;
+
+        InterfaceEntry &entry = m_entries[it.key()];
+        restorePersisted(entry, it.key());
+        entry.userDefined = true;
+        entry.present = true;
+        entry.descriptor = describeUserDevice(plugin, it.key(), entry.settings);
+    }
+}
+
+InterfaceDescriptor InterfaceRegistry::describeUserDevice(IInterfacePlugin *plugin,
+                                                          const QString &id,
+                                                          const QVariantMap &settings) const
+{
+    // Плагину отдаётся нормализованное: сохранённое прежней версией могло не знать нового
+    // ключа, а описание не должно из-за этого строиться на пустом месте.
+    InterfaceDescriptor descriptor =
+        plugin->describeUserDevice(plugin->settingsSchema().normalized(settings));
+    descriptor.id = id;
+    descriptor.pluginId = plugin->pluginId();
+    if (descriptor.systemName.isEmpty())
+        descriptor.systemName = plugin->displayName();
+    return descriptor;
+}
+
+QString InterfaceRegistry::addUserDevice(const QString &pluginId)
+{
+    IInterfacePlugin *plugin = m_plugins->plugin(pluginId);
+    if (!plugin || !plugin->supportsUserDevices())
+        return {};
+
+    // Случайный идентификатор, а не выведенный из адреса: адрес пользователь правит, а
+    // псевдоним, выбор и сохранённое в файле должны остаться за тем же устройством.
+    const QString id = QStringLiteral("%1:user:%2")
+                           .arg(pluginId, QUuid::createUuid().toString(QUuid::Id128).left(8));
+
+    InterfaceEntry &entry = m_entries[id];
+    entry.userDefined = true;
+    entry.present = true;
+    entry.settings = plugin->settingsSchema().defaults();
+    entry.descriptor = describeUserDevice(plugin, id, entry.settings);
+    persist(id);
+
+    qCInfo(lcRegistry) << "added user device" << id;
+    Q_EMIT interfaceAppeared(id);
+    Q_EMIT changed();
+    return id;
+}
+
+void InterfaceRegistry::removeUserDevice(const QString &id)
+{
+    const auto it = m_entries.find(id);
+    if (it == m_entries.end() || !it->userDefined)
+        return;
+
+    m_entries.erase(it);
+    m_store->remove(id);
+
+    qCInfo(lcRegistry) << "removed user device" << id;
+    Q_EMIT interfaceDisappeared(id);
+    Q_EMIT changed();
 }
 
 void InterfaceRegistry::refresh()
@@ -247,11 +325,33 @@ void InterfaceRegistry::applyDiscovered(const QHash<QString, InterfaceDescriptor
     // файле год за годом, а на следующем запуске программы список и так начнётся заново
     // с того, что подключено на самом деле.
     for (auto it = m_entries.begin(); it != m_entries.end(); ++it) {
+        // Устройство пользователя отсутствует в enumerate() всегда и по замыслу: оно не
+        // пропало, его просто некому перечислять.
+        if (it->userDefined)
+            continue;
         if (it->present && !seen.contains(it.key())) {
             it->present = false;
             it->discoveredAt = {};
             disappeared.append(it.key());
             m_store->remove(it.key());
+            dirty = true;
+        }
+    }
+
+    // Подпись устройства пользователя выводится из настроек и из того, что плагин успел узнать о
+    // машине (например, имя хоста, которое приходит по ssh уже после ввода адреса). Поэтому она
+    // пересчитывается при каждом обходе, а не только при правке настроек.
+    for (auto it = m_entries.begin(); it != m_entries.end(); ++it) {
+        if (!it->userDefined)
+            continue;
+        IInterfacePlugin *plugin = m_plugins->plugin(it->descriptor.pluginId);
+        if (!plugin)
+            continue;
+        const InterfaceDescriptor fresh = describeUserDevice(plugin, it.key(), it->settings);
+        if (fresh.systemName != it->descriptor.systemName || fresh.description != it->descriptor.description
+            || fresh.extra != it->descriptor.extra) {
+            it->descriptor = fresh;
+            persist(it.key());
             dirty = true;
         }
     }
@@ -335,19 +435,34 @@ void InterfaceRegistry::setSettingsFor(const QString &id, const QVariantMap &set
         return;
 
     it->settings = settings;
+    if (it->userDefined) {
+        // Подпись и адрес устройства пользователя выводятся из настроек (хост, порт), и
+        // после правки список должен показывать уже новые.
+        if (IInterfacePlugin *plugin = m_plugins->plugin(it->descriptor.pluginId))
+            it->descriptor = describeUserDevice(plugin, id, settings);
+    }
     persist(id);
     Q_EMIT changed();
 }
 
 void InterfaceRegistry::resetAll()
 {
-    for (auto it = m_entries.begin(); it != m_entries.end(); ++it) {
+    QStringList removedUserDevices;
+    for (auto it = m_entries.begin(); it != m_entries.end();) {
+        if (it->userDefined) {
+            removedUserDevices.append(it.key());
+            it = m_entries.erase(it);
+            continue;
+        }
         it->alias.clear();
         it->hidden = it->descriptor.hiddenByDefault;
         it->settings.clear();
+        ++it;
     }
 
     m_store->clear();
+    for (const QString &id : std::as_const(removedUserDevices))
+        Q_EMIT interfaceDisappeared(id);
     Q_EMIT changed();
 }
 
@@ -363,7 +478,15 @@ void InterfaceRegistry::persist(const QString &id) const
     record.insert(QStringLiteral("description"), entry->descriptor.description);
     record.insert(QStringLiteral("alias"), entry->alias);
     record.insert(QStringLiteral("hidden"), entry->hidden);
-    record.insert(QStringLiteral("settings"), entry->settings);
+    if (entry->userDefined)
+        record.insert(QStringLiteral("user"), true);
+
+    // Пароли в файл не идут: это единственное место, где настройки покидают память, и
+    // решает, что секретно, схема плагина, а не вызывающий. Плагин, которого уже нет,
+    // секретов не объявлял — сохраняется как есть.
+    IInterfacePlugin *plugin = m_plugins->plugin(entry->descriptor.pluginId);
+    record.insert(QStringLiteral("settings"),
+                  plugin ? plugin->settingsSchema().persistent(entry->settings) : entry->settings);
 
     m_store->setValue(id, record);
 }

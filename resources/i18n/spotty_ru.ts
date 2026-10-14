@@ -2,6 +2,89 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ru" sourcelanguage="en">
 <context>
+    <name>Libssh2Session</name>
+    <message>
+        <source>no session</source>
+        <translation>нет сеанса</translation>
+    </message>
+    <message>
+        <source>unknown error</source>
+        <translation>неизвестная ошибка</translation>
+    </message>
+    <message>
+        <source>libssh2 could not be initialised</source>
+        <translation>Не удалось инициализировать libssh2</translation>
+    </message>
+    <message>
+        <source>cannot resolve the address</source>
+        <translation>не удаётся разрешить адрес</translation>
+    </message>
+    <message>
+        <source>connection failed</source>
+        <translation>соединение не удалось</translation>
+    </message>
+    <message>
+        <source>timed out</source>
+        <translation>время вышло</translation>
+    </message>
+    <message>
+        <source>cannot create an ssh session</source>
+        <translation>не удаётся создать сеанс ssh</translation>
+    </message>
+    <message>
+        <source>the server did not answer the ssh handshake (is it an ssh server?)</source>
+        <translation>сервер не ответил на обмен ключами ssh (это точно сервер ssh?)</translation>
+    </message>
+    <message>
+        <source>ssh handshake failed: %1</source>
+        <translation>обмен ключами ssh не удался: %1</translation>
+    </message>
+    <message>
+        <source>the server did not present a host key</source>
+        <translation>сервер не предъявил ключ хоста</translation>
+    </message>
+    <message>
+        <source>not connected</source>
+        <translation>нет соединения</translation>
+    </message>
+    <message>
+        <source>the server rejected the password or the key</source>
+        <translation>сервер отверг пароль или ключ</translation>
+    </message>
+    <message>
+        <source>the server does not accept this key</source>
+        <translation>сервер не принимает этот ключ</translation>
+    </message>
+    <message>
+        <source>the server does not allow key authentication</source>
+        <translation>сервер не разрешает вход по ключу</translation>
+    </message>
+    <message>
+        <source>cannot read the key file or the passphrase is wrong</source>
+        <translation>не удаётся прочитать файл ключа, или неверен пароль ключа</translation>
+    </message>
+    <message>
+        <source>enter a password or a key file</source>
+        <translation>введите пароль или файл ключа</translation>
+    </message>
+    <message>
+        <source>enter a password or a key file (no ssh-agent key was accepted)</source>
+        <translation>введите пароль или файл ключа (ни один ключ ssh-agent не принят)</translation>
+    </message>
+    <message>
+        <source>cannot open an ssh channel: %1</source>
+        <translation>не удаётся открыть канал ssh: %1</translation>
+    </message>
+    <message>
+        <source>cannot run the command: %1</source>
+        <translation>не удаётся выполнить команду: %1</translation>
+    </message>
+    <message>
+        <source>cannot send data to the command: %1</source>
+        <translation>не удаётся передать данные команде: %1</translation>
+    </message>
+</context>
+<context>
     <name>QObject</name>
     <message>
         <source>Unsupported CAN bit rate: %1 bit/s</source>
@@ -18,6 +101,255 @@
     <message>
         <source>CAN bus error: %1</source>
         <translation>Ошибка шины CAN: %1</translation>
+    </message>
+</context>
+<context>
+    <name>RemoteHost</name>
+    <message>
+        <source>no systemd</source>
+        <translation>без systemd</translation>
+    </message>
+    <message>
+        <source>The machine did not report what system it runs.</source>
+        <translation>Машина не сообщила, какая на ней система.</translation>
+    </message>
+    <message>
+        <source>The agent runs on Linux only, and this machine runs %1.</source>
+        <translation>Агент работает только в Linux, а эта машина работает под %1.</translation>
+    </message>
+    <message>
+        <source>No agent is built for the package architecture &quot;%1&quot;.</source>
+        <translation>Для архитектуры пакетов «%1» агент не собран.</translation>
+    </message>
+    <message>
+        <source>ARMv5 and older processors are not supported by the agent (&quot;%1&quot;).</source>
+        <translation>Процессоры ARMv5 и старше агент не поддерживает («%1»).</translation>
+    </message>
+    <message>
+        <source>No agent is built for the architecture &quot;%1&quot;.</source>
+        <translation>Для архитектуры «%1» агент не собран.</translation>
+    </message>
+    <message>
+        <source>Choose the serial port of the remote machine.</source>
+        <translation>Выберите последовательный порт удалённой машины.</translation>
+    </message>
+    <message>
+        <source>The serial port must be an absolute path such as /dev/ttyUSB0.</source>
+        <translation>Последовательный порт должен быть абсолютным путём вроде /dev/ttyUSB0.</translation>
+    </message>
+    <message>
+        <source>Unsupported baud rate %1.</source>
+        <translation>Скорость %1 не поддерживается.</translation>
+    </message>
+    <message>
+        <source>The frame format must look like 8N1.</source>
+        <translation>Формат кадра должен выглядеть как 8N1.</translation>
+    </message>
+    <message>
+        <source>Unknown flow control &quot;%1&quot;.</source>
+        <translation>Неизвестное управление потоком «%1».</translation>
+    </message>
+    <message>
+        <source>The port must be between 1 and 65535.</source>
+        <translation>Порт должен быть от 1 до 65535.</translation>
+    </message>
+    <message>
+        <source>The listen address &quot;%1&quot; is not valid.</source>
+        <translation>Адрес прослушивания «%1» недопустим.</translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; in the list of allowed clients is not an address or network.</source>
+        <translation>«%1» в списке разрешённых клиентов — не адрес и не сеть.</translation>
+    </message>
+</context>
+<context>
+    <name>RemoteInstaller</name>
+    <message>
+        <source>Enter the address of the machine first (the Host field).</source>
+        <translation>Сначала введите адрес машины (поле «Хост»).</translation>
+    </message>
+    <message>
+        <source>Enter the ssh user name.</source>
+        <translation>Введите имя пользователя ssh.</translation>
+    </message>
+    <message>
+        <source>Connecting to %1:%2...</source>
+        <translation>Подключаюсь к %1:%2...</translation>
+    </message>
+    <message>
+        <source>Cannot connect to %1:%2 over ssh: %3</source>
+        <translation>Не удаётся подключиться к %1:%2 по ssh: %3</translation>
+    </message>
+    <message>
+        <source>The ssh host key of %1 does not match the one in your ~/.ssh/known_hosts (now %2). Someone may be intercepting the connection, or the machine was reinstalled. Nothing was sent. Fix known_hosts if you are sure.</source>
+        <translation>SSH-ключ хоста %1 не совпадает с записью в вашем ~/.ssh/known_hosts (теперь %2). Возможно, соединение перехватывают, а возможно, машину переустановили. Ничего не отправлено. Если уверены, исправьте known_hosts.</translation>
+    </message>
+    <message>
+        <source>The ssh host key of %1 has CHANGED (now %2). Someone may be intercepting the connection, or the machine was reinstalled. Nothing was sent. If you are sure, press &quot;Forget the saved host key&quot; and try again.</source>
+        <translation>SSH-ключ хоста %1 ИЗМЕНИЛСЯ (теперь %2). Возможно, соединение перехватывают, а возможно, машину переустановили. Ничего не отправлено. Если уверены, нажмите «Забыть сохранённый ключ SSH-хоста» и повторите.</translation>
+    </message>
+    <message>
+        <source>The ssh host key of %1 is not known yet:
+%2
+Check that this is your machine (on it: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub). If it matches, press the same button again to trust this machine.</source>
+        <translation>SSH-ключ хоста %1 пока неизвестен:
+%2
+Убедитесь, что это ваша машина (на ней: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub). Если отпечаток совпадает, нажмите ту же кнопку ещё раз — Spotty доверится этой машине.</translation>
+    </message>
+    <message>
+        <source>Saved the host key %1</source>
+        <translation>Ключ хоста сохранён: %1</translation>
+    </message>
+    <message>
+        <source>Signing in as %1...</source>
+        <translation>Вхожу как %1...</translation>
+    </message>
+    <message>
+        <source>Cannot sign in as %1: %2</source>
+        <translation>Не удаётся войти как %1: %2</translation>
+    </message>
+    <message>
+        <source>The command did not complete.</source>
+        <translation>Команда не завершилась.</translation>
+    </message>
+    <message>
+        <source>You are signed in as %1, not root, and sudo is not installed on the machine. Sign in as root or install sudo.</source>
+        <translation>Вы вошли как %1, а не root, и sudo на машине не установлен. Войдите как root или установите sudo.</translation>
+    </message>
+    <message>
+        <source>sudo did not accept the password. Enter the password of the account %1 in the Password field - it is used for sudo as well, also when you sign in with a key.</source>
+        <translation>sudo не принял пароль. Введите пароль учётной записи %1 в поле «Пароль» — он используется и для sudo, в том числе при входе по ключу.</translation>
+    </message>
+    <message>
+        <source>The user %1 is not allowed to use sudo on this machine. Sign in as root or as a user with sudo rights.</source>
+        <translation>Пользователю %1 не разрешён sudo на этой машине. Войдите как root или как пользователь с правами sudo.</translation>
+    </message>
+    <message>
+        <source>Looking at the machine...</source>
+        <translation>Осматриваю машину...</translation>
+    </message>
+    <message>
+        <source>The detection script is missing from this build of Spotty.</source>
+        <translation>В этой сборке Spotty нет скрипта определения машины.</translation>
+    </message>
+    <message>
+        <source>Could not examine the machine: %1</source>
+        <translation>Не удалось осмотреть машину: %1</translation>
+    </message>
+    <message>
+        <source>exit code %1</source>
+        <translation>код возврата %1</translation>
+    </message>
+    <message>
+        <source>Machine: %1</source>
+        <translation>Машина: %1</translation>
+    </message>
+    <message>
+        <source>Cannot create a temporary directory in %1 on the machine.</source>
+        <translation>Не удаётся создать временный каталог в %1 на машине.</translation>
+    </message>
+    <message>
+        <source>Cannot write %1 on the machine: %2</source>
+        <translation>Не удаётся записать %1 на машине: %2</translation>
+    </message>
+    <message>
+        <source>No agent is built for this machine.</source>
+        <translation>Для этой машины агент не собран.</translation>
+    </message>
+    <message>
+        <source>This build of Spotty has no agent for %1.</source>
+        <translation>В этой сборке Spotty нет агента для %1.</translation>
+    </message>
+    <message>
+        <source>The agent does not start here (&quot;%1&quot;). Detected: %2.</source>
+        <translation>Агент здесь не запускается («%1»). Определено: %2.</translation>
+    </message>
+    <message>
+        <source>Looking for serial ports...</source>
+        <translation>Ищу последовательные порты...</translation>
+    </message>
+    <message>
+        <source>The port search failed: %1</source>
+        <translation>Поиск портов не удался: %1</translation>
+    </message>
+    <message>
+        <source>Serial ports found: %1</source>
+        <translation>Найдено последовательных портов: %1</translation>
+    </message>
+    <message>
+        <source>This machine does not run systemd, so the agent cannot be started at boot. Untick &quot;Start at boot&quot; to run it until the next reboot.</source>
+        <translation>На этой машине нет systemd, поэтому запускать агента при загрузке нельзя. Снимите «Запускать при загрузке», чтобы он работал до следующей перезагрузки.</translation>
+    </message>
+    <message>
+        <source>Port %1 on the machine is already used by another program. Choose another port (%2 is free).</source>
+        <translation>Порт %1 на машине уже занят другой программой. Выберите другой порт (%2 свободен).</translation>
+    </message>
+    <message>
+        <source>Port %1 is already used by the agent for %2. Choose another port (%3 is free) or remove that agent first.</source>
+        <translation>Порт %1 уже занят агентом для %2. Выберите другой порт (%3 свободен) или сначала удалите того агента.</translation>
+    </message>
+    <message>
+        <source>Cancelled.</source>
+        <translation>Отменено.</translation>
+    </message>
+    <message>
+        <source>The installation files are missing from this build of Spotty.</source>
+        <translation>В этой сборке Spotty нет файлов установки.</translation>
+    </message>
+    <message>
+        <source>Uploading the files...</source>
+        <translation>Загружаю файлы...</translation>
+    </message>
+    <message>
+        <source>Installing...</source>
+        <translation>Устанавливаю...</translation>
+    </message>
+    <message>
+        <source>Installation failed: %1</source>
+        <translation>Установка не удалась: %1</translation>
+    </message>
+    <message>
+        <source>There is no agent on port %1 of this machine.</source>
+        <translation>На порту %1 этой машины агента нет.</translation>
+    </message>
+    <message>
+        <source>The removal script is missing from this build of Spotty.</source>
+        <translation>В этой сборке Spotty нет скрипта удаления.</translation>
+    </message>
+    <message>
+        <source>Removing the agent...</source>
+        <translation>Удаляю агента...</translation>
+    </message>
+    <message>
+        <source>Removal failed: %1</source>
+        <translation>Удаление не удалось: %1</translation>
+    </message>
+</context>
+<context>
+    <name>RemoteTasks</name>
+    <message>
+        <source>The previous operation on this connection is still running.</source>
+        <translation>Предыдущая операция с этим подключением ещё идёт.</translation>
+    </message>
+    <message>
+        <source>%1. Serial ports found: %2. First free port for an agent: %3.</source>
+        <translation>%1. Найдено последовательных портов: %2. Первый свободный порт для агента: %3.</translation>
+    </message>
+    <message>
+        <source>Checking that the agent answers...</source>
+        <translation>Проверяю, что агент отвечает...</translation>
+    </message>
+    <message>
+        <source>Installed: the agent listens on %1:%2 (%3, %4 %5). You can open this connection now.</source>
+        <translation>Установлено: агент слушает %1:%2 (%3, %4 %5). Теперь подключение можно открывать.</translation>
+    </message>
+    <message>
+        <source>The agent was installed and started, but port %1 of %2 does not answer from here. Check the firewall of the machine, the listen address and the network.</source>
+        <translation>Агент установлен и запущен, но порт %1 машины %2 отсюда не отвечает. Проверьте файрвол машины, адрес прослушивания и сеть.</translation>
+    </message>
+    <message>
+        <source>The agent on port %1 was removed from the machine. You can remove this connection now.</source>
+        <translation>Агент на порту %1 удалён с машины. Теперь можно удалить и это подключение.</translation>
     </message>
 </context>
 <context>
@@ -598,6 +930,10 @@
         <source>Not selected</source>
         <translation>Не выбрано</translation>
     </message>
+    <message>
+        <source>New connection…</source>
+        <translation>Новое подключение…</translation>
+    </message>
 </context>
 <context>
     <name>spotty::InterfaceSettingsDialog</name>
@@ -608,6 +944,14 @@
 </context>
 <context>
     <name>spotty::InterfaceSettingsPanel</name>
+    <message>
+        <source>New connection…</source>
+        <translation>Новое подключение…</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Удалить</translation>
+    </message>
     <message>
         <source>Device</source>
         <translation>Устройство</translation>
@@ -633,8 +977,24 @@
         <translation>VID:PID</translation>
     </message>
     <message>
+        <source>Remove connection</source>
+        <translation>Удалить подключение</translation>
+    </message>
+    <message>
+        <source>Remove &quot;%1&quot; from Spotty?</source>
+        <translation>Удалить «%1» из Spotty?</translation>
+    </message>
+    <message>
+        <source>Only the saved connection is removed. Nothing is changed on the remote side.</source>
+        <translation>Удаляется только сохранённое подключение. На удалённой стороне ничего не меняется.</translation>
+    </message>
+    <message>
         <source>General</source>
         <translation>Общие</translation>
+    </message>
+    <message>
+        <source>Advanced</source>
+        <translation>Дополнительно</translation>
     </message>
 </context>
 <context>
@@ -1893,37 +2253,18 @@ Double-click to edit, right-click for options</source>
     </message>
 </context>
 <context>
-    <name>spotty::NabChannel</name>
+    <name>spotty::NetworkScanner</name>
     <message>
-        <source>Could not open NAB USB interface %1: %2</source>
-        <translation type="unfinished"></translation>
+        <source>&quot;%1&quot; is not an IPv4 address or network (expected like 192.168.1.0/24).</source>
+        <translation>«%1» — не адрес IPv4 и не сеть (нужно вроде 192.168.1.0/24).</translation>
     </message>
     <message>
-        <source>Could not configure NAB USB interface %1: %2</source>
-        <translation type="unfinished"></translation>
+        <source>The range &quot;%1&quot; is too large (at most %2 addresses).</source>
+        <translation>Диапазон «%1» слишком велик (не больше %2 адресов).</translation>
     </message>
     <message>
-        <source>USB interface %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>NAB USB transfer failed: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>spotty::NabPlugin</name>
-    <message>
-        <source>USB interface %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>NAB USB interface %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>NAB USB</source>
-        <translation type="unfinished"></translation>
+        <source>The range is too large (more than %1 addresses).</source>
+        <translation>Диапазон слишком велик (больше %1 адресов).</translation>
     </message>
 </context>
 <context>
@@ -2373,6 +2714,37 @@ Double-click to edit, right-click for options</source>
     </message>
 </context>
 <context>
+    <name>spotty::PtyPort</name>
+    <message>
+        <source>Cannot create a virtual port (%1).</source>
+        <translation>Не удалось создать виртуальный порт (%1).</translation>
+    </message>
+    <message>
+        <source>This system does not allow creating names in /dev, even with administrator rights. Use a path outside /dev, for example %1.</source>
+        <translation>Эта система не позволяет создавать имена в /dev, даже с правами администратора. Используйте путь вне /dev, например %1.</translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; is not a valid name in /dev.</source>
+        <translation>"%1" не годится как имя в /dev.</translation>
+    </message>
+    <message>
+        <source>%1 is already used by something else: choose another name.</source>
+        <translation>%1 уже занято чем-то другим: выберите другое имя.</translation>
+    </message>
+    <message>
+        <source>%1 already exists and is not a link.</source>
+        <translation>%1 уже существует и не является ссылкой.</translation>
+    </message>
+    <message>
+        <source>Cannot create %1: %2</source>
+        <translation>Не удалось создать %1: %2</translation>
+    </message>
+    <message>
+        <source>Virtual port failed: %1</source>
+        <translation>Сбой виртуального порта: %1</translation>
+    </message>
+</context>
+<context>
     <name>spotty::ScaleLimitsDialog</name>
     <message>
         <source>Scale limits — %1</source>
@@ -2400,6 +2772,10 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>General</source>
         <translation>Общие</translation>
+    </message>
+    <message>
+        <source>Advanced</source>
+        <translation>Дополнительно</translation>
     </message>
 </context>
 <context>
@@ -2801,7 +3177,7 @@ Continue?</source>
     </message>
     <message>
         <source>Version %1 is available. &lt;a href=&quot;%2&quot;&gt;Download&lt;/a&gt; · &lt;a href=&quot;%3&quot;&gt;What&apos;s new&lt;/a&gt;</source>
-        <translation>Доступна версия %1. &lt;a href="%2"&gt;Скачать&lt;/a&gt; · &lt;a href="%3"&gt;Что нового&lt;/a&gt;</translation>
+        <translation>Доступна версия %1. &lt;a href=&quot;%2&quot;&gt;Скачать&lt;/a&gt; · &lt;a href=&quot;%3&quot;&gt;Что нового&lt;/a&gt;</translation>
     </message>
     <message>
         <source>You have the latest version (%1).</source>
@@ -3228,6 +3604,320 @@ Continue?</source>
     </message>
 </context>
 <context>
+    <name>spotty::TcpTunnelChannel</name>
+    <message>
+        <source>The host is not set.</source>
+        <translation>Адрес не задан.</translation>
+    </message>
+    <message>
+        <source>Invalid port.</source>
+        <translation>Неверный порт.</translation>
+    </message>
+    <message>
+        <source>timed out</source>
+        <translation>время вышло</translation>
+    </message>
+    <message>
+        <source>Cannot connect to %1:%2: %3</source>
+        <translation>Не удаётся подключиться к %1:%2: %3</translation>
+    </message>
+    <message>
+        <source>Connection to %1:%2 was closed right away.</source>
+        <translation>Соединение с %1:%2 тут же закрыли.</translation>
+    </message>
+    <message>
+        <source>Connection to %1:%2 lost, reconnecting…</source>
+        <translation>Соединение с %1:%2 потеряно, переподключаюсь…</translation>
+    </message>
+    <message>
+        <source>Connection closed by %1:%2. If the agent is running, check that the serial port is connected on the remote machine.</source>
+        <translation>Соединение закрыто стороной %1:%2. Если агент запущен, проверьте, что последовательный порт подключён на удалённой машине.</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::TcpTunnelPlugin</name>
+    <message>
+        <source>Agent on the machine</source>
+        <translation>Агент на машине</translation>
+    </message>
+    <message>
+        <source>Find serial ports on the machine...</source>
+        <translation>Найти последовательные порты на машине...</translation>
+    </message>
+    <message>
+        <source>Serial port</source>
+        <translation>Последовательный порт</translation>
+    </message>
+    <message>
+        <source>The port of the machine that is forwarded. Virtual consoles (tty1...) and ports without hardware are left out of the list.</source>
+        <translation>Порт машины, который пробрасывается. Виртуальные консоли (tty1...) и порты без железа в списке не показываются.</translation>
+    </message>
+    <message>
+        <source>Baud rate</source>
+        <translation>Скорость</translation>
+    </message>
+    <message>
+        <source>bps</source>
+        <translation>бод</translation>
+    </message>
+    <message>
+        <source>Set when the agent is installed: the connection itself is plain TCP and carries no settings. To change it, install again.</source>
+        <translation>Задаётся при установке агента: само соединение — чистый TCP и настроек не несёт. Чтобы изменить, установите агента заново.</translation>
+    </message>
+    <message>
+        <source>Format</source>
+        <translation>Формат</translation>
+    </message>
+    <message>
+        <source>Data bits, parity and stop bits.</source>
+        <translation>Биты данных, чётность и стоповые биты.</translation>
+    </message>
+    <message>
+        <source>Start at boot</source>
+        <translation>Запускать при загрузке</translation>
+    </message>
+    <message>
+        <source>Install a systemd service. Needs systemd on the machine.</source>
+        <translation>Поставить сервис systemd. Нужен systemd на машине.</translation>
+    </message>
+    <message>
+        <source>Flow control</source>
+        <translation>Управление потоком</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>Нет</translation>
+    </message>
+    <message>
+        <source>Hardware (RTS/CTS)</source>
+        <translation>Аппаратное (RTS/CTS)</translation>
+    </message>
+    <message>
+        <source>Software (XON/XOFF)</source>
+        <translation>Программное (XON/XOFF)</translation>
+    </message>
+    <message>
+        <source>Listen on</source>
+        <translation>Слушать на</translation>
+    </message>
+    <message>
+        <source>All interfaces</source>
+        <translation>Все интерфейсы</translation>
+    </message>
+    <message>
+        <source>All interfaces, including IPv6</source>
+        <translation>Все интерфейсы, включая IPv6</translation>
+    </message>
+    <message>
+        <source>This machine only</source>
+        <translation>Только эта машина</translation>
+    </message>
+    <message>
+        <source>Allowed clients</source>
+        <translation>Разрешённые клиенты</translation>
+    </message>
+    <message>
+        <source>Optional protection: addresses and networks, comma separated (192.168.1.0/24, 10.0.0.5). Empty - anyone who can reach the port. The connection has no password, so this list is the only protection.</source>
+        <translation>Необязательная защита: адреса и сети через запятую (192.168.1.0/24, 10.0.0.5). Пусто — любой, кто доберётся до порта. У соединения нет пароля, поэтому этот список — единственная защита.</translation>
+    </message>
+    <message>
+        <source>Install or update the agent...</source>
+        <translation>Установить или обновить агента...</translation>
+    </message>
+    <message>
+        <source>Remove the agent from the machine...</source>
+        <translation>Удалить агента с машины...</translation>
+    </message>
+    <message>
+        <source>Forget the saved SSH host key</source>
+        <translation>Забыть сохранённый ключ SSH-хоста</translation>
+    </message>
+    <message>
+        <source>Status</source>
+        <translation>Состояние</translation>
+    </message>
+    <message>
+        <source>Press &quot;Find serial ports on the machine&quot; - Spotty will ask for the SSH user name and password.</source>
+        <translation>Нажмите «Найти последовательные порты на машине» — Spotty спросит имя пользователя и пароль SSH.</translation>
+    </message>
+    <message>
+        <source>Host</source>
+        <translation>Хост</translation>
+    </message>
+    <message>
+        <source>Connection</source>
+        <translation>Подключение</translation>
+    </message>
+    <message>
+        <source>IP address or host name of the machine where the agent runs. Hosts found by the scan below are offered in the list.</source>
+        <translation>IP-адрес или имя машины, где работает агент. Хосты, найденные поиском ниже, предлагаются в списке.</translation>
+    </message>
+    <message>
+        <source>Port</source>
+        <translation>Порт</translation>
+    </message>
+    <message>
+        <source>The first agent on a machine listens on 7777, the next ones on 7778, 7779 and so on - one agent serves one serial port.</source>
+        <translation>Первый агент на машине слушает порт 7777, следующие — 7778, 7779 и так далее: один агент обслуживает один последовательный порт.</translation>
+    </message>
+    <message>
+        <source>Reconnect automatically</source>
+        <translation>Переподключаться автоматически</translation>
+    </message>
+    <message>
+        <source>Keep trying when the connection drops: the board rebooted, the network blinked or the agent was restarted.</source>
+        <translation>Пробовать снова, когда соединение оборвалось: плата перезагрузилась, пропала сеть или перезапустили агента.</translation>
+    </message>
+    <message>
+        <source>Connection timeout</source>
+        <translation>Таймаут соединения</translation>
+    </message>
+    <message>
+        <source>ms</source>
+        <translation>мс</translation>
+    </message>
+    <message>
+        <source>Network</source>
+        <translation>Сеть</translation>
+    </message>
+    <message>
+        <source>Find on the network</source>
+        <translation>Поиск в сети</translation>
+    </message>
+    <message>
+        <source>All networks of this computer</source>
+        <translation>Все сети этого компьютера</translation>
+    </message>
+    <message>
+        <source>Pick a network of this computer or type addresses and networks yourself: 192.168.1.0/24, 10.0.0.5</source>
+        <translation>Выберите сеть этого компьютера или введите адреса и сети сами: 192.168.1.0/24, 10.0.0.5</translation>
+    </message>
+    <message>
+        <source>Where an open port is found, the next three are checked as well: that is where further agents of the same machine listen.</source>
+        <translation>Где найден открытый порт, проверяются и три следующих: на них слушают остальные агенты той же машины.</translation>
+    </message>
+    <message>
+        <source>Scan network</source>
+        <translation>Искать в сети</translation>
+    </message>
+    <message>
+        <source>Result</source>
+        <translation>Результат</translation>
+    </message>
+    <message>
+        <source>Not scanned yet.</source>
+        <translation>Поиск ещё не запускался.</translation>
+    </message>
+    <message>
+        <source>look at the machine and list its serial ports</source>
+        <translation>осмотреть машину и перечислить её последовательные порты</translation>
+    </message>
+    <message>
+        <source>install the agent</source>
+        <translation>установить агента</translation>
+    </message>
+    <message>
+        <source>remove the agent</source>
+        <translation>удалить агента</translation>
+    </message>
+    <message>
+        <source>SSH access to %1</source>
+        <translation>Доступ по SSH к %1</translation>
+    </message>
+    <message>
+        <source>the machine</source>
+        <translation>машине</translation>
+    </message>
+    <message>
+        <source>Spotty signs in over SSH to %1. The user needs root rights or sudo. Nothing entered here is saved.</source>
+        <translation>Spotty входит по SSH, чтобы %1. Пользователю нужны права root или sudo. Всё, что введено здесь, нигде не сохраняется.</translation>
+    </message>
+    <message>
+        <source>User name</source>
+        <translation>Имя пользователя</translation>
+    </message>
+    <message>
+        <source>Password</source>
+        <translation>Пароль</translation>
+    </message>
+    <message>
+        <source>Also used for sudo. Leave empty to sign in through ssh-agent.</source>
+        <translation>Используется и для sudo. Оставьте пустым, чтобы войти через ssh-agent.</translation>
+    </message>
+    <message>
+        <source>Key file</source>
+        <translation>Файл ключа</translation>
+    </message>
+    <message>
+        <source>Optional: path to a private key (for example ~/.ssh/id_ed25519). The password is then used for sudo only.</source>
+        <translation>Необязательно: путь к закрытому ключу (например, ~/.ssh/id_ed25519). Пароль тогда используется только для sudo.</translation>
+    </message>
+    <message>
+        <source>Key passphrase</source>
+        <translation>Пароль ключа</translation>
+    </message>
+    <message>
+        <source>SSH port</source>
+        <translation>Порт SSH</translation>
+    </message>
+    <message>
+        <source>New connection</source>
+        <translation>Новое подключение</translation>
+    </message>
+    <message>
+        <source>No active IPv4 network was found on this computer. Enter a range to scan, for example 192.168.1.0/24.</source>
+        <translation>На этом компьютере нет активной сети IPv4. Введите диапазон для поиска, например 192.168.1.0/24.</translation>
+    </message>
+    <message>
+        <source>local networks</source>
+        <translation>сетях этого компьютера</translation>
+    </message>
+    <message>
+        <source>This build of Spotty has no ssh support (libssh2 was not available when it was built), so the agent cannot be installed from here.</source>
+        <translation>В этой сборке Spotty нет поддержки ssh (при сборке не нашлась libssh2), поэтому установить агента отсюда нельзя.</translation>
+    </message>
+    <message>
+        <source>Enter the address of the machine first (the Host field).</source>
+        <translation>Сначала введите адрес машины (поле «Хост»).</translation>
+    </message>
+    <message>
+        <source>Spotty has no saved ssh key for %1:%2.</source>
+        <translation>У Spotty нет сохранённого ключа ssh для %1:%2.</translation>
+    </message>
+    <message>
+        <source>Enter the ssh user name.</source>
+        <translation>Введите имя пользователя ssh.</translation>
+    </message>
+    <message>
+        <source>Choose the serial port first: press &quot;Find serial ports on the machine&quot; and pick one.</source>
+        <translation>Сначала выберите последовательный порт: нажмите «Найти последовательные порты на машине» и выберите один.</translation>
+    </message>
+    <message>
+        <source>Scanning %1: %2 of %3 addresses checked, found: %4</source>
+        <translation>Поиск в %1: проверено адресов %2 из %3, найдено: %4</translation>
+    </message>
+    <message>
+        <source>Ignored %1 address(es) that accept connections on every port: a router, VPN or proxy answers for them.</source>
+        <translation>Пропущено адресов, принимающих соединения на любой порт: %1. За них отвечает роутер, VPN или прокси.</translation>
+    </message>
+    <message>
+        <source>Nothing found in %1.</source>
+        <translation>В %1 ничего не найдено.</translation>
+    </message>
+    <message>
+        <source>Scan of %1 finished, found: %2</source>
+        <translation>Поиск в %1 закончен, найдено: %2</translation>
+    </message>
+    <message>
+        <source>Almost every address answers: a router, VPN or proxy accepts connections on behalf of the hosts, so this list is probably not real.</source>
+        <translation>Отвечает почти каждый адрес: роутер, VPN или прокси принимает соединения за хосты, поэтому этот список, скорее всего, ненастоящий.</translation>
+    </message>
+    <message>
+        <source>TCP tunnel (remote UART)</source>
+        <translation>TCP-туннель (UART удалённой машины)</translation>
+    </message>
+</context>
+<context>
     <name>spotty::TerminalView</name>
     <message>
         <source>No lines match the filter</source>
@@ -3616,34 +4306,6 @@ Continue?</source>
         <source>Serial proxy</source>
         <translation>Перехват порта</translation>
     </message>
-    <message>
-        <source>Could not start %1: %2</source>
-        <translation>Не удалось запустить %1: %2</translation>
-    </message>
-    <message>
-        <source>com0com is not installed: Spotty needs it to create a virtual port.</source>
-        <translation>com0com не установлен, а без него Spotty не может создать виртуальный порт.</translation>
-    </message>
-    <message>
-        <source>%1 is already used by another device.</source>
-        <translation>%1 уже занят другим устройством.</translation>
-    </message>
-    <message>
-        <source>The com0com program setupc.exe was not found.</source>
-        <translation>Программа com0com setupc.exe не найдена.</translation>
-    </message>
-    <message>
-        <source>Administrator rights are needed to create %1.</source>
-        <translation>Чтобы создать %1, нужны права администратора.</translation>
-    </message>
-    <message>
-        <source>com0com did not create %1. Try the com0com setup.</source>
-        <translation>com0com не создал %1. Попробуйте через настройку com0com.</translation>
-    </message>
-    <message>
-        <source>The com0com setup program was not found.</source>
-        <translation>Программа настройки com0com не найдена.</translation>
-    </message>
 </context>
 <context>
     <name>spotty::UpdateChecker</name>
@@ -3693,6 +4355,49 @@ Continue?</source>
     <message>
         <source>Don&apos;t check for updates</source>
         <translation>Больше не проверять обновления</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::uartproxy</name>
+    <message>
+        <source>macOS does not allow creating names in /dev.</source>
+        <translation>macOS не позволяет создавать имена в /dev.</translation>
+    </message>
+    <message>
+        <source>pkexec is not installed, so Spotty cannot ask for administrator rights. Choose a path outside /dev or create the link yourself.</source>
+        <translation>pkexec не установлен, и Spotty не может запросить права администратора. Выберите путь вне /dev или создайте ссылку сами.</translation>
+    </message>
+    <message>
+        <source>Could not run %1.</source>
+        <translation>Не удалось запустить %1.</translation>
+    </message>
+    <message>
+        <source>The command failed.</source>
+        <translation>Команда завершилась с ошибкой.</translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; is not a valid name in /dev.</source>
+        <translation>"%1" не годится как имя в /dev.</translation>
+    </message>
+    <message>
+        <source>%1 is already used by something else: choose another name.</source>
+        <translation>%1 уже занято чем-то другим: выберите другое имя.</translation>
+    </message>
+    <message>
+        <source>Administrator rights are needed to create %1.</source>
+        <translation>Чтобы создать %1, нужны права администратора.</translation>
+    </message>
+    <message>
+        <source>%1 was not created.</source>
+        <translation>%1 не создан.</translation>
+    </message>
+    <message>
+        <source>%1 was not created by Spotty and is left untouched.</source>
+        <translation>%1 создан не Spotty, поэтому его не трогаем.</translation>
+    </message>
+    <message>
+        <source>Administrator rights are needed to remove %1.</source>
+        <translation>Чтобы удалить %1, нужны права администратора.</translation>
     </message>
 </context>
 </TS>

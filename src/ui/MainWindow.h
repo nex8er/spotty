@@ -247,8 +247,17 @@ private:
      *        (см. spotty::InterfaceSettingsPanel::flagInvalidFields()) — приходят из
      *        Session::requiredSettingsMissing(), когда пришли не сразу после клика по
      *        кнопке настроек, а после неудачной попытки открыть канал.
+     * \param newlyCreated Устройство только что заведено пунктом «New connection…»: если
+     *        обязательные поля так и останутся пустыми, оно будет удалено при закрытии окна.
      */
-    void showInterfaceSettings(const QString &interfaceId, const QStringList &invalidFields = {});
+    void showInterfaceSettings(const QString &interfaceId, const QStringList &invalidFields = {},
+                               bool newlyCreated = false);
+
+    /**
+     * \brief Завести подключение у плагина, где его создаёт пользователь, и открыть настройки.
+     * \param pluginId Идентификатор плагина.
+     */
+    void createInterfaceConnection(const QString &pluginId);
 
     /**
      * \brief Перечитать настройки сессии, если только что применённые относились к её

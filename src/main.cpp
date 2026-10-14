@@ -135,6 +135,7 @@ int main(int argc, char *argv[])
     // Список выключенных отдаётся обоим реестрам ролей, и обоим по отдельности: роль
     // плагина к этому моменту ещё не разобрана, а один объект вправе играть обе.
     plugins.setDisabledPlugins(appSettings.disabledPlugins);
+    plugins.setDataRoot(spotty::Paths::pluginDataDir());
     plugins.load();
 
     // Вторая фаза: панельную роль разбирает реестр из слоя UI — панельный SDK линкуется с

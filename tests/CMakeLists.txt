@@ -73,9 +73,23 @@ spotty_add_test(spotty-tests
         # Протокол туннеля CLI-CAN: вся его арифметика вынесена в заголовок плагина
         # именно ради проверки без адаптера и без драйвера PEAK.
         test_clican_protocol.cpp
+        # Установщик агента на удалённую машину: вся логика — свободные функции и классы над
+        # абстрактным ssh-сеансом, поэтому проверяется без сети (см. test_remote_installer.cpp).
+        test_remote_host.cpp
+        "${CMAKE_SOURCE_DIR}/plugins/tcptunnel/RemoteHost.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/tcptunnel/KnownHosts.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/tcptunnel/HostNames.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/tcptunnel/RemoteInstaller.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/tcptunnel/RemoteTasks.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/tcptunnel/AgentPackage.cpp"
     LINK
         spotty-test-main
 )
+target_include_directories(spotty-tests PRIVATE "${CMAKE_SOURCE_DIR}/plugins/tcptunnel")
+target_compile_definitions(spotty-tests PRIVATE
+    "SPOTTY_AGENT_DIR=\"${CMAKE_SOURCE_DIR}/agent\""
+    "SPOTTY_AGENT_BINARIES_DIR=\"${CMAKE_SOURCE_DIR}/resources/agent\"")
+target_link_libraries(spotty-tests PRIVATE Qt6::Network)
 
 # Перехватчик порта: проверяется на настоящих псевдотерминалах, поэтому только на POSIX и
 # только там, где есть Qt6::SerialPort. Исходники плагина берутся напрямую, без самого
@@ -95,6 +109,27 @@ if(UNIX AND Qt6SerialPort_FOUND)
     target_link_libraries(spotty-tests PRIVATE Qt6::SerialPort)
 endif()
 
+# Настоящий ssh-транспорт проверяется на настоящем sshd; без libssh2 в сборке этих тестов нет.
+if(UNIX AND SPOTTY_WITH_SSH)
+    find_package(Libssh2 QUIET)
+    if(TARGET Libssh2::libssh2)
+        target_sources(spotty-tests PRIVATE
+            test_libssh2_session.cpp
+            "${CMAKE_SOURCE_DIR}/plugins/tcptunnel/Libssh2Session.cpp")
+        target_link_libraries(spotty-tests PRIVATE Libssh2::libssh2)
+    endif()
+endif()
+
+# Агент удалённого хоста: запускается как настоящий процесс, а UART ему подменяет
+# псевдотерминал. Только POSIX — агент использует termios и poll().
+if(UNIX AND TARGET spotty-uartd)
+    target_sources(spotty-tests PRIVATE test_uartd.cpp test_remote_installer.cpp)
+    target_compile_definitions(spotty-tests PRIVATE
+        "SPOTTY_UARTD_PATH=\"$<TARGET_FILE:spotty-uartd>\"")
+    add_dependencies(spotty-tests spotty-uartd)
+    target_link_libraries(spotty-tests PRIVATE Qt6::Network)
+endif()
+
 spotty_add_test(spotty-ui-tests
     SOURCES
         test_panel_registry.cpp
@@ -103,6 +138,19 @@ spotty_add_test(spotty-ui-tests
         test_live_options.cpp
         test_interface_settings_panel.cpp
         test_stream_server.cpp
+        # Транспорт tcptunnel: канал проверяется на настоящем QTcpServer, плагин — вместе с
+        # реестром, потому что подпись подключения выводит из настроек именно он.
+        test_tcptunnel.cpp
+        "${CMAKE_SOURCE_DIR}/plugins/tcptunnel/TcpTunnelChannel.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/tcptunnel/NetworkScanner.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/tcptunnel/RemoteHost.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/tcptunnel/KnownHosts.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/tcptunnel/HostNames.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/tcptunnel/RemoteInstaller.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/tcptunnel/RemoteTasks.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/tcptunnel/AgentPackage.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/tcptunnel/ResourceAgentPackage.cpp"
+        "${CMAKE_SOURCE_DIR}/plugins/tcptunnel/TcpTunnelPlugin.cpp"
         # Сервер потока и его панель: сокеты и проводка проверяются без экрана и без железа.
         "${CMAKE_SOURCE_DIR}/plugins/streamserver/StreamServer.cpp"
         "${CMAKE_SOURCE_DIR}/plugins/streamserver/StreamServerPanel.cpp"
@@ -138,6 +186,9 @@ spotty_add_test(spotty-ui-tests
         # Панель настроек интерфейса: живые списки (SettingsField::live) — её проводка, и
         # проверить их можно только вместе с ней.
         "${CMAKE_SOURCE_DIR}/src/ui/dialogs/InterfaceSettingsPanel.cpp"
+        "${CMAKE_SOURCE_DIR}/src/ui/dialogs/ActionPromptDialog.cpp"
+        "${CMAKE_SOURCE_DIR}/src/ui/CollapsibleSection.cpp"
+        "${CMAKE_SOURCE_DIR}/src/ui/SchemaForm.cpp"
         "${CMAKE_SOURCE_DIR}/src/ui/InterfaceLabel.cpp"
     LINK
         spotty-ui-test-main
@@ -155,6 +206,25 @@ spotty_add_test(spotty-ui-tests
 target_compile_definitions(spotty-ui-tests PRIVATE QT_STATICPLUGIN)
 target_link_libraries(spotty-ui-tests PRIVATE Qt6::Network)
 
+# Установка агента через плагин: «удалённая машина» — песочница, а агент — собранный для этой.
+# Ресурсы с настоящим комплектом нужны, чтобы проверить, что в плагин попало всё.
+include(SpottyAgentResources)
+spotty_embed_agent_resources(spotty-ui-tests)
+
+# Установка через плагин идёт в песочнице с настоящими скриптами и агентом (sh, псевдотерминал,
+# termios), поэтому только на Unix. Проверки, не зависящие от оболочки, — в test_tcptunnel.cpp и
+# выполняются везде.
+if(UNIX)
+    target_sources(spotty-ui-tests PRIVATE test_tcptunnel_install.cpp)
+endif()
+target_compile_definitions(spotty-ui-tests PRIVATE
+    "SPOTTY_AGENT_DIR=\"${CMAKE_SOURCE_DIR}/agent\""
+    "SPOTTY_AGENT_BINARIES_DIR=\"${CMAKE_SOURCE_DIR}/resources/agent\"")
+if(TARGET spotty-uartd)
+    target_compile_definitions(spotty-ui-tests PRIVATE "SPOTTY_UARTD_PATH=\"$<TARGET_FILE:spotty-uartd>\"")
+    add_dependencies(spotty-ui-tests spotty-uartd)
+endif()
+
 target_include_directories(spotty-ui-tests PRIVATE
     "${CMAKE_SOURCE_DIR}/src/ui"
     "${CMAKE_SOURCE_DIR}/plugins/plotter"
@@ -162,7 +232,8 @@ target_include_directories(spotty-ui-tests PRIVATE
     "${CMAKE_SOURCE_DIR}/plugins/logging"
     "${CMAKE_SOURCE_DIR}/plugins/search"
     "${CMAKE_SOURCE_DIR}/plugins/jsontree"
-    "${CMAKE_SOURCE_DIR}/plugins/streamserver")
+    "${CMAKE_SOURCE_DIR}/plugins/streamserver"
+    "${CMAKE_SOURCE_DIR}/plugins/tcptunnel")
 
 # Цель `coverage` объявляется после исполняемого файла тестов: инструментам нужен его
 # путь, чтобы прочитать карту покрытия. Меряется только spotty-tests.

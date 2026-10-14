@@ -1,0 +1,5 @@
+{
+    "id": "tcptunnel",
+    "name": "TCP tunnel (remote UART)",
+    "version": "1.0"
+}

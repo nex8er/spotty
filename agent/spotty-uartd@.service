@@ -1,0 +1,29 @@
+# Экземпляр агента проброса UART: имя экземпляра — номер TCP-порта, например
+# spotty-uartd@7777.service читает /etc/spotty-uartd/7777.conf. Один порт — один UART, поэтому
+# по номеру порта однозначно находится и сам конфиг, и сервис, и что именно на нём слушает.
+#
+# Файл ставит Spotty вместе с бинарником; руками его править не нужно, настройки лежат в
+# конфиге.
+[Unit]
+Description=Spotty UART tunnel on TCP port %i
+Documentation=https://github.com/nex8er/spotty
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/spotty-uartd --config /etc/spotty-uartd/%i.conf
+Restart=on-failure
+RestartSec=2
+
+# Агент только читает и пишет в уже открытый порт и сокеты, поэтому остальное ему закрыто.
+# PrivateDevices здесь нельзя: он спрятал бы /dev/ttyUSB* от самого агента.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+[Install]
+WantedBy=multi-user.target

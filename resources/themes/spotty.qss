@@ -168,6 +168,31 @@ QToolButton::menu-indicator {
     image: none;
 }
 
+/* Заголовок сворачиваемого раздела («Advanced»). Это не кнопка-переключатель: раскрытым он не
+   должен выглядеть нажатым — общее правило :checked заливало бы его выделением, и заголовок,
+   стоящий посреди формы, читался бы как включённая опция. Состояние несёт стрелка. Фокус
+   клавиатуры остаётся видимым: собственный фон и рамка отменяют штатную отрисовку целиком.
+   Приглушённый цвет проходит 4.5:1 на обеих темах и отделяет заголовок от самих полей. */
+QToolButton#collapsibleToggle {
+    color: @textMuted;
+    padding: 2px 6px 2px 2px;
+}
+
+QToolButton#collapsibleToggle:hover {
+    color: @text;
+    background: transparent;
+    border-color: transparent;
+}
+
+QToolButton#collapsibleToggle:checked {
+    background: transparent;
+    border-color: transparent;
+}
+
+QToolButton#collapsibleToggle:focus {
+    border-color: @accent;
+}
+
 QPushButton {
     background: @panel;
     border: 1px solid @border;
@@ -228,6 +253,40 @@ QPushButton:default:disabled {
     background: @panel;
     color: @textMuted;
     border-color: @border;
+}
+
+/* Главное действие группы настроек (SettingsField::primary): «Install» рядом с «Remove». Акцентный
+   контур и текст, без заливки: заливка принадлежит кнопке по умолчанию самого окна («OK»), и
+   вторая залитая кнопка рядом с ней отняла бы у неё это значение. Идёт после обычных состояний
+   кнопки — у селекторов с одним свойством и с одним состоянием одинаковая весомость, и
+   побеждает позднейший. */
+QPushButton[primary="true"] {
+    border-color: @accent;
+    color: @accent;
+}
+
+QPushButton[primary="true"]:hover {
+    background: @hover;
+    border-color: @accent;
+}
+
+QPushButton[primary="true"]:pressed {
+    background: @pressed;
+}
+
+QPushButton[primary="true"]:disabled {
+    color: @textMuted;
+    border-color: @border;
+}
+
+/* Итог действия в диалоге настроек (SettingsField::Note с NoteSeverity). Перед текстом стоит
+   значок, так что цвет — лишь усиление, а не единственный признак состояния. */
+QLabel[severity="ok"] {
+    color: @okText;
+}
+
+QLabel[severity="error"] {
+    color: @errorText;
 }
 
 /* --- Поля ввода ------------------------------------------------------------------- */

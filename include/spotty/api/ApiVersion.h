@@ -26,6 +26,17 @@
  *
  * \par История
  *
+ * - **5** — устройства, которые заводит сам пользователь: spotty::IInterfacePlugin::supportsUserDevices()
+ *   и spotty::IInterfacePlugin::describeUserDevice() (подключение по сети, у которого нет
+ *   ни порта в системе, ни серийного номера, чтобы его перечислить), spotty::IInterfacePlugin::setDataDirectory()
+ *   (собственный каталог плагина, например для отпечатков известных ssh-хостов) и тип поля
+ *   spotty::SettingsField::Password — значение живёт только в памяти, — а также spotty::IInterfacePlugin::promptSchema()
+ *   (окно вопроса перед действием: имя и пароль ssh, которые не должны попадать в настройки) и
+ *   поля spotty::SettingsField::advanced, spotty::SettingsField::compact и
+ *   spotty::SettingsField::primary, а также spotty::NoteSeverity — как плагин подаёт строку
+ *   сведений (успех, предупреждение, сбой). Четыре виртуальных метода дописаны в конец, но, как
+ *   сказано выше, это тоже сдвигает vtable; три поля дописаны в конец spotty::SettingsField, и
+ *   раскладка структуры изменилась.
  * - **4** — типы полей spotty::SettingsField::Note и spotty::SettingsField::Action и метод
  *   spotty::IInterfacePlugin::triggerAction(): строка состояния и кнопка в диалоге
  *   настроек (наличие драйвера com0com у перехватчика порта на Windows). Новый
@@ -40,7 +51,7 @@
  *   раскладку SettingsSchema.
  * - **1** — первый выпуск.
  */
-#define SPOTTY_API_VERSION 4
+#define SPOTTY_API_VERSION 5
 
 /**
  * \def SPOTTY_INTERFACE_PLUGIN_IID

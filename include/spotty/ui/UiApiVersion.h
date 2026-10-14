@@ -18,7 +18,7 @@
  * \note Всё, что сказано в #SPOTTY_API_VERSION про ломающие изменения, действует и здесь,
  *       включая добавление виртуального метода в конец класса.
  */
-#define SPOTTY_UI_API_VERSION 8
+#define SPOTTY_UI_API_VERSION 9
 
 /**
  * \def SPOTTY_PANEL_PLUGIN_IID
@@ -46,6 +46,12 @@
 // Версия 4 — типы полей Note и Action и IInterfacePlugin::triggerAction(). Раскладка
 // SettingsField не менялась (добавлены значения перечисления и невиртуальный метод), а
 // уже собранная панель новых типов не возвращает, поэтому панельная версия прежняя.
-static_assert(SPOTTY_API_VERSION == 4,
+//
+// Версия 5 — поле Password, IInterfacePlugin::supportsUserDevices(), describeUserDevice(),
+// promptSchema() и поля SettingsField::advanced, compact и primary. Раскладка SettingsField изменилась
+// (три поля в конце), а панельные плагины возвращают её из IPanelPlugin::settingsSchema(), то
+// есть дотянулось и до панельного ABI — как уже было при SPOTTY_API_VERSION 2. Панельная версия
+// поэтому поднята вместе с основной.
+static_assert(SPOTTY_API_VERSION == 5,
               "SPOTTY_API_VERSION changed: review the panel SDK, bump "
               "SPOTTY_UI_API_VERSION if the change reaches it, and update this assert");

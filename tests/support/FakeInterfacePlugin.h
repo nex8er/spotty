@@ -153,7 +153,100 @@ public:
             .defaultValue = QStringLiteral("8N1"),
             .required = requireMode,
         });
+        if (withPassword) {
+            schema.add(SettingsField{
+                .key = QStringLiteral("secret"),
+                .label = QStringLiteral("Secret"),
+                .group = QStringLiteral("Port"),
+                .type = SettingsField::Password,
+            });
+        }
+        if (withLayoutFields) {
+            // «Режим» уже есть выше; число справа от него — компактное, а редкая настройка уходит в Advanced.
+            schema.add(SettingsField{
+                .key = QStringLiteral("narrow"),
+                .label = QStringLiteral("Narrow"),
+                .group = QStringLiteral("Port"),
+                .type = SettingsField::Integer,
+                .defaultValue = 5,
+                .minimum = 0,
+                .maximum = 99,
+                .hint = QStringLiteral("narrow hint"),
+                .compact = true,
+            });
+            schema.add(SettingsField{
+                .key = QStringLiteral("rare"),
+                .label = QStringLiteral("Rare option"),
+                .group = QStringLiteral("Port"),
+                .type = SettingsField::Toggle,
+                .defaultValue = false,
+                .advanced = true,
+            });
+        }
+        if (withAction) {
+            schema.add(SettingsField{
+                .key = QStringLiteral("act"),
+                .label = QStringLiteral("Do it"),
+                .group = QStringLiteral("Port"),
+                .type = SettingsField::Action,
+            });
+        }
         return schema;
+    }
+
+    SettingsSchema promptSchema(const QString &actionKey, const QVariantMap &) const override
+    {
+        if (!withPrompt || actionKey != QLatin1String("act"))
+            return {};
+        SettingsSchema schema;
+        schema.add(SettingsField{
+            .key = QStringLiteral("user"),
+            .label = QStringLiteral("User"),
+            .group = QStringLiteral("Sign in"),
+            .type = SettingsField::Text,
+            .defaultValue = QString(),
+            .required = true,
+        });
+        schema.add(SettingsField{
+            .key = QStringLiteral("pass"),
+            .label = QStringLiteral("Password"),
+            .group = QStringLiteral("Sign in"),
+            .type = SettingsField::Password,
+        });
+        schema.add(SettingsField{
+            .key = QStringLiteral("keyfile"),
+            .label = QStringLiteral("Key file"),
+            .group = QStringLiteral("Sign in"),
+            .type = SettingsField::Text,
+            .defaultValue = QString(),
+            .advanced = true,
+        });
+        return schema;
+    }
+
+    QString triggerAction(const InterfaceDescriptor &, const QString &key, const QVariantMap &settings) override
+    {
+        lastActionKey = key;
+        lastActionSettings = settings;
+        ++actionCount;
+        return actionResult;
+    }
+
+    bool supportsUserDevices() const override { return userDevices; }
+
+    void setDataDirectory(const QString &path) override { dataDirectory = path; }
+
+    /// \brief Каталог данных, выданный ядром (setDataDirectory()); пусто, пока не выдан.
+    QString dataDirectory;
+
+    InterfaceDescriptor describeUserDevice(const QVariantMap &settings) const override
+    {
+        // Адрес зависит от настроек, как у настоящего сетевого подключения: тест проверяет,
+        // что подпись в списке следует за правкой.
+        InterfaceDescriptor descriptor;
+        descriptor.systemName = QStringLiteral("host:%1").arg(settings.value(QStringLiteral("speed")).toInt());
+        descriptor.description = QStringLiteral("User device %1%2").arg(descriptor.systemName, userLabelSuffix);
+        return descriptor;
     }
 
     QString settingsSummary(const QVariantMap &settings) const override
@@ -187,6 +280,30 @@ public:
 
     /// \brief Сделать поле "mode" обязательным (SettingsField::required) для теста Session.
     bool requireMode = false;
+
+    /// \brief Объявить supportsUserDevices(): ядро начнёт хранить устройства, созданные пользователем.
+    bool userDevices = false;
+
+    /// \brief Добавить в схему поле SettingsField::Password с ключом "secret".
+    bool withPassword = false;
+
+    /// \brief Добавить компактное поле "narrow" (справа от "mode") и редкое "rare" (в Advanced).
+    bool withLayoutFields = false;
+
+    /// \brief Добавить кнопку "act"; её нажатия записываются в lastAction*.
+    bool withAction = false;
+
+    /// \brief Перед кнопкой "act" спрашивать "user", "pass" и (в Advanced) "keyfile".
+    bool withPrompt = false;
+
+    /// \brief Что ответит triggerAction(): пусто — успех.
+    QString actionResult;
+    QString lastActionKey;
+    QVariantMap lastActionSettings;
+    int actionCount = 0;
+
+    /// \brief Суффикс подписи устройства пользователя: тест меняет его, чтобы проверить пересчёт.
+    mutable QString userLabelSuffix;
 
     /// \brief Список устройств, которые «видит» плагин. Меняется прямо из теста.
     QList<InterfaceDescriptor> devices;

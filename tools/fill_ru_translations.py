@@ -1127,6 +1127,249 @@ TRANSLATIONS = {
 
     # --- Прочее ---
     "Start / stop recording": "Начать или остановить запись",
+    # --- Транспорт tcptunnel: UART удалённой машины по raw TCP ---
+    "TCP tunnel (remote UART)": "TCP-туннель (UART удалённой машины)",
+    "New connection": "Новое подключение",
+    "New connection…": "Новое подключение…",
+    "Remove": "Удалить",
+    "Remove connection": "Удалить подключение",
+    "Remove \"%1\" from Spotty?": "Удалить «%1» из Spotty?",
+    "Only the saved connection is removed. Nothing is changed on the remote side.":
+        "Удаляется только сохранённое подключение. На удалённой стороне ничего не меняется.",
+    "Advanced": "Дополнительно",
+    "Host": "Хост",
+    "Network": "Сеть",
+    "Password": "Пароль",
+    "Status": "Состояние",
+    "Result": "Результат",
+    "Serial port": "Последовательный порт",
+    "SSH port": "Порт SSH",
+    "User name": "Имя пользователя",
+    "Key file": "Файл ключа",
+    "Key passphrase": "Пароль ключа",
+    "bps": "бод",
+    "Connection timeout": "Таймаут соединения",
+    "Reconnect automatically": "Переподключаться автоматически",
+    "Keep trying when the connection drops: the board rebooted, the network blinked or the agent was restarted.":
+        "Пробовать снова, когда соединение оборвалось: плата перезагрузилась, пропала сеть "
+        "или перезапустили агента.",
+    "IP address or host name of the machine where the agent runs. Hosts found by the scan below are offered in the list.":
+        "IP-адрес или имя машины, где работает агент. Хосты, найденные поиском ниже, "
+        "предлагаются в списке.",
+    "The first agent on a machine listens on 7777, the next ones on 7778, 7779 and so on - one agent serves one serial port.":
+        "Первый агент на машине слушает порт 7777, следующие — 7778, 7779 и так далее: "
+        "один агент обслуживает один последовательный порт.",
+    "Find on the network": "Поиск в сети",
+    "All networks of this computer": "Все сети этого компьютера",
+    "Pick a network of this computer or type addresses and networks yourself: 192.168.1.0/24, 10.0.0.5":
+        "Выберите сеть этого компьютера или введите адреса и сети сами: 192.168.1.0/24, 10.0.0.5",
+    "Where an open port is found, the next three are checked as well: that is where further agents of the same machine listen.":
+        "Где найден открытый порт, проверяются и три следующих: на них слушают остальные "
+        "агенты той же машины.",
+    "Scan network": "Искать в сети",
+    "Not scanned yet.": "Поиск ещё не запускался.",
+    "Scanning %1: %2 of %3 addresses checked, found: %4":
+        "Поиск в %1: проверено адресов %2 из %3, найдено: %4",
+    "Scan of %1 finished, found: %2": "Поиск в %1 закончен, найдено: %2",
+    "Nothing found in %1.": "В %1 ничего не найдено.",
+    "local networks": "сетях этого компьютера",
+    "Almost every address answers: a router, VPN or proxy accepts connections on behalf of the hosts, so this list is probably not real.":
+        "Отвечает почти каждый адрес: роутер, VPN или прокси принимает соединения за хосты, "
+        "поэтому этот список, скорее всего, ненастоящий.",
+    "Ignored %1 address(es) that accept connections on every port: a router, VPN or proxy answers for them.":
+        "Пропущено адресов, принимающих соединения на любой порт: %1. За них отвечает роутер, "
+        "VPN или прокси.",
+    "No active IPv4 network was found on this computer. Enter a range to scan, for example 192.168.1.0/24.":
+        "На этом компьютере нет активной сети IPv4. Введите диапазон для поиска, например "
+        "192.168.1.0/24.",
+    "\"%1\" is not an IPv4 address or network (expected like 192.168.1.0/24).":
+        "«%1» — не адрес IPv4 и не сеть (нужно вроде 192.168.1.0/24).",
+    "The range \"%1\" is too large (at most %2 addresses).":
+        "Диапазон «%1» слишком велик (не больше %2 адресов).",
+    "The range is too large (more than %1 addresses).":
+        "Диапазон слишком велик (больше %1 адресов).",
+    "Cannot connect to %1:%2: %3": "Не удаётся подключиться к %1:%2: %3",
+    "Invalid port.": "Неверный порт.",
+    "The host is not set.": "Адрес не задан.",
+    "Connection to %1:%2 lost, reconnecting…": "Соединение с %1:%2 потеряно, переподключаюсь…",
+    "Connection to %1:%2 was closed right away.": "Соединение с %1:%2 тут же закрыли.",
+    "Connection closed by %1:%2. If the agent is running, check that the serial port is connected on the remote machine.":
+        "Соединение закрыто стороной %1:%2. Если агент запущен, проверьте, что "
+        "последовательный порт подключён на удалённой машине.",
+    "timed out": "время вышло",
+
+    # --- Установка агента по ssh ---
+    "Agent on the machine": "Агент на машине",
+    "Find serial ports on the machine...": "Найти последовательные порты на машине...",
+    "Install or update the agent...": "Установить или обновить агента...",
+    "Remove the agent from the machine...": "Удалить агента с машины...",
+    "Forget the saved SSH host key": "Забыть сохранённый ключ SSH-хоста",
+    "Press \"Find serial ports on the machine\" - Spotty will ask for the SSH user name and password.":
+        "Нажмите «Найти последовательные порты на машине» — Spotty спросит имя пользователя "
+        "и пароль SSH.",
+    "The port of the machine that is forwarded. Virtual consoles (tty1...) and ports without hardware are left out of the list.":
+        "Порт машины, который пробрасывается. Виртуальные консоли (tty1...) и порты без "
+        "железа в списке не показываются.",
+    "Set when the agent is installed: the connection itself is plain TCP and carries no settings. To change it, install again.":
+        "Задаётся при установке агента: само соединение — чистый TCP и настроек не несёт. "
+        "Чтобы изменить, установите агента заново.",
+    "Data bits, parity and stop bits.": "Биты данных, чётность и стоповые биты.",
+    "Start at boot": "Запускать при загрузке",
+    "Install a systemd service. Needs systemd on the machine.":
+        "Поставить сервис systemd. Нужен systemd на машине.",
+    "All interfaces": "Все интерфейсы",
+    "All interfaces, including IPv6": "Все интерфейсы, включая IPv6",
+    "This machine only": "Только эта машина",
+    "Allowed clients": "Разрешённые клиенты",
+    "Optional protection: addresses and networks, comma separated (192.168.1.0/24, 10.0.0.5). Empty - anyone who can reach the port. The connection has no password, so this list is the only protection.":
+        "Необязательная защита: адреса и сети через запятую (192.168.1.0/24, 10.0.0.5). "
+        "Пусто — любой, кто доберётся до порта. У соединения нет пароля, поэтому этот "
+        "список — единственная защита.",
+    "SSH access to %1": "Доступ по SSH к %1",
+    "the machine": "машине",
+    "look at the machine and list its serial ports": "осмотреть машину и перечислить её последовательные порты",
+    "install the agent": "установить агента",
+    "remove the agent": "удалить агента",
+    "Spotty signs in over SSH to %1. The user needs root rights or sudo. Nothing entered here is saved.":
+        "Spotty входит по SSH, чтобы %1. Пользователю нужны права root или sudo. Всё, что "
+        "введено здесь, нигде не сохраняется.",
+    "Also used for sudo. Leave empty to sign in through ssh-agent.":
+        "Используется и для sudo. Оставьте пустым, чтобы войти через ssh-agent.",
+    "Optional: path to a private key (for example ~/.ssh/id_ed25519). The password is then used for sudo only.":
+        "Необязательно: путь к закрытому ключу (например, ~/.ssh/id_ed25519). Пароль тогда "
+        "используется только для sudo.",
+    "Enter the address of the machine first (the Host field).":
+        "Сначала введите адрес машины (поле «Хост»).",
+    "Enter the ssh user name.": "Введите имя пользователя ssh.",
+    "Spotty has no saved ssh key for %1:%2.": "У Spotty нет сохранённого ключа ssh для %1:%2.",
+    "Choose the serial port first: press \"Find serial ports on the machine\" and pick one.":
+        "Сначала выберите последовательный порт: нажмите «Найти последовательные порты на "
+        "машине» и выберите один.",
+    "This build of Spotty has no ssh support (libssh2 was not available when it was built), so the agent cannot be installed from here.":
+        "В этой сборке Spotty нет поддержки ssh (при сборке не нашлась libssh2), поэтому "
+        "установить агента отсюда нельзя.",
+    "The previous operation on this connection is still running.":
+        "Предыдущая операция с этим подключением ещё идёт.",
+    "%1. Serial ports found: %2. First free port for an agent: %3.":
+        "%1. Найдено последовательных портов: %2. Первый свободный порт для агента: %3.",
+    "Checking that the agent answers...": "Проверяю, что агент отвечает...",
+    "Installed: the agent listens on %1:%2 (%3, %4 %5). You can open this connection now.":
+        "Установлено: агент слушает %1:%2 (%3, %4 %5). Теперь подключение можно открывать.",
+    "The agent was installed and started, but port %1 of %2 does not answer from here. Check the firewall of the machine, the listen address and the network.":
+        "Агент установлен и запущен, но порт %1 машины %2 отсюда не отвечает. Проверьте "
+        "файрвол машины, адрес прослушивания и сеть.",
+    "The agent on port %1 was removed from the machine. You can remove this connection now.":
+        "Агент на порту %1 удалён с машины. Теперь можно удалить и это подключение.",
+
+    # --- Ход и ошибки установщика ---
+    "Connecting to %1:%2...": "Подключаюсь к %1:%2...",
+    "Cannot connect to %1:%2 over ssh: %3": "Не удаётся подключиться к %1:%2 по ssh: %3",
+    "Signing in as %1...": "Вхожу как %1...",
+    "Cannot sign in as %1: %2": "Не удаётся войти как %1: %2",
+    "Saved the host key %1": "Ключ хоста сохранён: %1",
+    "Looking at the machine...": "Осматриваю машину...",
+    "Machine: %1": "Машина: %1",
+    "Looking for serial ports...": "Ищу последовательные порты...",
+    "Serial ports found: %1": "Найдено последовательных портов: %1",
+    "Uploading the files...": "Загружаю файлы...",
+    "Installing...": "Устанавливаю...",
+    "Removing the agent...": "Удаляю агента...",
+    "Cancelled.": "Отменено.",
+    "no systemd": "без systemd",
+    "exit code %1": "код возврата %1",
+    "Installation failed: %1": "Установка не удалась: %1",
+    "Removal failed: %1": "Удаление не удалось: %1",
+    "The port search failed: %1": "Поиск портов не удался: %1",
+    "Could not examine the machine: %1": "Не удалось осмотреть машину: %1",
+    "The command did not complete.": "Команда не завершилась.",
+    "Cannot write %1 on the machine: %2": "Не удаётся записать %1 на машине: %2",
+    "Cannot create a temporary directory in %1 on the machine.":
+        "Не удаётся создать временный каталог в %1 на машине.",
+    "The detection script is missing from this build of Spotty.":
+        "В этой сборке Spotty нет скрипта определения машины.",
+    "The installation files are missing from this build of Spotty.":
+        "В этой сборке Spotty нет файлов установки.",
+    "The removal script is missing from this build of Spotty.":
+        "В этой сборке Spotty нет скрипта удаления.",
+    "This build of Spotty has no agent for %1.": "В этой сборке Spotty нет агента для %1.",
+    "No agent is built for this machine.": "Для этой машины агент не собран.",
+    "The agent does not start here (\"%1\"). Detected: %2.":
+        "Агент здесь не запускается («%1»). Определено: %2.",
+    "There is no agent on port %1 of this machine.": "На порту %1 этой машины агента нет.",
+    "This machine does not run systemd, so the agent cannot be started at boot. Untick \"Start at boot\" to run it until the next reboot.":
+        "На этой машине нет systemd, поэтому запускать агента при загрузке нельзя. Снимите "
+        "«Запускать при загрузке», чтобы он работал до следующей перезагрузки.",
+    "Port %1 on the machine is already used by another program. Choose another port (%2 is free).":
+        "Порт %1 на машине уже занят другой программой. Выберите другой порт (%2 свободен).",
+    "Port %1 is already used by the agent for %2. Choose another port (%3 is free) or remove that agent first.":
+        "Порт %1 уже занят агентом для %2. Выберите другой порт (%3 свободен) или сначала "
+        "удалите того агента.",
+    "You are signed in as %1, not root, and sudo is not installed on the machine. Sign in as root or install sudo.":
+        "Вы вошли как %1, а не root, и sudo на машине не установлен. Войдите как root или "
+        "установите sudo.",
+    "sudo did not accept the password. Enter the password of the account %1 in the Password field - it is used for sudo as well, also when you sign in with a key.":
+        "sudo не принял пароль. Введите пароль учётной записи %1 в поле «Пароль» — он "
+        "используется и для sudo, в том числе при входе по ключу.",
+    "The user %1 is not allowed to use sudo on this machine. Sign in as root or as a user with sudo rights.":
+        "Пользователю %1 не разрешён sudo на этой машине. Войдите как root или как "
+        "пользователь с правами sudo.",
+    "The ssh host key of %1 is not known yet:\n%2\nCheck that this is your machine (on it: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub). If it matches, press the same button again to trust this machine.":
+        "SSH-ключ хоста %1 пока неизвестен:\n%2\nУбедитесь, что это ваша машина (на ней: "
+        "ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub). Если отпечаток совпадает, нажмите "
+        "ту же кнопку ещё раз — Spotty доверится этой машине.",
+    "The ssh host key of %1 has CHANGED (now %2). Someone may be intercepting the connection, or the machine was reinstalled. Nothing was sent. If you are sure, press \"Forget the saved host key\" and try again.":
+        "SSH-ключ хоста %1 ИЗМЕНИЛСЯ (теперь %2). Возможно, соединение перехватывают, а "
+        "возможно, машину переустановили. Ничего не отправлено. Если уверены, нажмите «Забыть "
+        "сохранённый ключ SSH-хоста» и повторите.",
+    "The ssh host key of %1 does not match the one in your ~/.ssh/known_hosts (now %2). Someone may be intercepting the connection, or the machine was reinstalled. Nothing was sent. Fix known_hosts if you are sure.":
+        "SSH-ключ хоста %1 не совпадает с записью в вашем ~/.ssh/known_hosts (теперь %2). "
+        "Возможно, соединение перехватывают, а возможно, машину переустановили. Ничего не "
+        "отправлено. Если уверены, исправьте known_hosts.",
+
+    # --- Сведения о машине и параметры агента ---
+    "The agent runs on Linux only, and this machine runs %1.":
+        "Агент работает только в Linux, а эта машина работает под %1.",
+    "The machine did not report what system it runs.": "Машина не сообщила, какая на ней система.",
+    "No agent is built for the package architecture \"%1\".":
+        "Для архитектуры пакетов «%1» агент не собран.",
+    "ARMv5 and older processors are not supported by the agent (\"%1\").":
+        "Процессоры ARMv5 и старше агент не поддерживает («%1»).",
+    "No agent is built for the architecture \"%1\".": "Для архитектуры «%1» агент не собран.",
+    "Choose the serial port of the remote machine.": "Выберите последовательный порт удалённой машины.",
+    "The serial port must be an absolute path such as /dev/ttyUSB0.":
+        "Последовательный порт должен быть абсолютным путём вроде /dev/ttyUSB0.",
+    "Unsupported baud rate %1.": "Скорость %1 не поддерживается.",
+    "The frame format must look like 8N1.": "Формат кадра должен выглядеть как 8N1.",
+    "Unknown flow control \"%1\".": "Неизвестное управление потоком «%1».",
+    "The port must be between 1 and 65535.": "Порт должен быть от 1 до 65535.",
+    "The listen address \"%1\" is not valid.": "Адрес прослушивания «%1» недопустим.",
+    "\"%1\" in the list of allowed clients is not an address or network.":
+        "«%1» в списке разрешённых клиентов — не адрес и не сеть.",
+
+    # --- Транспорт ssh (libssh2) ---
+    "libssh2 could not be initialised": "Не удалось инициализировать libssh2",
+    "cannot resolve the address": "не удаётся разрешить адрес",
+    "connection failed": "соединение не удалось",
+    "cannot create an ssh session": "не удаётся создать сеанс ssh",
+    "the server did not answer the ssh handshake (is it an ssh server?)":
+        "сервер не ответил на обмен ключами ssh (это точно сервер ssh?)",
+    "ssh handshake failed: %1": "обмен ключами ssh не удался: %1",
+    "the server did not present a host key": "сервер не предъявил ключ хоста",
+    "no session": "нет сеанса",
+    "not connected": "нет соединения",
+    "unknown error": "неизвестная ошибка",
+    "the server rejected the password or the key": "сервер отверг пароль или ключ",
+    "the server does not accept this key": "сервер не принимает этот ключ",
+    "the server does not allow key authentication": "сервер не разрешает вход по ключу",
+    "cannot read the key file or the passphrase is wrong":
+        "не удаётся прочитать файл ключа, или неверен пароль ключа",
+    "enter a password or a key file": "введите пароль или файл ключа",
+    "enter a password or a key file (no ssh-agent key was accepted)":
+        "введите пароль или файл ключа (ни один ключ ssh-agent не принят)",
+    "cannot open an ssh channel: %1": "не удаётся открыть канал ssh: %1",
+    "cannot run the command: %1": "не удаётся выполнить команду: %1",
+    "cannot send data to the command: %1": "не удаётся передать данные команде: %1",
+
 }
 
 #: Переводы форм множественного числа: source -> (одна, несколько, много).

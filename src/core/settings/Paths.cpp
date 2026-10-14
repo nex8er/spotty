@@ -93,6 +93,11 @@ QString Paths::macrosDir()
     return QDir(configDir()).filePath(QStringLiteral("macros"));
 }
 
+QString Paths::pluginDataDir()
+{
+    return QDir(configDir()).filePath(QStringLiteral("plugin-data"));
+}
+
 QString Paths::defaultLogDir()
 {
     if (g_portable)

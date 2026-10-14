@@ -34,4 +34,12 @@ InterfaceSettingsDialog::InterfaceSettingsDialog(InterfaceRegistry *registry,
     layout->addWidget(buttons);
 }
 
+void InterfaceSettingsDialog::done(int result)
+{
+    // Подключение, заведённое кнопкой «New» и так и не заполненное, не должно остаться в
+    // списке пустой строкой.
+    m_panel->discardUnconfigured();
+    QDialog::done(result);
+}
+
 } // namespace spotty

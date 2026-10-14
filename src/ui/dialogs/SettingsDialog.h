@@ -99,6 +99,9 @@ public:
      */
     InterfaceSettingsPanel *interfacePanel() const { return m_interfacePanel; }
 
+    /// \brief Закрыть диалог; заведённые здесь и не заполненные подключения отбрасываются.
+    void done(int result) override;
+
     /**
      * \brief Действия самого окна, которым можно назначать сочетания клавиш.
      *

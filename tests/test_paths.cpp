@@ -58,6 +58,8 @@ TEST(Paths, AllFilesLiveInsideConfigDirectory)
     EXPECT_TRUE(Paths::interfacesFile().startsWith(config));
     EXPECT_TRUE(Paths::historyFile().startsWith(config));
     EXPECT_TRUE(Paths::macrosDir().startsWith(config));
+    EXPECT_TRUE(Paths::pluginDataDir().startsWith(config));
+    EXPECT_TRUE(Paths::pluginDataDir().endsWith(QStringLiteral("plugin-data")));
 }
 
 TEST(Paths, EnsureDirCreatesNestedDirectories)

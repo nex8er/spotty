@@ -13,6 +13,15 @@
 namespace spotty {
 
 /**
+ * \brief Значение, которое сейчас показывает редактор поля схемы.
+ * \return Невалидный QVariant, если редактор не хранит значения (кнопка, строка сведений).
+ *
+ * Общее для SchemaForm и spotty::InterfaceSettingsPanel: оба строят редакторы по схеме и должны
+ * одинаково читать их обратно.
+ */
+QVariant schemaEditorValue(const QWidget *editor, const SettingsField &field);
+
+/**
  * \class SchemaForm
  * \brief Виджет, собранный по декларативному описанию настроек.
  *
@@ -42,9 +51,12 @@ public:
     /**
      * \param schema Описание полей.
      * \param values Текущие значения; отсутствующие берутся из умолчаний схемы.
+     * \param allowSecrets Показывать поля SettingsField::Password. Для настроек панелей — нет:
+     *        они пишутся на диск как есть, а Password обещает обратное. Для окна вопроса перед
+     *        действием (spotty::ActionPromptDialog) — да: ввод оттуда нигде не сохраняется.
      */
-    SchemaForm(const SettingsSchema &schema, const QVariantMap &values,
-               QWidget *parent = nullptr);
+    SchemaForm(const SettingsSchema &schema, const QVariantMap &values, QWidget *parent = nullptr,
+               bool allowSecrets = false);
 
     /// \return Значения из редакторов, приведённые к типам умолчаний схемы.
     QVariantMap values() const;
@@ -58,6 +70,7 @@ private:
     QWidget *createEditor(const SettingsField &field, const QVariant &value);
 
     SettingsSchema m_schema;
+    bool m_allowSecrets = false;
     QVariantMap m_initialValues;
     QHash<QString, QWidget *> m_editors;
 };

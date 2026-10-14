@@ -9,6 +9,7 @@
 #include <PluginManager.h>
 #include <settings/SettingsStore.h>
 
+#include <QFile>
 #include <QStringList>
 
 #include <gtest/gtest.h>
@@ -611,4 +612,275 @@ TEST(InterfaceRegistry, ChangedSignalOnlyWhenSomethingChanged)
     fixture.plugin.devices.clear();
     fixture.registry.refresh();
     EXPECT_EQ(changes, 1);
+}
+
+// --- Устройства, созданные пользователем ------------------------------------------------
+
+TEST(InterfaceRegistry, UserDeviceIsCreatedWithSchemaDefaultsAndDescribedByThePlugin)
+{
+    Fixture fixture;
+    fixture.plugin.userDevices = true;
+    QStringList appeared;
+    QObject::connect(&fixture.registry, &InterfaceRegistry::interfaceAppeared,
+                     [&appeared](const QString &id) { appeared.append(id); });
+
+    const QString id = fixture.registry.addUserDevice(QStringLiteral("fake"));
+
+    ASSERT_FALSE(id.isEmpty());
+    EXPECT_TRUE(id.startsWith(QStringLiteral("fake:user:")));
+    const InterfaceEntry *entry = fixture.registry.entry(id);
+    ASSERT_NE(entry, nullptr);
+    EXPECT_TRUE(entry->userDefined);
+    EXPECT_TRUE(entry->present);
+    EXPECT_EQ(entry->descriptor.pluginId, QStringLiteral("fake"));
+    EXPECT_EQ(entry->descriptor.systemName, QStringLiteral("host:9600"));
+    EXPECT_EQ(fixture.registry.settingsFor(id).value(QStringLiteral("speed")).toInt(), 9600);
+    EXPECT_EQ(appeared, QStringList{id});
+}
+
+TEST(InterfaceRegistry, PluginWithoutUserDevicesCreatesNothing)
+{
+    Fixture fixture;
+    EXPECT_TRUE(fixture.registry.addUserDevice(QStringLiteral("fake")).isEmpty());
+    EXPECT_TRUE(fixture.registry.addUserDevice(QStringLiteral("nonexistent")).isEmpty());
+    EXPECT_TRUE(fixture.registry.entries().isEmpty());
+}
+
+TEST(InterfaceRegistry, UserDeviceStaysWhenThePluginEnumeratesNothing)
+{
+    // Главное отличие от обнаруженного устройства: enumerate() его не возвращает никогда, и
+    // это не пропажа.
+    Fixture fixture;
+    fixture.plugin.userDevices = true;
+    const QString id = fixture.registry.addUserDevice(QStringLiteral("fake"));
+    QStringList disappeared;
+    QObject::connect(&fixture.registry, &InterfaceRegistry::interfaceDisappeared,
+                     [&disappeared](const QString &lost) { disappeared.append(lost); });
+
+    fixture.registry.refresh();
+    fixture.registry.refresh();
+
+    EXPECT_TRUE(disappeared.isEmpty());
+    ASSERT_NE(fixture.registry.entry(id), nullptr);
+    EXPECT_TRUE(fixture.registry.entry(id)->present);
+}
+
+TEST(InterfaceRegistry, UserDeviceDescriptionFollowsSettingsEdits)
+{
+    Fixture fixture;
+    fixture.plugin.userDevices = true;
+    const QString id = fixture.registry.addUserDevice(QStringLiteral("fake"));
+
+    fixture.registry.setSettingsFor(id, {{QStringLiteral("speed"), 7777}});
+
+    EXPECT_EQ(fixture.registry.entry(id)->descriptor.systemName, QStringLiteral("host:7777"));
+    EXPECT_EQ(fixture.registry.entry(id)->descriptor.id, id);
+}
+
+TEST(InterfaceRegistry, UserDeviceSurvivesRestartWithAliasAndSettings)
+{
+    TempDir dir;
+    const QString path = dir.filePath(QStringLiteral("interfaces.json"));
+    QString id;
+    {
+        PluginManager plugins;
+        FakeInterfacePlugin plugin;
+        plugin.userDevices = true;
+        SettingsStore store(path);
+        InterfaceRegistry registry(&plugins, &store);
+        ASSERT_TRUE(plugins.addPlugin(&plugin));
+        store.load();
+        id = registry.addUserDevice(QStringLiteral("fake"));
+        registry.setAlias(id, QStringLiteral("bench"));
+        registry.setSettingsFor(id, {{QStringLiteral("speed"), 7778}});
+        store.save();
+    }
+
+    PluginManager plugins;
+    FakeInterfacePlugin plugin;
+    plugin.userDevices = true;
+    SettingsStore store(path);
+    InterfaceRegistry registry(&plugins, &store);
+    ASSERT_TRUE(plugins.addPlugin(&plugin));
+    store.load();
+    registry.start();
+
+    const InterfaceEntry *entry = registry.entry(id);
+    ASSERT_NE(entry, nullptr);
+    EXPECT_TRUE(entry->userDefined);
+    EXPECT_TRUE(entry->present);
+    EXPECT_EQ(entry->alias, QStringLiteral("bench"));
+    EXPECT_EQ(entry->descriptor.systemName, QStringLiteral("host:7778"));
+    EXPECT_EQ(registry.settingsFor(id).value(QStringLiteral("speed")).toInt(), 7778);
+}
+
+TEST(InterfaceRegistry, UserDeviceOfADisabledPluginStaysInTheFile)
+{
+    TempDir dir;
+    const QString path = dir.filePath(QStringLiteral("interfaces.json"));
+    QString id;
+    {
+        PluginManager plugins;
+        FakeInterfacePlugin plugin;
+        plugin.userDevices = true;
+        SettingsStore store(path);
+        InterfaceRegistry registry(&plugins, &store);
+        ASSERT_TRUE(plugins.addPlugin(&plugin));
+        store.load();
+        id = registry.addUserDevice(QStringLiteral("fake"));
+        store.save();
+    }
+
+    {
+        // Плагин выключен: подключение не показывается, но и не стирается.
+        PluginManager plugins;
+        SettingsStore store(path);
+        InterfaceRegistry registry(&plugins, &store);
+        store.load();
+        registry.start();
+        EXPECT_EQ(registry.entry(id), nullptr);
+        store.save();
+    }
+
+    PluginManager plugins;
+    FakeInterfacePlugin plugin;
+    plugin.userDevices = true;
+    SettingsStore store(path);
+    InterfaceRegistry registry(&plugins, &store);
+    ASSERT_TRUE(plugins.addPlugin(&plugin));
+    store.load();
+    registry.start();
+    EXPECT_NE(registry.entry(id), nullptr);
+}
+
+TEST(InterfaceRegistry, RemovingAUserDeviceReportsLossAndErasesTheRecord)
+{
+    TempDir dir;
+    const QString path = dir.filePath(QStringLiteral("interfaces.json"));
+    PluginManager plugins;
+    FakeInterfacePlugin plugin;
+    plugin.userDevices = true;
+    SettingsStore store(path);
+    InterfaceRegistry registry(&plugins, &store);
+    ASSERT_TRUE(plugins.addPlugin(&plugin));
+    store.load();
+    const QString id = registry.addUserDevice(QStringLiteral("fake"));
+    QStringList disappeared;
+    QObject::connect(&registry, &InterfaceRegistry::interfaceDisappeared,
+                     [&disappeared](const QString &lost) { disappeared.append(lost); });
+
+    registry.removeUserDevice(id);
+
+    EXPECT_EQ(registry.entry(id), nullptr);
+    EXPECT_EQ(disappeared, QStringList{id});
+    EXPECT_FALSE(store.data().contains(id));
+}
+
+TEST(InterfaceRegistry, RemovingADiscoveredDeviceDoesNothing)
+{
+    Fixture fixture;
+    fixture.plugin.devices = {FakeInterfacePlugin::makeDevice(QStringLiteral("a"),
+                                                              QStringLiteral("dev-a"))};
+    fixture.registry.refresh();
+
+    fixture.registry.removeUserDevice(QStringLiteral("fake:a"));
+
+    EXPECT_NE(fixture.registry.entry(QStringLiteral("fake:a")), nullptr);
+}
+
+TEST(InterfaceRegistry, ResetAllRemovesUserDevicesButKeepsDiscoveredOnes)
+{
+    Fixture fixture;
+    fixture.plugin.userDevices = true;
+    fixture.plugin.devices = {FakeInterfacePlugin::makeDevice(QStringLiteral("a"),
+                                                              QStringLiteral("dev-a"))};
+    fixture.registry.refresh();
+    const QString id = fixture.registry.addUserDevice(QStringLiteral("fake"));
+    QStringList disappeared;
+    QObject::connect(&fixture.registry, &InterfaceRegistry::interfaceDisappeared,
+                     [&disappeared](const QString &lost) { disappeared.append(lost); });
+
+    fixture.registry.resetAll();
+
+    EXPECT_EQ(fixture.registry.entry(id), nullptr);
+    EXPECT_NE(fixture.registry.entry(QStringLiteral("fake:a")), nullptr);
+    EXPECT_EQ(disappeared, QStringList{id});
+}
+
+TEST(InterfaceRegistry, PasswordFieldsLiveInMemoryButNeverReachTheFile)
+{
+    TempDir dir;
+    const QString path = dir.filePath(QStringLiteral("interfaces.json"));
+    PluginManager plugins;
+    FakeInterfacePlugin plugin;
+    plugin.userDevices = true;
+    plugin.withPassword = true;
+    SettingsStore store(path);
+    InterfaceRegistry registry(&plugins, &store);
+    ASSERT_TRUE(plugins.addPlugin(&plugin));
+    store.load();
+    const QString id = registry.addUserDevice(QStringLiteral("fake"));
+
+    registry.setSettingsFor(id, {{QStringLiteral("speed"), 1200},
+                                 {QStringLiteral("secret"), QStringLiteral("hunter2")}});
+    store.save();
+
+    // В памяти пароль есть: диалог можно открыть снова, не набирая его заново.
+    EXPECT_EQ(registry.settingsFor(id).value(QStringLiteral("secret")).toString(),
+              QStringLiteral("hunter2"));
+
+    // На диске его нет ни под каким ключом.
+    QFile file(path);
+    ASSERT_TRUE(file.open(QIODevice::ReadOnly));
+    const QByteArray contents = file.readAll();
+    EXPECT_FALSE(contents.contains("hunter2"));
+    EXPECT_FALSE(contents.contains("secret"));
+    EXPECT_TRUE(contents.contains("1200"));
+}
+
+TEST(InterfaceRegistry, UserDeviceLabelIsRecomputedWhenThePluginLearnsMore)
+{
+    // Имя хоста приходит уже после ввода адреса — по ssh или из DNS. Подпись должна подхватить его
+    // при ближайшем обходе, без правки настроек.
+    Fixture fixture;
+    fixture.plugin.userDevices = true;
+    const QString id = fixture.registry.addUserDevice(QStringLiteral("fake"));
+    EXPECT_EQ(fixture.registry.entry(id)->descriptor.description, QStringLiteral("User device host:9600"));
+    int changed = 0;
+    QObject::connect(&fixture.registry, &InterfaceRegistry::changed, [&changed] { ++changed; });
+
+    fixture.plugin.userLabelSuffix = QStringLiteral(" (raspberrypi)");
+    fixture.registry.refresh();
+
+    EXPECT_EQ(fixture.registry.entry(id)->descriptor.description, QStringLiteral("User device host:9600 (raspberrypi)"));
+    EXPECT_EQ(changed, 1);
+
+    // Ничего не изменилось — и сигнала нет: перерисовывать список каждую секунду незачем.
+    changed = 0;
+    fixture.registry.refresh();
+    fixture.registry.refresh();
+    EXPECT_EQ(changed, 0);
+}
+
+TEST(InterfaceRegistry, RecomputedLabelIsWrittenToTheFile)
+{
+    TempDir dir;
+    const QString path = dir.filePath(QStringLiteral("interfaces.json"));
+    PluginManager plugins;
+    FakeInterfacePlugin plugin;
+    plugin.userDevices = true;
+    SettingsStore store(path);
+    InterfaceRegistry registry(&plugins, &store);
+    ASSERT_TRUE(plugins.addPlugin(&plugin));
+    store.load();
+    const QString id = registry.addUserDevice(QStringLiteral("fake"));
+
+    plugin.userLabelSuffix = QStringLiteral(" (orangepi)");
+    registry.refresh();
+    store.save();
+
+    QFile file(path);
+    ASSERT_TRUE(file.open(QIODevice::ReadOnly));
+    EXPECT_TRUE(file.readAll().contains("orangepi"));
+    Q_UNUSED(id);
 }

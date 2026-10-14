@@ -791,6 +791,14 @@ void SettingsDialog::updateEnabledState()
     m_packetizerLength->setEnabled(mode == Packetizer::Mode::FixedLength);
 }
 
+void SettingsDialog::done(int result)
+{
+    // Та же уборка, что у отдельного диалога настроек интерфейса: панель одна и та же.
+    if (m_interfacePanel)
+        m_interfacePanel->discardUnconfigured();
+    QDialog::done(result);
+}
+
 AppSettings SettingsDialog::settings() const
 {
     AppSettings result = m_initial;

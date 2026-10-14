@@ -110,6 +110,16 @@ public:
      */
     void setDisabledPlugins(const QStringList &pluginIds);
 
+    /**
+     * \brief Корень каталогов данных плагинов.
+     * \param path Обычно spotty::Paths::pluginDataDir(); пустой путь — не выдавать вовсе.
+     *
+     * Каждому принятому плагину отдаётся `<path>/<pluginId>` через
+     * spotty::IInterfacePlugin::setDataDirectory(). Вызывать до load(): плагины, принятые
+     * раньше, каталог уже не получат.
+     */
+    void setDataRoot(const QString &path) { m_dataRoot = path; }
+
     /// \return Идентификаторы, переданные в setDisabledPlugins().
     const QStringList &disabledPlugins() const { return m_disabledIds; }
 
@@ -211,7 +221,8 @@ private:
 
     QList<IInterfacePlugin *> m_plugins;  ///< Плагины интерфейсов.
     QList<IInterfacePlugin *> m_disabled; ///< Выключенные пользователем.
-    QStringList m_disabledIds;            ///< Идентификаторы выключенных.
+    QStringList m_disabledIds; ///< Идентификаторы выключенных.
+    QString m_dataRoot;        ///< См. setDataRoot().
     QList<LoadedInstance> m_instances;   ///< Всё загруженное, для разбора ролей.
     QList<LoadFailure> m_failures;       ///< Отклонённые файлы.
     QStringList m_searchedDirs;          ///< Обойденные каталоги.

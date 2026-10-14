@@ -429,6 +429,8 @@ void MainWindow::buildUi()
         });
         connect(m_secondBar, &InterfaceBar::settingsRequested, this,
                 [this](const QString &id) { showInterfaceSettings(id); });
+        connect(m_secondBar, &InterfaceBar::newConnectionRequested, this,
+                &MainWindow::createInterfaceConnection);
         connect(m_secondSession, &Session::stateChanged, this,
                 [this](ChannelState state, const QString &detail) {
                     m_secondBar->setChannelState(state, detail);
@@ -442,6 +444,8 @@ void MainWindow::buildUi()
     connect(m_interfaceBar, &InterfaceBar::settingsRequested, this, [this](const QString &id) {
         showInterfaceSettings(id);
     });
+    connect(m_interfaceBar, &InterfaceBar::newConnectionRequested, this,
+            &MainWindow::createInterfaceConnection);
 
     connect(m_sendBar, &SendBar::sendRequested,
             this, [this](const QByteArray &data, SendTarget target) {
@@ -1336,7 +1340,8 @@ void MainWindow::toggleConnection()
         m_context.session->open();
 }
 
-void MainWindow::showInterfaceSettings(const QString &interfaceId, const QStringList &invalidFields)
+void MainWindow::showInterfaceSettings(const QString &interfaceId, const QStringList &invalidFields,
+                                       bool newlyCreated)
 {
     if (!m_context.registry || !m_context.plugins)
         return;
@@ -1346,7 +1351,21 @@ void MainWindow::showInterfaceSettings(const QString &interfaceId, const QString
             this, &MainWindow::reloadSessionSettingsIfActive);
     if (!invalidFields.isEmpty())
         dialog.panel()->flagInvalidFields(invalidFields);
+    // Подключение, заведённое пунктом списка, а не кнопкой самой панели: панель о нём не
+    // знает, и без этой пометки пустое осталось бы в списке после закрытия окна.
+    if (newlyCreated)
+        dialog.panel()->markCreated(interfaceId);
     dialog.exec();
+}
+
+void MainWindow::createInterfaceConnection(const QString &pluginId)
+{
+    if (!m_context.registry)
+        return;
+
+    const QString id = m_context.registry->addUserDevice(pluginId);
+    if (!id.isEmpty())
+        showInterfaceSettings(id, {}, /*newlyCreated=*/true);
 }
 
 void MainWindow::reloadSessionSettingsIfActive(const QString &interfaceId)
