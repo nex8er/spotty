@@ -73,7 +73,8 @@ if(Libssh2_FOUND)
     if(WIN32)
         get_filename_component(libssh2LibDir "${LIBSSH2_LIBRARY}" DIRECTORY)
         find_library(LIBSSH2_CRYPTO_LIBRARY NAMES libcrypto crypto HINTS "${libssh2LibDir}" NO_DEFAULT_PATH)
-        find_library(LIBSSH2_ZLIB_LIBRARY NAMES zlib z HINTS "${libssh2LibDir}" NO_DEFAULT_PATH)
+        # У vcpkg статическая zlib на Windows называется zs.lib (zsd.lib в отладочной сборке), а не zlib.lib.
+        find_library(LIBSSH2_ZLIB_LIBRARY NAMES zs zlib z HINTS "${libssh2LibDir}" NO_DEFAULT_PATH)
         mark_as_advanced(LIBSSH2_CRYPTO_LIBRARY LIBSSH2_ZLIB_LIBRARY)
         # Ненайденная библиотека — «…-NOTFOUND», и в связи цели она сломала бы конфигурацию.
         set(libssh2Dependencies ws2_32 crypt32 bcrypt user32 advapi32)
