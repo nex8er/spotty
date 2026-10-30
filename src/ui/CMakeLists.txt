@@ -25,7 +25,7 @@ qt_add_executable(spotty
     WIN32 MACOSX_BUNDLE
     ../main.cpp
     "${spotty_static_plugins_file}"
-    # Значок собран заранее скриптом tools/make_icons.sh из resources/icons/spotty-master.png;
+    # Значки собраны заранее скриптом tools/make_icons.sh из мастер-файлов resources/icons/;
     # регенерировать при каждой сборке незачем, дизайн иконки не меняется от сборки к сборке.
     $<$<PLATFORM_ID:Windows>:${CMAKE_SOURCE_DIR}/resources/icons/spotty.rc>
     AppContext.h
@@ -111,6 +111,15 @@ qt_add_resources(spotty "spotty-resources"
         "${CMAKE_SOURCE_DIR}/resources/icons/chevron-down-muted.svg"
         "${CMAKE_SOURCE_DIR}/resources/icons/chevron-up-muted.svg"
         "${CMAKE_SOURCE_DIR}/resources/themes/spotty.qss"
+        # Значок окна, который переключается в рабочем режиме: с лампой, пока открыт хоть один
+        # интерфейс (см. MainWindow::updateApplicationIcon()). Из PNG, а не из .ico: чтение .ico
+        # держится на плагине imageformats, и без него значок молча пропал бы.
+        "${CMAKE_SOURCE_DIR}/resources/icons/spotty-256.png"
+        "${CMAKE_SOURCE_DIR}/resources/icons/spotty-win-256.png"
+        "${CMAKE_SOURCE_DIR}/resources/icons/spotty-linux-256.png"
+        "${CMAKE_SOURCE_DIR}/resources/icons/spotty-lamp-256.png"
+        "${CMAKE_SOURCE_DIR}/resources/icons/spotty-lamp-win-256.png"
+        "${CMAKE_SOURCE_DIR}/resources/icons/spotty-lamp-linux-256.png"
 )
 
 target_include_directories(spotty PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")

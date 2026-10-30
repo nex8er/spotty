@@ -21,6 +21,8 @@
 #include <QMainWindow>
 #include <QStringList>
 
+#include <optional>
+
 class QAction;
 class QButtonGroup;
 class QLabel;
@@ -300,6 +302,15 @@ private:
     void updateSendAvailability();
 
     /**
+     * \brief Показать в доке и на панели задач значок с лампой, пока открыт хоть один интерфейс.
+     *
+     * Значок окна и приложения задаётся одним и тем же вызовом: dock на macOS и кнопка на панели
+     * задач Windows берут его оттуда. Ничего не делает, пока лампа не меняется: смена значка дорога
+     * и дёргает dock.
+     */
+    void updateApplicationIcon();
+
+    /**
      * \brief Показать в панели управления кнопки активной полосы плагина.
      * \param strip Полоса либо `nullptr`, чтобы убрать прежние.
      *
@@ -476,6 +487,9 @@ private:
 
     /// \brief Тикает раз в секунду, пока канал открыт.
     QTimer *m_uptimeTimer = nullptr;
+
+    /// \brief Горит ли лампа на значке приложения сейчас; пусто, пока значок не задан.
+    std::optional<bool> m_lampLit;
 
     /// rief Проверка обновлений при запуске; создаётся при первой надобности.
     UpdateChecker *m_updateChecker = nullptr;

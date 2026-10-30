@@ -144,6 +144,7 @@ MainWindow::MainWindow(const AppContext &context, QWidget *parent)
     , m_settings(AppSettings::load(*context.settings))
 {
     setWindowTitle(QStringLiteral("Spotty %1").arg(QLatin1String(SPOTTY_VERSION)));
+    updateApplicationIcon();
 
     buildUi();
     buildMenus();
@@ -435,6 +436,7 @@ void MainWindow::buildUi()
                 [this](ChannelState state, const QString &detail) {
                     m_secondBar->setChannelState(state, detail);
                     updateSendAvailability();
+                    updateApplicationIcon();
                 });
         connect(m_secondSession, &Session::errorOccurred, this, [this](const QString &message) {
             statusBar()->showMessage(message, 8000);
@@ -1431,6 +1433,7 @@ void MainWindow::applyChannelState(ChannelState state, const QString &detail)
     }
     updateUptime();
     updateSendAvailability();
+    updateApplicationIcon();
     updatePlaceholder(state);
 
     // Панели узнают о состоянии через свои хосты: окну незачем знать, какая из них что
@@ -1532,6 +1535,34 @@ void MainWindow::updateSendAvailability()
     // интерфейсе тем же путём, что и о первом, — через свои хосты, а не опросом.
     for (PanelHostImpl *host : std::as_const(m_hosts))
         host->notifySecondInterfaceState(m_dualTransport, m_dualTransport && interfaceB);
+}
+
+void MainWindow::updateApplicationIcon()
+{
+    // «Подключение есть», пока открыт любой из двух интерфейсов: Unavailable (обрыв, идёт
+    // переподключение) лампу гасит, как и значок состояния в строке состояния.
+    const auto isOpen = [](const Session *session) {
+        return session && session->state() == ChannelState::Open;
+    };
+    const bool lit = isOpen(m_context.session) || isOpen(m_secondSession);
+    if (m_lampLit == lit)
+        return;
+    m_lampLit = lit;
+
+    // Обе точки: значок приложения достаётся окнам без собственного (диалоги), а значок самого окна —
+    // то, откуда dock на macOS и панель задач на Windows берут картинку.
+    // Оболочка у значка своя на каждой системе (tools/style_icon.py): macOS — без суффикса.
+#if defined(Q_OS_WIN)
+    const QString style = QStringLiteral("-win");
+#elif defined(Q_OS_LINUX)
+    const QString style = QStringLiteral("-linux");
+#else
+    const QString style;
+#endif
+    const QIcon icon(QStringLiteral(":/icons/spotty%1%2-256.png")
+                         .arg(lit ? QStringLiteral("-lamp") : QString(), style));
+    QApplication::setWindowIcon(icon);
+    setWindowIcon(icon);
 }
 
 void MainWindow::sendToTarget(const QByteArray &data, SendTarget target)

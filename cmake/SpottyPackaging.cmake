@@ -210,7 +210,7 @@ export OUTPUT=\"\$package_dir/Spotty-${SPOTTY_VERSION}-Linux-\$arch.AppImage\"
 # оттуда напрямую.
 export APPIMAGE_EXTRACT_AND_RUN=1
 linuxdeploy --appdir \"\$appdir\" --plugin qt \"\${plugin_args[@]}\" \\
-    --icon-file '${CMAKE_SOURCE_DIR}/resources/icons/spotty-256.png' \\
+    --icon-file '${CMAKE_SOURCE_DIR}/resources/icons/spotty-linux-256.png' \\
     --icon-filename spotty \\
     --output appimage
 ")
