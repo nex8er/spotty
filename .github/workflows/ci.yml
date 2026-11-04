@@ -101,14 +101,14 @@ jobs:
             [[ "$WANT_PACKAGE" == true ]] && package=true
           fi
 
-          mac_arm='{"name":"macOS arm64","os":"macos-14","qt_arch":"clang_64"}'
+          mac_arm='{"name":"macOS arm64","os":"macos-15","qt_arch":"clang_64"}'
           windows='{"name":"Windows x86-64","os":"windows-latest","qt_arch":"win64_msvc2022_64"}'
           linux='{"name":"Linux x86-64","os":"ubuntu-latest","qt_arch":"linux_gcc_64"}'
           mac_intel='{"name":"macOS x86-64","os":"macos-15-intel","qt_arch":"clang_64"}'
 
           if [[ "$full" == true ]]; then
             build="$linux,$mac_arm,$mac_intel,$windows"
-            pack="$mac_arm,$windows,$linux"
+            pack="$mac_arm,$mac_intel,$windows,$linux"
           else
             build="$mac_arm,$windows"
             pack="$mac_arm,$windows"
@@ -384,6 +384,13 @@ jobs:
         run: cmake --build build --target spotty-package
         shell: bash
 
+      - name: Verify macOS Intel package
+        if: matrix.os == 'macos-15-intel'
+        shell: bash
+        run: |
+          lipo -verify_arch x86_64 build/spotty.app/Contents/MacOS/spotty
+          compgen -G 'build/package/Spotty-*-macOS-x86_64.dmg' > /dev/null
+
       - name: Build installer (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -485,7 +492,7 @@ jobs:
       contents: write
 
     steps:
-      # merge-multiple сводит артефакты всех четырёх платформ в один плоский каталог: имена
+      # merge-multiple сводит артефакты всех пяти платформ в один плоский каталог: имена
       # пакетов уже содержат платформу и версию (см. SpottyPackaging.cmake), совпадений не
       # будет.
       - uses: actions/download-artifact@v4
@@ -506,7 +513,8 @@ jobs:
 
             - **Windows** — скачать `Spotty-*-Windows-x64-Setup.exe` и пройти мастер
               установки. `.zip` оставлен как портативный вариант без установки.
-            - **macOS** — открыть `.dmg`, перетащить `Spotty.app` в Applications. Подпись
+            - **macOS** — выбрать `.dmg` для своей архитектуры (`arm64` — Apple Silicon,
+              `x86_64` — Intel), открыть его и перетащить `Spotty.app` в Applications. Подпись
               ad-hoc: Gatekeeper при первом запуске предупредит о неизвестном
               разработчике — открыть через правый клик → «Открыть».
             - **Linux** — сделать AppImage исполняемым, GitHub не сохраняет этот бит при
