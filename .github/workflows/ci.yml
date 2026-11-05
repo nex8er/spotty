@@ -101,7 +101,9 @@ jobs:
             [[ "$WANT_PACKAGE" == true ]] && package=true
           fi
 
-          mac_arm='{"name":"macOS arm64","os":"macos-15","qt_arch":"clang_64"}'
+          # Qt 6.8.1 и 6.9.3 на macOS 15 arm64 сообщают об успешном подключении к
+          # закрытому TCP-порту. С Qt 6.11.1 проверено: отказ обрабатывается корректно.
+          mac_arm='{"name":"macOS arm64","os":"macos-15","qt_arch":"clang_64","qt_version":"6.11.1"}'
           windows='{"name":"Windows x86-64","os":"windows-latest","qt_arch":"win64_msvc2022_64"}'
           linux='{"name":"Linux x86-64","os":"ubuntu-latest","qt_arch":"linux_gcc_64"}'
           mac_intel='{"name":"macOS x86-64","os":"macos-15-intel","qt_arch":"clang_64"}'
@@ -137,7 +139,7 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: ${{ env.QT_VERSION }}
+          version: ${{ matrix.qt_version || env.QT_VERSION }}
           arch: ${{ matrix.qt_arch }}
           # SerialPort нужен плагину UART, Tools — переводам. Без них соберётся урезанный
           # комплект, и проверка потеряет смысл.
@@ -323,7 +325,7 @@ jobs:
 
       - uses: jurplel/install-qt-action@v4
         with:
-          version: ${{ env.QT_VERSION }}
+          version: ${{ matrix.qt_version || env.QT_VERSION }}
           arch: ${{ matrix.qt_arch }}
           modules: qtserialport
           cache: true
@@ -516,7 +518,8 @@ jobs:
             - **macOS** — выбрать `.dmg` для своей архитектуры (`arm64` — Apple Silicon,
               `x86_64` — Intel), открыть его и перетащить `Spotty.app` в Applications. Подпись
               ad-hoc: Gatekeeper при первом запуске предупредит о неизвестном
-              разработчике — открыть через правый клик → «Открыть».
+              разработчике — открыть через правый клик → «Открыть». Сборка `arm64` требует
+              macOS 13 или новее.
             - **Linux** — сделать AppImage исполняемым, GitHub не сохраняет этот бит при
               скачивании:
               ```
