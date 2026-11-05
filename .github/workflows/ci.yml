@@ -390,7 +390,7 @@ jobs:
         if: matrix.os == 'macos-15-intel'
         shell: bash
         run: |
-          lipo -verify_arch x86_64 build/spotty.app/Contents/MacOS/spotty
+          lipo build/spotty.app/Contents/MacOS/spotty -verify_arch x86_64
           compgen -G 'build/package/Spotty-*-macOS-x86_64.dmg' > /dev/null
 
       - name: Build installer (Windows)

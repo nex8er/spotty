@@ -19,7 +19,7 @@ if(APPLE AND NOT CMAKE_OSX_SYSROOT AND NOT DEFINED ENV{SDKROOT})
 endif()
 
 project(Spotty
-    VERSION 0.10.2
+    VERSION 0.10.3
     DESCRIPTION "Modular terminal port monitor"
     HOMEPAGE_URL "https://github.com/nex8er/spotty"
     LANGUAGES CXX)
