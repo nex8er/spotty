@@ -457,19 +457,25 @@ TEST(TcpTunnelInstall, InstallThroughThePluginLeavesAWorkingAgent)
     // Настроенный порт и скорость дошли до агента, байты ходят.
     struct termios tio;
     ASSERT_TRUE(waitFor([&] { return uart.termios(&tio) && cfgetispeed(&tio) == speed_t(B57600); }));
+    const QString agentLog = QDir(f.sandbox).filePath(QStringLiteral("root/var/log/spotty-uartd-%1.log").arg(port));
+    const auto readAgentLog = [&] {
+        QFile log(agentLog);
+        return log.open(QIODevice::ReadOnly) ? log.readAll() : QByteArray{};
+    };
+    // После установки плагин сам проверяет TCP-порт. Дождаться закрытия этой пробы: иначе её
+    // запись о подключении можно принять за подключение тестового клиента и потерять байты UART.
+    ASSERT_TRUE(waitFor(
+        [&] { return readAgentLog().contains("client 127.0.0.1 disconnected (0 left)"); }, 10000))
+        << readAgentLog().constData();
+    const QByteArray connectedLine("client 127.0.0.1 connected (1 total)");
+    const auto connectionsBefore = readAgentLog().count(connectedLine);
+
     Client client(port);
     ASSERT_TRUE(client.connected);
-    // Агент получил байты из порта раньше, чем принял клиента, — они пропали бы: клиентов у него
-    // ещё нет. Журнал запущенного скриптом агента подскажет, что клиент принят.
-    const QString agentLog = QDir(f.sandbox).filePath(QStringLiteral("root/var/log/spotty-uartd-%1.log").arg(port));
-    ASSERT_TRUE(waitFor(
-        [&] {
-            QFile log(agentLog);
-            return log.open(QIODevice::ReadOnly) && log.readAll().contains("connected (1 total)");
-        },
-        10000));
+    ASSERT_TRUE(waitFor([&] { return readAgentLog().count(connectedLine) > connectionsBefore; }, 10000))
+        << readAgentLog().constData();
     uart.emitBytes("ok");
-    ASSERT_TRUE(client.waitForBytes(2));
+    ASSERT_TRUE(client.waitForBytes(2)) << readAgentLog().constData();
     EXPECT_EQ(client.received, QByteArray("ok"));
 }
 
