@@ -142,15 +142,14 @@ TEST(SampleParser, HeaderRowIsRecognized)
     EXPECT_EQ(names.at(1), QStringLiteral("volt"));
 }
 
-TEST(SampleParser, HeaderIsRejectedWhenWidthDiffers)
+TEST(SampleParser, CsvHeaderCanAnnounceADifferentWidth)
 {
-    // Иначе случайная фраза из двух слов переименовала бы ряды шестиколоночного потока.
     SampleParser parser;
     QList<double> values;
     QStringList names;
 
     EXPECT_EQ(parse(parser, QStringLiteral("hello,world"), 6, &values, &names).outcome,
-              SampleParser::Outcome::Ignored);
+              SampleParser::Outcome::Header);
 }
 
 TEST(SampleParser, HeaderNeedsAtLeastTwoFields)

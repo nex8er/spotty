@@ -61,24 +61,26 @@ bool isPackageFor(const QString &os, const QString &name)
     return false;
 }
 
-QJsonObject pickAsset(const QJsonArray &assets, const QString &os, const QString &arch)
+QJsonObject pickAsset(const QJsonArray &assets, const QString &os, const QString &arch,
+                      bool portable = false)
 {
-    QJsonObject fallback;
+    if (arch.isEmpty())
+        return {};
     for (const QJsonValue &value : assets) {
         const QJsonObject asset = value.toObject();
         const QString name = asset.value(QLatin1String("name")).toString();
-        if (!isPackageFor(os, name))
+        if (!name.startsWith(QLatin1String("Spotty-"), Qt::CaseInsensitive)
+            || !name.contains(QLatin1Char('-') + os + QLatin1Char('-'), Qt::CaseInsensitive))
+            continue;
+        if (portable ? !name.endsWith(QLatin1String(".zip"), Qt::CaseInsensitive)
+                     : !isPackageFor(os, name))
             continue;
 
         const QString assetArch = archOfAsset(name);
         if (assetArch == arch)
             return asset;
-        // Имя без архитектуры годится на крайний случай; имя с чужой — нет: скачать
-        // пакет, который не запустится, хуже, чем открыть страницу релиза.
-        if (assetArch.isEmpty() && fallback.isEmpty())
-            fallback = asset;
     }
-    return fallback;
+    return {};
 }
 
 } // namespace
@@ -196,6 +198,17 @@ std::optional<ReleaseInfo> UpdateChecker::parseRelease(const QByteArray &json, c
     if (!asset.isEmpty()) {
         release.assetName = asset.value(QLatin1String("name")).toString();
         release.assetUrl = QUrl(asset.value(QLatin1String("browser_download_url")).toString());
+        release.assetDigest = asset.value(QLatin1String("digest")).toString();
+        release.assetSize = asset.value(QLatin1String("size")).toInteger();
+    }
+    if (os == QLatin1String("windows")) {
+        const QJsonObject portable = pickAsset(object.value(QLatin1String("assets")).toArray(),
+                                               os, arch, true);
+        release.portableAssetName = portable.value(QLatin1String("name")).toString();
+        release.portableAssetUrl =
+            QUrl(portable.value(QLatin1String("browser_download_url")).toString());
+        release.portableAssetDigest = portable.value(QLatin1String("digest")).toString();
+        release.portableAssetSize = portable.value(QLatin1String("size")).toInteger();
     }
 
     return release;
@@ -217,9 +230,12 @@ QString UpdateChecker::currentArch()
     // Qt и CMake называют одну архитектуру по-разному (arm64 / aarch64, x86_64 / amd64);
     // приводятся к тем же двум словам, которыми размечены имена пакетов.
     const QString arch = QSysInfo::currentCpuArchitecture();
-    return arch == QLatin1String("arm64") || arch == QLatin1String("aarch64")
-               ? QStringLiteral("arm64")
-               : QStringLiteral("x64");
+    if (arch == QLatin1String("arm64") || arch == QLatin1String("aarch64"))
+        return QStringLiteral("arm64");
+    if (arch == QLatin1String("x86_64") || arch == QLatin1String("amd64")
+        || arch == QLatin1String("x64"))
+        return QStringLiteral("x64");
+    return {};
 }
 
 } // namespace spotty

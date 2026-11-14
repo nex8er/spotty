@@ -53,18 +53,13 @@ protected:
     void settingsReset() override;
     void channelStateChanged(ChannelState state) override;
 
-    /// \brief Пересчитать ширины колонок статистики под новую ширину панели.
-    void resizeEvent(QResizeEvent *event) override;
-
 private:
     /**
      * \brief Как часто обновляются числа в таблице рядов, мс.
      *
      * Пять раз в секунду. Статистика считается обходом всего окна по каждому ряду, а
-     * записывается в QTableWidget, который на каждую правку пересчитывает ширины колонок
-     * (заголовок стоит в ResizeToContents). На каждую пришедшую строку это давало десятки
-     * тысяч операций в секунду — при том, что человек всё равно не читает числа быстрее
-     * нескольких раз в секунду.
+     * записывается в QTableWidget. На каждую пришедшую строку это давало бы десятки
+     * тысяч операций в секунду — человек не читает числа настолько быстро.
      */
     static constexpr int kStatisticsIntervalMs = 200;
 
@@ -82,17 +77,6 @@ private:
 
     /// \brief Завести таймер обновления статистики, если он ещё не идёт.
     void scheduleStatistics();
-
-    /**
-     * \brief Пересчитать число знаков в колонках статистики по их ширине.
-     *
-     * Зовётся при изменении ширины и никогда — по приходу данных. Именно это и держит
-     * цифры неподвижными: они меняются, только когда панель тянут за край.
-     */
-    void updateStatisticsWidth();
-
-    /// \brief Сколько пикселей нужно колонке имени, чтобы показать самое длинное целиком.
-    int nameColumnNeeds() const;
 
     /// \brief Вернуть в ячейки первой колонки цвет и видимость из модели.
     void refreshSwatches();
@@ -199,12 +183,6 @@ private:
      */
     QList<bool> m_rememberedVisibility;
 
-    /// \brief Ширина колонки статистики в знакоместах; см. updateStatisticsWidth().
-    int m_statisticsCharacters = 8;
-
-    /// \brief Идёт установка ширин; гасит вызов из sectionResized, который она же и поднимает.
-    bool m_adjustingColumns = false;
-
     /// \brief Ограничитель частоты пересчёта статистики; см. #kStatisticsIntervalMs.
     QTimer *m_statisticsTimer = nullptr;
 
@@ -225,9 +203,6 @@ private:
 
     /// \brief Профиль выбран человеком — автоподбор его больше не трогает.
     bool m_profileChosenByUser = false;
-
-    /// \brief В таблице виден дополнительный столбец «максимум − минимум».
-    bool m_showDelta = false;
 
     /// \brief Скольким рядам профиль уже роздан; см. applyStoredProfile().
     int m_appliedSeriesCount = 0;

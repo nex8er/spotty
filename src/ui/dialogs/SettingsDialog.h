@@ -26,6 +26,7 @@ class QTreeWidgetItem;
 namespace spotty {
 
 class UpdateChecker;
+struct ReleaseInfo;
 class PanelPluginRegistry;
 class SchemaForm;
 
@@ -118,6 +119,9 @@ public:
     QHash<QString, QVariantMap> pluginSettings() const;
 
 Q_SIGNALS:
+    /// \brief Пользователь выбрал установку найденного обновления.
+    void updateInstallRequested(const spotty::ReleaseInfo &release);
+
     /**
      * \brief Пользователь подтвердил полный сброс приложения к умолчаниям.
      *

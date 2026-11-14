@@ -44,7 +44,7 @@ bool PlotModel::growSeries(int columns)
         PlotSeries series;
         const int index = int(m_series.size());
         series.color = defaultColor(index);
-        const QString sourceName = m_reportedNames.value(index);
+        const QString sourceName = reportedSeriesName(index);
         series.name = sourceName.isEmpty() ? PlotFormat::defaultSeriesName(index) : sourceName;
         // По умолчанию виден только первый ряд: устройство нередко шлёт десяток колонок,
         // и рисовать их все сразу поверх друг друга — не то, чего просят, а то, что
@@ -55,30 +55,50 @@ bool PlotModel::growSeries(int columns)
     return true;
 }
 
+QString PlotModel::reportedSeriesName(int index) const
+{
+    return m_reportedNames.size() == m_currentColumnCount ? m_reportedNames.value(index)
+                                                         : QString();
+}
+
+bool PlotModel::applyReportedNames()
+{
+    if (m_reportedNames.size() != m_currentColumnCount)
+        return false;
+
+    bool renamed = false;
+    for (int i = 0; i < m_series.size() && i < m_reportedNames.size(); ++i) {
+        PlotSeries &series = m_series[i];
+        const QString &name = m_reportedNames.at(i);
+        if (series.name == name && !series.nameIsCustom)
+            continue;
+        series.name = name;
+        series.nameIsCustom = false;
+        renamed = true;
+    }
+    return renamed;
+}
+
 bool PlotModel::feed(const QString &line, qint64 monotonicNs)
 {
     QList<double> values;
     QStringList names;
 
     const SampleParser::Result result =
-        m_parser.parse(line, m_samples.columnCount(), &values, &names);
+        m_parser.parse(line, m_currentColumnCount, &values, &names);
 
     if (result.outcome == SampleParser::Outcome::Header) {
+        if (names.size() > m_samples.columnLimit())
+            return false;
         // Заголовок не создаёт колонок сам, но запоминается и до первой строки данных:
         // иначе профиль, сброшенный после раннего заголовка, мог вернуть только alpha,
         // bravo, хотя устройство уже назвало поля.
         m_reportedNames = names;
-        bool renamed = false;
-        for (int i = 0; i < names.size() && i < m_series.size(); ++i) {
-            PlotSeries &series = m_series[i];
-            const QString sourceName = m_reportedNames.at(i);
-            if (sourceName.isEmpty() || series.nameIsCustom || series.name == sourceName)
-                continue;
-            series.name = sourceName;
-            renamed = true;
-        }
-        if (renamed)
+        if (applyReportedNames()) {
             Q_EMIT seriesAdded();
+            Q_EMIT changed();
+            Q_EMIT configurationChanged();
+        }
         return false;
     }
 
@@ -90,8 +110,11 @@ bool PlotModel::feed(const QString &line, qint64 monotonicNs)
         return false;
     }
 
-    const bool grew = growSeries(m_samples.columnCount());
-    if (grew)
+    const bool widthChanged = m_currentColumnCount != result.fieldCount;
+    m_currentColumnCount = result.fieldCount;
+    const bool grew = growSeries(m_currentColumnCount);
+    const bool renamed = widthChanged && applyReportedNames();
+    if (grew || renamed)
         Q_EMIT seriesAdded();
     Q_EMIT changed();
     return true;
@@ -136,7 +159,7 @@ void PlotModel::setSeriesName(int index, const QString &name)
     // Пустое имя возвращает ряд к имени по умолчанию и снимает признак ручной правки:
     // иначе стерев имя, пользователь получил бы безымянную строку без пути назад.
     if (trimmed.isEmpty()) {
-        const QString sourceName = m_reportedNames.value(index);
+        const QString sourceName = reportedSeriesName(index);
         m_series[index].name = sourceName.isEmpty() ? PlotFormat::defaultSeriesName(index)
                                                      : sourceName;
         m_series[index].nameIsCustom = false;
@@ -150,30 +173,10 @@ void PlotModel::setSeriesName(int index, const QString &name)
 
 void PlotModel::resetSeriesConfiguration()
 {
-    bool didChange = false;
-    for (int index = 0; index < m_series.size(); ++index) {
-        PlotSeries &series = m_series[index];
-        const QString reportedName = m_reportedNames.value(index);
-        const QString sourceName = reportedName.isEmpty() ? PlotFormat::defaultSeriesName(index)
-                                                           : reportedName;
-        // По умолчанию видим только первый ряд — см. growSeries().
-        const bool defaultVisible = (index == 0);
-        if (series.name != sourceName || series.nameIsCustom
-            || series.color != defaultColor(index) || series.visible != defaultVisible
-            || series.hasCustomRange) {
-            didChange = true;
-        }
-        series.name = sourceName;
-        series.nameIsCustom = false;
-        series.color = defaultColor(index);
-        series.visible = defaultVisible;
-        series.hasCustomRange = false;
-        series.customMinimum = 0.0;
-        series.customMaximum = 1.0;
-    }
-
-    if (!didChange)
-        return;
+    // \brief Старые широкие отсчёты остаются в буфере, но не создают лишних строк таблицы.
+    m_series.clear();
+    growSeries(m_currentColumnCount);
+    m_xAxis = -1;
     Q_EMIT seriesAdded();
     Q_EMIT changed();
     Q_EMIT configurationChanged();

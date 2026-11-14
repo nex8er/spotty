@@ -4,6 +4,7 @@
  */
 #include "InterfaceSettingsPanel.h"
 
+#include "../ButtonSizing.h"
 #include "../CollapsibleSection.h"
 #include "../InterfaceLabel.h"
 #include "../SchemaForm.h"
@@ -77,14 +78,14 @@ InterfaceSettingsPanel::InterfaceSettingsPanel(InterfaceRegistry *registry,
     m_addButton = new QPushButton(tr("New connection…"), switcherRow);
     m_addButton->setObjectName(QStringLiteral("addConnectionButton"));
     m_addButton->setAutoDefault(false);
+    ensureButtonTextFits(m_addButton);
     m_addButton->setVisible(!userDevicePlugins().isEmpty());
     switcherRowLayout->addWidget(m_addButton);
 
     m_removeButton = new QPushButton(tr("Remove"), switcherRow);
     m_removeButton->setObjectName(QStringLiteral("removeConnectionButton"));
     m_removeButton->setAutoDefault(false);
-    m_removeButton->setToolTip(tr("Remove this saved connection. Nothing is changed on the remote side."));
-    m_removeButton->setVisible(!userDevicePlugins().isEmpty());
+    m_removeButton->setVisible(m_plugins != nullptr);
     m_removeButton->setEnabled(false);
     switcherRowLayout->addWidget(m_removeButton);
 
@@ -169,7 +170,7 @@ InterfaceSettingsPanel::InterfaceSettingsPanel(InterfaceRegistry *registry,
         menu.exec(m_addButton->mapToGlobal(QPoint(0, m_addButton->height())));
     });
     connect(m_removeButton, &QPushButton::clicked, this,
-            &InterfaceSettingsPanel::removeCurrentUserDevice);
+            &InterfaceSettingsPanel::removeCurrentInterface);
 
     connect(m_alias, &QLineEdit::editingFinished, this, [this] {
         if (m_populating || m_currentId.isEmpty() || !m_registry)
@@ -226,13 +227,51 @@ void InterfaceSettingsPanel::addUserDevice(const QString &pluginId)
     selectInterface(id);
 }
 
-void InterfaceSettingsPanel::removeCurrentUserDevice()
+void InterfaceSettingsPanel::setDisabledPlugins(const QStringList &pluginIds)
+{
+    m_disabledPlugins = pluginIds;
+    updateRemoveButton();
+}
+
+void InterfaceSettingsPanel::updateRemoveButton()
+{
+    const InterfaceEntry *entry = m_registry ? m_registry->entry(m_currentId) : nullptr;
+    const bool userDefined = entry && entry->userDefined;
+    const bool canDisable = entry && m_plugins && m_plugins->plugin(entry->descriptor.pluginId)
+                            && !m_disabledPlugins.contains(entry->descriptor.pluginId);
+    m_removeButton->setToolTip(userDefined
+        ? tr("Remove this saved connection. Nothing is changed on the remote side.")
+        : tr("Disable this plugin and all its devices after restarting Spotty."));
+    m_removeButton->setEnabled(userDefined || canDisable);
+    ensureButtonTextFits(m_removeButton);
+}
+
+void InterfaceSettingsPanel::removeCurrentInterface()
 {
     if (m_currentId.isEmpty() || !m_registry)
         return;
     const InterfaceEntry *entry = m_registry->entry(m_currentId);
-    if (!entry || !entry->userDefined)
+    if (!entry)
         return;
+
+    const QString id = m_currentId;
+    const QString pluginId = entry->descriptor.pluginId;
+    if (!entry->userDefined) {
+        IInterfacePlugin *plugin = m_plugins ? m_plugins->plugin(pluginId) : nullptr;
+        if (!plugin || m_disabledPlugins.contains(pluginId))
+            return;
+        QMessageBox box(QMessageBox::Question, tr("Disable plugin"),
+                        tr("Disable plugin \"%1\"?").arg(plugin->displayName()),
+                        QMessageBox::Yes | QMessageBox::No, this);
+        box.setInformativeText(tr("All devices provided by this plugin will be unavailable "
+                                  "after restarting Spotty. You can enable it again in "
+                                  "Settings → Plugins."));
+        box.setDefaultButton(QMessageBox::No);
+        if (box.exec() != QMessageBox::Yes)
+            return;
+        Q_EMIT pluginDisableRequested(pluginId);
+        return;
+    }
 
     // Спрашиваем всегда: удаление необратимо, а настройки подключения — это и адрес, и
     // параметры, которые придётся вводить заново. Текст общий для любого транспорта; что
@@ -247,9 +286,9 @@ void InterfaceSettingsPanel::removeCurrentUserDevice()
     if (box.exec() != QMessageBox::Yes)
         return;
 
-    m_createdIds.removeAll(m_currentId);
-    const QString id = m_currentId;
-    m_currentId.clear();
+    m_createdIds.removeAll(id);
+    if (m_currentId == id)
+        m_currentId.clear();
     m_registry->removeUserDevice(id);
 }
 
@@ -344,7 +383,7 @@ void InterfaceSettingsPanel::showEntry(const QString &id)
 
     m_alias->setEnabled(entry != nullptr);
     m_hidden->setEnabled(entry != nullptr);
-    m_removeButton->setEnabled(entry && entry->userDefined);
+    updateRemoveButton();
     // У подключения по сети нет ни производителя, ни модели: строка из одних прочерков
     // только занимала бы место.
     m_infoForm->setRowVisible(m_vidPidValue, !(entry && entry->userDefined));

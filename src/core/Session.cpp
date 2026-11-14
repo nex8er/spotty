@@ -120,6 +120,8 @@ Session::Statistics Session::statistics() const
 
 void Session::setPacketizerMode(Packetizer::Mode mode)
 {
+    if (m_packetizer.mode() != mode)
+        m_packetTimer->stop();
     m_packetizer.setMode(mode);
 }
 
@@ -454,6 +456,8 @@ void Session::processPendingIncoming()
     if (m_packetizer.mode() == Packetizer::Mode::InterByteTimeout
         && m_packetizer.hasPending()) {
         m_packetTimer->start(m_packetizer.timeoutMs());
+    } else {
+        m_packetTimer->stop();
     }
 }
 

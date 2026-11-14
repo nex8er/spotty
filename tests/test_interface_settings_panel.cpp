@@ -232,7 +232,7 @@ TEST(InterfaceSettingsPanel, NewConnectionButtonExistsOnlyWhereAPluginCreatesDev
 {
     UserDeviceFixture without(/*userDevices=*/false);
     EXPECT_FALSE(without.addButton()->isVisibleTo(without.panel.get()));
-    EXPECT_FALSE(without.removeButton()->isVisibleTo(without.panel.get()));
+    EXPECT_TRUE(without.removeButton()->isVisibleTo(without.panel.get()));
 
     UserDeviceFixture with(/*userDevices=*/true);
     EXPECT_TRUE(with.addButton()->isVisibleTo(with.panel.get()));
@@ -250,13 +250,14 @@ TEST(InterfaceSettingsPanel, NewConnectionIsCreatedAndSelected)
     EXPECT_TRUE(f.removeButton()->isEnabled());
 }
 
-TEST(InterfaceSettingsPanel, RemoveIsOnlyForConnectionsTheUserCreated)
+TEST(InterfaceSettingsPanel, RemoveUsesTheDeviceOrigin)
 {
     UserDeviceFixture f;
     f.plugin.devices = {FakeInterfacePlugin::makeDevice(QStringLiteral("a"), QStringLiteral("dev-a"))};
     f.registry.refresh();
     f.panel->selectInterface(QStringLiteral("fake:a"));
-    EXPECT_FALSE(f.removeButton()->isEnabled()); // обнаруженное устройство удалить нельзя
+    EXPECT_TRUE(f.removeButton()->isEnabled());
+    EXPECT_EQ(f.removeButton()->text(), QStringLiteral("Remove"));
 
     const QString id = f.addConnection();
     EXPECT_TRUE(f.removeButton()->isEnabled());

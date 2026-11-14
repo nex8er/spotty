@@ -473,15 +473,13 @@ TRANSLATIONS = {
     "Delimiter": "По разделителю",
     "Fixed length": "По фиксированной длине",
     "Gap": "Пауза",
-    "Message length": "Длина сообщения",
+    "Maximum line length": "Максимальная длина строки",
     "Hexadecimal, for example 0A or 0D0A":
         "Шестнадцатеричная запись, например 0A или 0D0A",
-    "A binary stream without line breaks collapses into one endless line. "
-    "Splitting by an inter-byte gap is how most binary protocols over UART frame "
-    "their messages.":
-        "Двоичный поток без переводов строк слипается в одну бесконечную строку. "
-        "Разбиение по межбайтовой паузе — то, как размечает сообщения большинство "
-        "двоичных протоколов поверх UART.",
+    "Line breaks always end a line. The selected rule adds an earlier boundary: "
+    "a delimiter, an inter-byte gap, or a maximum number of bytes.":
+        "Перевод строки всегда завершает строку. Выбранное правило задаёт дополнительную "
+        "границу: разделитель, межбайтовую паузу или предельное число байтов.",
 
     # --- Общие настройки ---
     "Takes effect after restarting Spotty.": "Вступит в силу после перезапуска Spotty.",
@@ -495,6 +493,30 @@ TRANSLATIONS = {
     "Starting Spotty again raises the existing window instead of opening a second one.":
         "Повторный запуск покажет уже открытое окно вместо второго.",
     # --- Обновления ---
+    'Preparing the update…': 'Подготовка обновления…',
+    'Downloading the update…': 'Загрузка обновления…',
+    'The update package has an invalid address.': 'Некорректный адрес пакета обновления.',
+    'The update package is too large.': 'Пакет обновления слишком велик.',
+    'The update checksum is not supported.': 'Контрольная сумма обновления не поддерживается.',
+    'Could not save the downloaded package.': 'Не удалось сохранить скачанный пакет.',
+    'The downloaded package failed verification.': 'Скачанный пакет не прошёл проверку.',
+    'Update failed': 'Ошибка обновления',
+    'Could not create a temporary directory for the update.': 'Не удалось создать временный каталог для обновления.',
+    'The running application is not an installed macOS bundle.': 'Запущенное приложение не является установленным пакетом macOS.',
+    'Automatic updates are available when Spotty is running as an AppImage.': 'Автоматическое обновление доступно при запуске Spotty из AppImage.',
+    'No update package is available for this installation.': 'Для этой установки пакет обновления недоступен.',
+    'Cannot update this location. Move Spotty to a writable location and try again.': 'Нет прав для обновления в этом каталоге. Переместите Spotty в доступный для записи каталог и повторите попытку.',
+    'The update package does not contain a valid Spotty application.': 'Пакет обновления не содержит корректного приложения Spotty.',
+    'Could not prepare the update package.': 'Не удалось подготовить пакет обновления.',
+    'The update package does not contain Spotty.': 'Пакет обновления не содержит Spotty.',
+    'Could not install the update. Check the application folder and the temporary directory.': 'Не удалось установить обновление. Проверьте каталог приложения и временный каталог.',
+    'Could not start the update helper.': 'Не удалось запустить установщик обновления.',
+    'Spotty will download and install the update, then restart.': 'Spotty скачает и установит обновление, а затем перезапустится.',
+    'Update': 'Обновить',
+    'Checks GitHub for updates when Spotty starts.': 'Проверять обновления на GitHub при запуске Spotty.',
+    "What's new": "Что нового",
+    "No release notes available.": "Описание изменений отсутствует.",
+    'Version %1 is available. <a href="update">Update and restart</a> · <a href="notes">What\'s new</a>': 'Доступна версия %1. <a href="update">Обновить и перезапустить</a> · <a href="notes">Что нового</a>',
     "Updates": "Обновления",
     "Check for updates on startup": "Проверять обновления при запуске",
     "Asks GitHub for the latest release when Spotty starts. Nothing is downloaded or "
@@ -941,9 +963,19 @@ TRANSLATIONS = {
         "Замораживает картинку, но не сбор: накопление продолжается.",
     "Open in window": "Открыть в окне",
     "Last": "Последнее",
+    "Current": "Текущее",
+    "Reset profile": "Сброс профиля",
+    'Reset profile "%1" and rebuild the table from the current data?\n'
+    "Series names and settings will be reset. Collected samples will be kept.":
+        'Сбросить профиль «%1» и пересобрать таблицу по текущим данным?\n'
+        "Имена рядов и настройки будут сброшены. Накопленные точки сохранятся.",
     "Min": "Мин",
     "Max": "Макс",
     "Avg": "Среднее",
+    "Show current value": "Показывать текущее значение",
+    "Show minimum": "Показывать минимум",
+    "Show average": "Показывать среднее",
+    "Show maximum": "Показывать максимум",
     "Export CSV": "Выгрузить CSV",
     "Save PNG": "Сохранить PNG",
     "Clear": "Очистить",
@@ -1133,6 +1165,18 @@ TRANSLATIONS = {
     "New connection…": "Новое подключение…",
     "Remove": "Удалить",
     "Remove connection": "Удалить подключение",
+    "Disable plugin": "Отключить плагин",
+    'Disable plugin "%1"?': 'Отключить плагин «%1»?',
+    "Disable this plugin and all its devices after restarting Spotty.":
+        "Отключить этот плагин и все его устройства после перезапуска Spotty.",
+    "All devices provided by this plugin will be unavailable after restarting Spotty. "
+    "You can enable it again in Settings → Plugins.":
+        "Все устройства этого плагина станут недоступны после перезапуска Spotty. "
+        "Включить его снова можно в разделе «Настройки → Плагины».",
+    "Remove this saved connection. Nothing is changed on the remote side.":
+        "Удалить сохранённое подключение. На удалённой стороне ничего не изменится.",
+    "Plugin %1 will be disabled after restarting Spotty.":
+        "Плагин %1 будет отключён после перезапуска Spotty.",
     "Remove \"%1\" from Spotty?": "Удалить «%1» из Spotty?",
     "Only the saved connection is removed. Nothing is changed on the remote side.":
         "Удаляется только сохранённое подключение. На удалённой стороне ничего не меняется.",

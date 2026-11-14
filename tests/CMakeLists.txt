@@ -137,6 +137,7 @@ spotty_add_test(spotty-ui-tests
         test_plotter_panel.cpp
         test_live_options.cpp
         test_interface_settings_panel.cpp
+        test_update_helper.cpp
         test_stream_server.cpp
         # Транспорт tcptunnel: канал проверяется на настоящем QTcpServer, плагин — вместе с
         # реестром, потому что подпись подключения выводит из настроек именно он.

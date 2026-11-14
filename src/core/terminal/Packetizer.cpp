@@ -43,14 +43,12 @@ QList<Packetizer::Packet> Packetizer::feed(const QByteArray &data, qint64 monoto
     if (data.isEmpty())
         return packets;
 
-    switch (m_mode) {
-    case Mode::Stream:
-        // Сквозной режим: пакетизатор ничего не решает, границы найдёт разборщик по
-        // переводам строк.
+    if (m_mode == Mode::Stream || (m_mode == Mode::Delimiter && m_delimiter.isEmpty())) {
         packets.append(Packet{data, false});
-        break;
+        return packets;
+    }
 
-    case Mode::InterByteTimeout: {
+    if (m_mode == Mode::InterByteTimeout) {
         // Пауза, разделившая эту порцию и предыдущую, завершает накопленный пакет.
         // Проверка идёт до накопления: данные, пришедшие после паузы, принадлежат уже
         // следующему сообщению.
@@ -60,45 +58,38 @@ QList<Packetizer::Packet> Packetizer::feed(const QByteArray &data, qint64 monoto
             packets.append(Packet{m_pending, true});
             m_pending.clear();
         }
-        m_pending.append(data);
         m_lastByteNs = monotonicNs;
         m_hasLastByte = true;
-        break;
     }
 
-    case Mode::Delimiter: {
-        if (m_delimiter.isEmpty()) {
-            packets.append(Packet{data, false});
+    m_pending.append(data);
+    qsizetype packetStart = 0;
+    qsizetype newline = m_pending.indexOf('\n');
+    qsizetype delimiter = m_mode == Mode::Delimiter ? m_pending.indexOf(m_delimiter) : -1;
+
+    for (;;) {
+        qsizetype end = -1;
+        if (delimiter >= 0)
+            end = delimiter + m_delimiter.size();
+        if (m_mode == Mode::FixedLength && m_pending.size() - packetStart >= m_fixedLength)
+            end = packetStart + m_fixedLength;
+
+        // \brief Перевод строки завершает накопление раньше дополнительного ограничения.
+        if (newline >= 0 && (end < 0 || newline + 1 <= end))
+            end = newline + 1;
+        if (end < 0)
             break;
-        }
-        m_pending.append(data);
-        // packetStart — начало ещё не выданного пакета. Отсчёт именно от него, а не от
-        // начала накопителя: в одной порции разделителей может быть несколько, и каждый
-        // следующий пакет начинается там, где кончился предыдущий.
-        qsizetype packetStart = 0;
-        for (;;) {
-            const qsizetype at = m_pending.indexOf(m_delimiter, packetStart);
-            if (at < 0)
-                break;
-            // Разделитель включается в пакет: для монитора порта важно видеть всё, что
-            // реально пришло, а не очищенную версию.
-            const qsizetype end = at + m_delimiter.size();
-            packets.append(Packet{m_pending.mid(packetStart, end - packetStart), true});
-            packetStart = end;
-        }
-        if (packetStart > 0)
-            m_pending.remove(0, packetStart);
-        break;
-    }
 
-    case Mode::FixedLength:
-        m_pending.append(data);
-        while (m_pending.size() >= m_fixedLength) {
-            packets.append(Packet{m_pending.left(m_fixedLength), true});
-            m_pending.remove(0, m_fixedLength);
-        }
-        break;
+        // \brief Завершённый пакет из одних управляющих байтов тоже нужен HEX-режиму.
+        packets.append(Packet{m_pending.mid(packetStart, end - packetStart), true});
+        packetStart = end;
+        if (newline >= 0 && newline < packetStart)
+            newline = m_pending.indexOf('\n', packetStart);
+        if (delimiter >= 0 && delimiter < packetStart)
+            delimiter = m_pending.indexOf(m_delimiter, packetStart);
     }
+    if (packetStart > 0)
+        m_pending.remove(0, packetStart);
 
     return packets;
 }

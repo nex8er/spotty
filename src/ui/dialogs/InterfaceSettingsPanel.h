@@ -102,6 +102,9 @@ public:
      */
     void flagInvalidFields(const QStringList &fieldKeys);
 
+    /// \brief Обновить доступность отключения с учётом уже выключенных плагинов.
+    void setDisabledPlugins(const QStringList &pluginIds);
+
 protected:
     /// \brief Возобновить опрос живых полей: панель снова на экране.
     void showEvent(QShowEvent *event) override;
@@ -119,12 +122,18 @@ Q_SIGNALS:
      */
     void settingsApplied(const QString &id);
 
+    /// \brief Пользователь подтвердил отключение плагина со следующего запуска.
+    void pluginDisableRequested(const QString &pluginId);
+
 private:
     /// \brief Завести устройство пользователя у плагина и выбрать его.
     void addUserDevice(const QString &pluginId);
 
-    /// \brief Удалить выбранное устройство пользователя (после подтверждения).
-    void removeCurrentUserDevice();
+    /// \brief Удалить сохранённое подключение либо предложить отключение его плагина.
+    void removeCurrentInterface();
+
+    /// \brief Подпись и доступность удаления зависят от происхождения выбранного устройства.
+    void updateRemoveButton();
 
     /// \brief Плагины, у которых устройства создаёт пользователь: идентификатор и название.
     QList<QPair<QString, QString>> userDevicePlugins() const;
@@ -203,7 +212,8 @@ private:
 
     QComboBox *m_deviceCombo = nullptr;
     QPushButton *m_addButton = nullptr;    ///< «New connection…»; скрыта, если создавать нечего.
-    QPushButton *m_removeButton = nullptr; ///< «Remove»; доступна для устройства пользователя.
+    QPushButton *m_removeButton = nullptr; ///< Удаление подключения или отключение плагина.
+    QStringList m_disabledPlugins;         ///< Отключённые со следующего запуска плагины.
     QFormLayout *m_infoForm = nullptr;     ///< Строки группы «Interface».
     QStringList m_createdIds;              ///< Созданные здесь и ещё не настроенные устройства.
 

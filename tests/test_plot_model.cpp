@@ -82,15 +82,15 @@ TEST(PlotModel, HeaderRowRenamesSeries)
     EXPECT_EQ(model.samples().sampleCount(), 1);
 }
 
-TEST(PlotModel, HeaderDoesNotOverwriteCustomNames)
+TEST(PlotModel, HeaderReplacesCustomNames)
 {
-    // Повторяющийся баннер устройства не должен отменять правку пользователя.
     PlotModel model;
     model.feed(QStringLiteral("1,2,3"), 0);
     model.setSeriesName(1, QStringLiteral("моё имя"));
     model.feed(QStringLiteral("time,volt,curr"), 1);
 
-    EXPECT_EQ(model.series(1).name, QStringLiteral("моё имя"));
+    EXPECT_EQ(model.series(1).name, QStringLiteral("volt"));
+    EXPECT_FALSE(model.series(1).nameIsCustom);
     EXPECT_EQ(model.series(2).name, QStringLiteral("curr"));
 }
 

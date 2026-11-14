@@ -14,6 +14,7 @@
 #include "OverlayLayer.h"
 #include "PanelHostImpl.h"
 #include "PanelPluginRegistry.h"
+#include "UpdateInstaller.h"
 #include "theme/EmbeddedFonts.h"
 #include "theme/MdiIcons.h"
 
@@ -29,7 +30,6 @@
 #include <QApplication>
 #include <QButtonGroup>
 #include <QCloseEvent>
-#include <QDesktopServices>
 #include <QComboBox>
 #include <QFile>
 #include <QFileInfo>
@@ -159,6 +159,23 @@ MainWindow::MainWindow(const AppContext &context, QWidget *parent)
     // и открытием порта, а ответ с диалогом поверх ещё не показанного окна выглядел бы
     // как сбой. Несколько секунд задержки ничего не стоят — версия не горит.
     QTimer::singleShot(3000, this, &MainWindow::checkForUpdatesOnStartup);
+    const QStringList arguments = QCoreApplication::arguments();
+    const int updateConfirm = arguments.indexOf(QStringLiteral("--spotty-update-confirm"));
+    if (updateConfirm >= 0 && updateConfirm + 1 < arguments.size()) {
+        const QString path = arguments.at(updateConfirm + 1);
+        QTimer::singleShot(0, this, [path] {
+            QFile marker(path);
+            if (marker.open(QIODevice::WriteOnly))
+                marker.write("ready");
+        });
+    }
+    const int updateError = arguments.indexOf(QStringLiteral("--spotty-update-error"));
+    if (updateError >= 0 && updateError + 1 < arguments.size()) {
+        const QString message = arguments.at(updateError + 1);
+        QTimer::singleShot(0, this, [this, message] {
+            QMessageBox::warning(this, tr("Update failed"), message);
+        });
+    }
 
     // Список интерфейсов всегда стартует с «не выбрано»: выбор теперь сам открывает канал
     // (обработчик interfaceSelected ниже), и показывать выбранным то, что на самом деле
@@ -1215,6 +1232,8 @@ void MainWindow::showSettingsDialog()
     }
     connect(&dialog, &SettingsDialog::resetToDefaultsRequested,
             this, &MainWindow::resetToDefaults);
+    connect(&dialog, &SettingsDialog::updateInstallRequested, &dialog,
+            [&dialog](const ReleaseInfo &release) { UpdateInstaller::install(&dialog, release); });
 
     if (dialog.exec() != QDialog::Accepted)
         return;
@@ -1272,7 +1291,7 @@ void MainWindow::offerUpdate(const ReleaseInfo &release)
 
     switch (UpdatePrompt::ask(this, QLatin1String(SPOTTY_VERSION), release)) {
     case UpdatePrompt::Choice::Download:
-        QDesktopServices::openUrl(release.downloadUrl());
+        UpdateInstaller::install(this, release);
         break;
     case UpdatePrompt::Choice::Disable:
         m_settings.checkForUpdates = false;
@@ -1349,6 +1368,18 @@ void MainWindow::showInterfaceSettings(const QString &interfaceId, const QString
         return;
 
     InterfaceSettingsDialog dialog(m_context.registry, m_context.plugins, interfaceId, this);
+    dialog.panel()->setDisabledPlugins(m_settings.disabledPlugins);
+    connect(dialog.panel(), &InterfaceSettingsPanel::pluginDisableRequested,
+            this, [this, &dialog](const QString &pluginId) {
+                if (!m_settings.disabledPlugins.contains(pluginId))
+                    m_settings.disabledPlugins.append(pluginId);
+                m_settings.save(*m_context.settings);
+                m_context.settings->save();
+                dialog.panel()->setDisabledPlugins(m_settings.disabledPlugins);
+                statusBar()->showMessage(
+                    tr("Plugin %1 will be disabled after restarting Spotty.").arg(pluginId),
+                    8000);
+            });
     connect(dialog.panel(), &InterfaceSettingsPanel::settingsApplied,
             this, &MainWindow::reloadSessionSettingsIfActive);
     if (!invalidFields.isEmpty())

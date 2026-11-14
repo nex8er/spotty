@@ -25,7 +25,6 @@
 #include <QHBoxLayout>
 #include <QColorDialog>
 #include <QComboBox>
-#include <QResizeEvent>
 #include <QSplitter>
 #include <QItemSelectionModel>
 #include <QHeaderView>
@@ -33,8 +32,10 @@
 #include <QLineEdit>
 #include <QLabel>
 #include <QMenu>
+#include <QMessageBox>
 #include <QPainter>
 #include <QSpinBox>
+#include <QStyleOptionViewItem>
 #include <QTableWidget>
 #include <QTimer>
 #include <QToolButton>
@@ -77,13 +78,12 @@ constexpr int kMaximumCapacityK = 100;
 /**
  * \brief Колонки таблицы рядов.
  *
- * Текущее значение и так показывает перекрестие на самом графике, а таблица отвечает на
- * другой вопрос — «в каких пределах гуляет ряд». Дельта включается отдельно: в узкой
- * панели она не отбирает место у имени, пока не нужна.
+ * Цвет и имя остаются видимыми для управления рядами; числовые колонки можно скрывать.
  */
 enum Column {
     ColumnSwatch = 0, ///< Цвет ряда и галочка видимости на нём же.
     ColumnName,
+    ColumnCurrent,
     ColumnMin,
     ColumnAverage,
     ColumnMax,
@@ -97,15 +97,29 @@ enum Column {
  * Порядок «мин, сред, макс» задан владельцем, и он же читается легче прежнего: среднее
  * лежит между своими границами и там, где его и ищет взгляд.
  */
-constexpr Column kStatColumns[] = {ColumnMin, ColumnAverage, ColumnMax, ColumnDelta};
+constexpr Column kStatColumns[] = {
+    ColumnCurrent, ColumnMin, ColumnAverage, ColumnMax, ColumnDelta
+};
+
+struct ColumnSetting {
+    Column column;
+    const char *key;
+    bool visibleByDefault;
+};
+
+constexpr ColumnSetting kColumnSettings[] = {
+    {ColumnCurrent, "showCurrent", true},
+    {ColumnMin, "showMin", true},
+    {ColumnAverage, "showAverage", true},
+    {ColumnMax, "showMax", true},
+    {ColumnDelta, "showDelta", false},
+};
 
 /**
  * \name Пределы ширины колонки статистики, в знакоместах
  *
- * Нижний предел держит пять значащих цифр: восемь знакомест это пять цифр плюс минус,
- * десятичная точка и запас на округление, а знак минуса в счёт цифр не идёт. Верхний —
- * там, где точность упирается в double, и дальнейшее расширение только отбирает место у
- * имени ряда.
+ * Начальная ширина держит пять значащих цифр; верхний предел не даёт увеличивать
+ * точность при расширении колонки дальше возможностей формата.
  */
 /// @{
 constexpr int kMinimumStatCharacters = 8;
@@ -333,18 +347,31 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
     m_header->onToggled = [this](bool checked) { toggleAllSeriesVisibility(checked); };
     m_table->setHorizontalHeader(m_header);
     m_table->setHorizontalHeaderLabels(
-        {QString(), tr("Series"), tr("Min"), tr("Avg"), tr("Max"), tr("Delta")});
+        {QString(), tr("Series"), tr("Current"), tr("Min"), tr("Avg"), tr("Max"), tr("Delta")});
     // Подсказка живёт на элементе заголовка, а не на виджете: у колонки цвета нет подписи,
     // и объяснить назначение флажка иначе негде.
     m_table->horizontalHeaderItem(ColumnSwatch)
         ->setToolTip(
             tr("Hide every series at once; click again to bring back the previous selection"));
-    m_table->setColumnHidden(ColumnDelta, true);
-    // Растягивается только имя ряда; остальные колонки ужимаются под содержимое. Иначе
-    // равные доли отдают под галочку и квадратик цвета столько же, сколько под число.
+    m_header->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_header, &QHeaderView::customContextMenuRequested, this, [this](const QPoint &pos) {
+        QMenu menu(m_header);
+        for (const ColumnSetting &setting : kColumnSettings) {
+            QAction *action = menu.addAction(m_table->horizontalHeaderItem(setting.column)->text());
+            action->setCheckable(true);
+            action->setChecked(!m_table->isColumnHidden(setting.column));
+            connect(action, &QAction::toggled, this, [this, setting](bool visible) {
+                host()->setValue(QLatin1String(setting.key), visible);
+                m_table->setColumnHidden(setting.column, !visible);
+                scheduleStatistics();
+            });
+        }
+        menu.exec(m_header->viewport()->mapToGlobal(pos));
+    });
+    // Размеры не зависят от содержимого: новые данные не должны сдвигать границы колонок.
     m_table->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
     m_table->horizontalHeader()->setSectionResizeMode(ColumnSwatch,
-                                                      QHeaderView::ResizeToContents);
+                                                      QHeaderView::Fixed);
     m_table->horizontalHeader()->setSectionResizeMode(ColumnName, QHeaderView::Stretch);
     m_table->horizontalHeader()->setStretchLastSection(false);
     m_table->verticalHeader()->setVisible(false);
@@ -359,11 +386,16 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
 
     m_swatch = new SeriesSwatchDelegate(m_table);
     m_table->setItemDelegateForColumn(ColumnSwatch, m_swatch);
+    QStyleOptionViewItem swatchOption;
+    swatchOption.initFrom(m_table);
+    swatchOption.widget = m_table;
+    m_table->setColumnWidth(ColumnSwatch, m_swatch->sizeHint(swatchOption, QModelIndex()).width());
+    const int digitWidth = qMax(1, m_table->fontMetrics().horizontalAdvance(u'0'));
+    for (const Column column : kStatColumns)
+        m_table->setColumnWidth(column, kMinimumStatCharacters * digitWidth + 12);
 
-    // Горизонтальная прокрутка запрещена: в узкой панели она появлялась всегда и прятала
-    // половину колонок. Числа при нехватке места сокращаются многоточием — увидеть, что
-    // значение не поместилось, лучше, чем не увидеть колонку вовсе.
-    m_table->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    // При нехватке места прокрутка сохраняет доступ ко всем колонкам без изменения ширины.
+    m_table->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_table->setTextElideMode(Qt::ElideRight);
     // Наименьшая высота: иначе разделитель можно утащить так, что от таблицы остаётся
     // полоска заголовка, из которой ничего не прочесть.
@@ -474,11 +506,10 @@ PlotterPanel::PlotterPanel(IPanelHost *panelHost, PlotModel *model, PlotViewStat
     // отразить, не трогая при этом выделение.
     connect(m_view, &PlotViewState::changed, this, &PlotterPanel::syncSelectionFromView);
 
-    // Подписки на sectionResized здесь намеренно нет. Ширины колонок мы задаём сами, и
-    // этот сигнал приходит в ответ на нашу же правку — получалась петля «ширина → сигнал →
-    // ширина», которая не сходилась и роняла процесс. Пересчитывать есть смысл ровно
-    // тогда, когда меняется то, от чего ширина зависит: размер панели (resizeEvent) и
-    // состав имён (rebuildTable).
+    // После ручного изменения ширины нужно заново подобрать формат чисел, не меняя колонки.
+    connect(m_header, &QHeaderView::sectionResized, this, [this](int, int, int) {
+        scheduleStatistics();
+    });
 
     // Положение разделителя переживает перезапуск: его подбирают под задачу один раз, и
     // возвращать график к исходной высоте каждый сеанс значило бы отменять этот выбор.
@@ -525,9 +556,11 @@ void PlotterPanel::reloadFromSettings()
                              : host()->value(QLatin1String(kKeyCapacity), kDefaultCapacity).toInt();
     m_points->setValue(thousandsFromCapacity(capacity));
 
-    m_showDelta = host()->value(QStringLiteral("showDelta"), false).toBool();
-    m_table->setColumnHidden(ColumnDelta, !m_showDelta);
-
+    for (const ColumnSetting &setting : kColumnSettings) {
+        const bool visible = host()->value(QLatin1String(setting.key),
+                                           setting.visibleByDefault).toBool();
+        m_table->setColumnHidden(setting.column, !visible);
+    }
 }
 
 void PlotterPanel::commit()
@@ -541,13 +574,6 @@ void PlotterPanel::commit()
         host()->setValue(QLatin1String(kKeyCapacity), capacity);
         host()->setValue(QLatin1String(kKeyCapacityK), m_points->value());
     }
-}
-
-void PlotterPanel::resizeEvent(QResizeEvent *event)
-{
-    PanelWidget::resizeEvent(event);
-    // Ширина панели изменилась — значит, изменилось и то, сколько цифр в неё влезает.
-    updateStatisticsWidth();
 }
 
 void PlotterPanel::settingsReset()
@@ -616,7 +642,6 @@ void PlotterPanel::rebuildTable()
         }
     }
 
-    updateStatisticsWidth();
     refreshStatistics();
 }
 
@@ -634,28 +659,38 @@ void PlotterPanel::refreshStatistics()
         return;
 
     const Populating populating(m_populating);
+    const SampleBuffer &samples = m_model->samples();
+    const int digitWidth = qMax(1, m_table->fontMetrics().horizontalAdvance(u'0'));
+    const auto characters = [this, digitWidth](Column column) {
+        return qBound(1, (m_table->columnWidth(column) - 12) / digitWidth,
+                      kMaximumStatCharacters);
+    };
     for (int row = 0; row < m_model->seriesCount(); ++row) {
         // Одна сводка на три числа вместо трёх независимых обходов окна, как было раньше.
         // Пустая колонка отдаёт finiteCount == 0, и в ячейке появляется тире: ноль там
         // читался бы как измеренное значение.
-        const SampleBuffer::ColumnStats stats = m_model->samples().stats(row);
+        const SampleBuffer::ColumnStats stats = samples.stats(row);
         const bool any = stats.finiteCount > 0;
 
         // fitted(), а не number(): не поместившееся значение обязано стать многоточием, а
         // не обрезком — обрезанное число это другое число, и прочитавший его сделает
         // неверный вывод, ничего не заподозрив.
+        const double current = samples.sampleCount() > 0
+                                   ? samples.at(samples.sampleCount() - 1, row) : qQNaN();
+        m_table->item(row, ColumnCurrent)
+            ->setText(PlotFormat::fitted(current, characters(ColumnCurrent)));
         m_table->item(row, ColumnMin)
-            ->setText(PlotFormat::fitted(any ? stats.minimum : qQNaN(), m_statisticsCharacters));
+            ->setText(PlotFormat::fitted(any ? stats.minimum : qQNaN(), characters(ColumnMin)));
         // У среднего дробная часть ограничена: оно вычислено, а не измерено, и шесть
         // знаков после запятой у него — шум, которого не было в исходных данных.
         m_table->item(row, ColumnAverage)
             ->setText(PlotFormat::fittedMean(any ? stats.mean : qQNaN(),
-                                             m_statisticsCharacters, kMeanDecimals));
+                                             characters(ColumnAverage), kMeanDecimals));
         m_table->item(row, ColumnMax)
-            ->setText(PlotFormat::fitted(any ? stats.maximum : qQNaN(), m_statisticsCharacters));
+            ->setText(PlotFormat::fitted(any ? stats.maximum : qQNaN(), characters(ColumnMax)));
         m_table->item(row, ColumnDelta)
             ->setText(PlotFormat::fitted(any ? stats.maximum - stats.minimum : qQNaN(),
-                                         m_statisticsCharacters));
+                                         characters(ColumnDelta)));
     }
 }
 
@@ -694,64 +729,6 @@ void PlotterPanel::toggleAllSeriesVisibility(bool checked)
     for (int i = 0; i < m_rememberedVisibility.size() && i < m_model->seriesCount(); ++i)
         m_model->setSeriesVisible(i, m_rememberedVisibility.at(i));
     m_rememberedVisibility.clear();
-}
-
-int PlotterPanel::nameColumnNeeds() const
-{
-    const QFontMetrics metrics = m_table->fontMetrics();
-
-    // Самое длинное имя целиком, плюс заголовок колонки: имя связывает строку с кривой, и
-    // обрезанное «volta…» вместо «voltage_in» этой связи не даёт.
-    int needed = metrics.horizontalAdvance(m_table->horizontalHeaderItem(ColumnName)->text());
-    for (int row = 0; row < m_model->seriesCount(); ++row)
-        needed = qMax(needed, metrics.horizontalAdvance(m_model->series(row).name));
-
-    // Отбивки ячейки и запас на рамку выделения.
-    return needed + metrics.horizontalAdvance(u'0') * 2;
-}
-
-void PlotterPanel::updateStatisticsWidth()
-{
-    // Порядок уступок задан владельцем: при сужении панели первой сжимается статистика — до
-    // пяти значащих цифр, — и только когда ей уже некуда, начинает уступать имя. Поэтому
-    // ширина статистики считается от того, что **останется** после целого имени.
-    //
-    // Флаг держится на весь метод, а не только вокруг установки ширин. Имя растянуто, и
-    // смена ширины статистики меняет его ширину тоже, отчего sectionResized приходит сюда
-    // же — и приходит не только на те колонки, что мы трогали. Без сплошной защиты это
-    // давало каскад вызовов, который вместе с пересчётом статистики сходился в бесконечную
-    // рекурсию и переполнение стека.
-    if (m_adjustingColumns)
-        return;
-    m_adjustingColumns = true;
-
-    const int zero = qMax(1, m_table->fontMetrics().horizontalAdvance(u'0'));
-    const int available = m_table->viewport()->width() - m_table->columnWidth(ColumnSwatch);
-
-    if (available > 0) {
-        const int forStatistics = available - nameColumnNeeds();
-        int visibleStatistics = 0;
-        for (const Column column : kStatColumns) {
-            if (!m_table->isColumnHidden(column))
-                ++visibleStatistics;
-        }
-        const int characters = qBound(kMinimumStatCharacters,
-                                      forStatistics / (visibleStatistics * zero),
-                                      kMaximumStatCharacters);
-
-        const int width = characters * zero;
-        for (const Column column : kStatColumns)
-            m_table->setColumnWidth(column, width);
-
-        if (characters != m_statisticsCharacters) {
-            m_statisticsCharacters = characters;
-            // Через таймер, а не прямым вызовом: пересчёт статистики умеет позвать
-            // перестроение таблицы, а то — снова сюда. Отложенный вызов разрывает цепь.
-            scheduleStatistics();
-        }
-    }
-
-    m_adjustingColumns = false;
 }
 
 void PlotterPanel::syncSelectionFromView()
@@ -981,7 +958,8 @@ void PlotterPanel::applyProfile(const PlotProfile &profile)
         const PlotProfileSeries &stored = profile.series.at(i);
         m_model->setSeriesColor(i, stored.color);
         m_model->setSeriesVisible(i, stored.visible);
-        if (stored.nameIsCustom)
+        // \brief Заголовок текущего потока приоритетнее сохранённых в профиле имён.
+        if (stored.nameIsCustom && m_model->reportedSeriesName(i).isEmpty())
             m_model->setSeriesName(i, stored.name);
         m_model->setSeriesRange(i, stored.hasCustomRange, stored.customMinimum,
                                 stored.customMaximum);
@@ -1036,19 +1014,38 @@ void PlotterPanel::resetProfile()
     if (m_currentProfile.isEmpty())
         return;
 
-    // Сбрасываем только оформление и настройки профиля: накопленные отсчёты остаются на
-    // экране, чтобы результат сразу было с чем сверить. Имена модель восстановит из
-    // заголовка устройства, а без него — из стандартного alpha, bravo, … .
+    const QString profileName = m_currentProfile;
+    if (QMessageBox::question(
+            this, tr("Reset profile"),
+            tr("Reset profile \"%1\" and rebuild the table from the current data?\n"
+               "Series names and settings will be reset. Collected samples will be kept.")
+                .arg(profileName),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes
+        || m_currentProfile != profileName) {
+        return;
+    }
+
+    // Сброс — явный выбор этого профиля: сигналы модели не должны выбрать другой.
+    m_profileChosenByUser = true;
+    host()->setValue(QLatin1String(kKeyProfile), m_currentProfile);
+
+    // \brief Модель пересобирает строки по текущим данным, сохраняя накопленные отсчёты.
     {
         const Populating populating(m_populating);
         m_model->setSeparator(u',');
-        m_model->setCapacity(kDefaultCapacity);
-        m_points->setValue(thousandsFromCapacity(kDefaultCapacity));
+        // \brief Уменьшение ёмкости не должно выбросить уже накопленные точки.
+        const int capacityK = qMax(thousandsFromCapacity(kDefaultCapacity),
+                                  (m_model->samples().sampleCount() + kCapacityUnit - 1)
+                                      / kCapacityUnit);
+        m_model->setCapacity(capacityFromThousands(capacityK));
+        m_points->setValue(capacityK);
         m_model->setXAxisSeries(-1);
         m_model->resetSeriesConfiguration();
         m_view->setMode(PlotViewState::Mode::TimeSeries);
         m_view->setWindowDuration(PlotViewState::kDefaultDuration);
         m_view->resetVertical();
+        m_view->setSelectionGroup({});
+        m_view->setActiveSeries(0);
     }
 
     if (m_store.save(currentProfile(m_currentProfile)))
@@ -1108,7 +1105,7 @@ void PlotterPanel::autoSelectProfile()
 {
     // Выбранный человеком профиль не трогаем: иначе автоподбор отменял бы его выбор при
     // каждой новой колонке потока.
-    if (m_profileChosenByUser || m_model->seriesCount() == 0)
+    if (m_populating || m_profileChosenByUser || m_model->seriesCount() == 0)
         return;
 
     const QString best = m_store.bestMatch(m_model->seriesCount(), m_model->seriesNames());
@@ -1120,6 +1117,7 @@ void PlotterPanel::autoSelectProfile()
 
     const QSignalBlocker blocker(m_profiles);
     m_profiles->setCurrentIndex(m_profiles->findText(best));
+    updateProfileActions();
     host()->showStatusMessage(tr("Plotter profile: %1").arg(best));
 }
 

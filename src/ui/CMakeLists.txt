@@ -55,6 +55,9 @@ qt_add_executable(spotty
     SendBar.h
     TerminalView.cpp
     TerminalView.h
+    UpdateInstaller.cpp
+    UpdateInstaller.h
+    UpdateScripts.h
     dialogs/ActionPromptDialog.cpp
     dialogs/ActionPromptDialog.h
     dialogs/InterfaceSettingsDialog.cpp
@@ -153,6 +156,7 @@ endif()
 
 target_link_libraries(spotty PRIVATE
     Qt6::Widgets
+    Qt6::Network
     Spotty::Core
     Spotty::UiApi
     ${spotty_static_plugin_targets}

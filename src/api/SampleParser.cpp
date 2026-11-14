@@ -101,7 +101,8 @@ SampleParser::Result SampleParser::parse(const QString &line, int currentColumnC
 
     // Заголовок: сплошной текст без единого числа и без пропусков.
     if (textual == result.fieldCount && result.fieldCount >= kMinimumHeaderFields
-        && (currentColumnCount == 0 || result.fieldCount == currentColumnCount)) {
+        && (!separatorIsWhitespace() || currentColumnCount == 0
+            || result.fieldCount == currentColumnCount)) {
         if (names) {
             names->clear();
             names->reserve(fields.size());

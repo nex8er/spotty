@@ -18,7 +18,7 @@
 # Формы Windows и Linux делает tools/style_icon.py из плоского мастера, рамочную — tools/frame_icon.py.
 #
 # Основной набор — значок файла и бандла (.icns, .ico, PNG 256 для AppImage) и значок окна без
-# подключения. Вариант с лампочкой (оранжевая лампа в кольце первой ветки) — значок окна, пока
+# подключения. Вариант с оранжевой волной — значок окна, пока
 # открыт хоть один интерфейс: приложение переключает их само (MainWindow::updateApplicationIcon()),
 # из обоих наборов вшиты только PNG 256. `.icns` и `.ico` набора с лампой сборка пока не берёт.
 # Мастер с лампочкой необязателен — нет файла, этот набор пропускается, а не завершается
@@ -110,7 +110,10 @@ build_icons() {
     echo "wrote $ICONS_DIR/$name.ico"
 
     # --- PNG 256: окно запущенной программы (по одной на систему) и AppImage -------------
-    resize_to "$framed" 256 "$ICONS_DIR/$name-256.png"
+    # macOS уменьшает значок бандла примерно до 83 % холста, а PNG для Dock показывает целиком.
+    resize_to "$framed" 212 "$tmp/mac.png"
+    magick "$tmp/mac.png" -background none -gravity center -extent 256x256 \
+        -strip -define png:compression-level=9 "$ICONS_DIR/$name-256.png"
     resize_to "$win" 256 "$ICONS_DIR/$name-win-256.png"
     resize_to "$linux" 256 "$ICONS_DIR/$name-linux-256.png"
     echo "wrote $ICONS_DIR/$name-256.png, $name-win-256.png, $name-linux-256.png"

@@ -25,7 +25,7 @@ namespace spotty {
 struct PlotSeries
 {
     QString name;
-    bool nameIsCustom = false; ///< Имя задал пользователь; заголовок устройства его не тронет.
+    bool nameIsCustom = false; ///< Имя задал пользователь, а не заголовок устройства.
     quint32 color = 0;
     bool visible = true;
 
@@ -84,14 +84,17 @@ public:
     void setSeriesVisible(int index, bool visible);
     void setSeriesColor(int index, quint32 color);
 
-    /// \brief Переименовать ряд вручную; имя переживёт заголовок от устройства.
+    /// \brief Переименовать ряд вручную до следующего заголовка устройства.
     void setSeriesName(int index, const QString &name);
+
+    /// \brief Имя из заголовка, совпадающего по ширине с текущими данными, либо пустая строка.
+    QString reportedSeriesName(int index) const;
 
     /// \brief Задать или снять пользовательские пределы шкалы ряда.
     void setSeriesRange(int index, bool hasRange, double minimum, double maximum);
 
     /**
-     * \brief Вернуть оформление рядов к умолчаниям, не трогая накопленные отсчёты.
+     * \brief Пересоздать ряды по последнему отсчёту, не трогая накопленные точки.
      *
      * Имя возвращается к заголовку устройства, если он уже был получен, и к `alpha`,
      * `bravo`, … в противном случае.
@@ -141,6 +144,9 @@ private:
     /// \brief Довести число рядов до ширины отсчёта, раздав имена и цвета.
     bool growSeries(int columns);
 
+    /// \brief Применить подходящий заголовок вместо прежних имён, включая пользовательские.
+    bool applyReportedNames();
+
     /// \brief Цвет очередного ряда из встроенной палитры.
     static quint32 defaultColor(int index);
 
@@ -154,6 +160,8 @@ private:
      * и расширять их ради служебного имени означало бы без нужды ломать его ABI.
      */
     QStringList m_reportedNames;
+    /// \brief Ширина последнего отсчёта; буфер может хранить более широкие старые строки.
+    int m_currentColumnCount = 0;
     int m_xAxis = -1;
     int m_rejected = 0;
 };

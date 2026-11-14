@@ -4,6 +4,7 @@
  */
 #include "UpdatePrompt.h"
 
+#include "../ButtonSizing.h"
 #include <QMessageBox>
 #include <QPushButton>
 
@@ -22,19 +23,18 @@ UpdatePrompt::Choice UpdatePrompt::ask(QWidget *parent, const QString &currentVe
     if (!release.notes.isEmpty())
         box.setDetailedText(release.notes);
 
-    QString hint;
-    if (!release.assetName.isEmpty())
-        hint = tr("Download will start with %1.").arg(release.assetName);
-    else
-        hint = tr("The release page will open in your browser.");
-    box.setInformativeText(hint + QLatin1Char('\n')
+    box.setInformativeText(tr("Spotty will download and install the update, then restart.")
+                           + QLatin1Char('\n')
                            + tr("You can turn update checks back on in Settings → General."));
 
-    QPushButton *download = box.addButton(tr("Download"), QMessageBox::AcceptRole);
+    QPushButton *download = box.addButton(tr("Update"), QMessageBox::AcceptRole);
     QPushButton *later = box.addButton(tr("Later"), QMessageBox::RejectRole);
     QPushButton *disable = box.addButton(tr("Don't check for updates"), QMessageBox::DestructiveRole);
     box.setDefaultButton(download);
     box.setEscapeButton(later);
+
+    for (QPushButton *button : box.findChildren<QPushButton *>())
+        ensureButtonTextFits(button);
 
     box.exec();
 

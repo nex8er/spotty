@@ -16,9 +16,15 @@
 
 #include <QApplication>
 #include <QComboBox>
+#include <QContextMenuEvent>
+#include <QHeaderView>
+#include <QMenu>
+#include <QMessageBox>
+#include <QPushButton>
 #include <QSpinBox>
 #include <QSplitter>
 #include <QTableWidget>
+#include <QTimer>
 #include <QToolButton>
 
 using namespace spotty;
@@ -42,6 +48,17 @@ protected:
         panel->resize(320, 500);
         panel->show();
         QApplication::processEvents();
+    }
+
+    /// \brief Подтвердить сброс в модальном диалоге, чтобы сценарий не ждал пользователя.
+    void confirmReset(QToolButton *button)
+    {
+        QTimer::singleShot(0, [] {
+            auto *dialog = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            ASSERT_NE(dialog, nullptr);
+            dialog->button(QMessageBox::Yes)->click();
+        });
+        button->click();
     }
 
     /// \brief Записать профиль на диск и выбрать его в настройках хоста.
@@ -288,10 +305,145 @@ TEST_F(Panel, ShowsDeltaColumnWhenEnabledInSettings)
 
     auto *table = panel->findChild<QTableWidget *>();
     ASSERT_NE(table, nullptr);
-    EXPECT_FALSE(table->isColumnHidden(5));
-    EXPECT_EQ(table->horizontalHeaderItem(5)->text(), QStringLiteral("Delta"));
-    ASSERT_TRUE(test::waitFor([table] { return table->item(0, 5)->text() == QStringLiteral("5"); },
+    EXPECT_FALSE(table->isColumnHidden(6));
+    EXPECT_EQ(table->horizontalHeaderItem(6)->text(), QStringLiteral("Delta"));
+    ASSERT_TRUE(test::waitFor([table] { return table->item(0, 6)->text() == QStringLiteral("5"); },
                               3000));
+}
+
+TEST_F(Panel, CurrentShowsLastSampleAndMissingFields)
+{
+    build();
+    model->feed(QStringLiteral("1,2"), 0);
+    model->feed(QStringLiteral("3"), 1);
+
+    auto *table = panel->findChild<QTableWidget *>();
+    ASSERT_NE(table, nullptr);
+    ASSERT_TRUE(test::waitFor([table] {
+        return table->rowCount() == 2 && table->item(0, 2) && table->item(1, 2)
+               && table->item(0, 2)->text() == QStringLiteral("3")
+               && table->item(1, 2)->text() == QStringLiteral("—");
+    }, 3000));
+}
+
+TEST_F(Panel, ValueColumnWidthsStayFixedWhenDataAndSeriesChange)
+{
+    build();
+    auto *table = panel->findChild<QTableWidget *>();
+    ASSERT_NE(table, nullptr);
+    model->feed(QStringLiteral("1,2"), 0);
+    QApplication::processEvents();
+
+    table->setColumnWidth(2, 130);
+    QList<int> widths;
+    for (int column = 0; column < table->columnCount(); ++column)
+        widths.append(table->columnWidth(column));
+
+    model->feed(QStringLiteral("1234567,3,4,5,6,7,8,9,10,11,12,13,14,15,16"), 1);
+    model->setSeriesName(1, QStringLiteral("a_much_longer_series_name"));
+    ASSERT_TRUE(test::waitFor([table] {
+        return table->rowCount() == 15 && table->item(0, 2)
+               && table->item(0, 2)->text() == QStringLiteral("1234567");
+    }, 3000));
+    for (int column = 0; column < table->columnCount(); ++column)
+        if (column != 1)
+            EXPECT_EQ(table->columnWidth(column), widths.at(column)) << column;
+}
+
+TEST_F(Panel, NameFillsFreeWidthWithoutFollowingData)
+{
+    panel = std::make_unique<PlotterPanel>(host.get(), model.get(), view.get());
+    panel->resize(1000, 500);
+    panel->show();
+    QApplication::processEvents();
+    auto *table = panel->findChild<QTableWidget *>();
+    ASSERT_NE(table, nullptr);
+
+    model->feed(QStringLiteral("1,2"), 0);
+    QApplication::processEvents();
+    EXPECT_EQ(table->horizontalHeader()->length(), table->viewport()->width());
+    const int nameWidth = table->columnWidth(1);
+    model->setSeriesName(0, QStringLiteral("a_much_longer_series_name"));
+    model->feed(QStringLiteral("2,3,4"), 1);
+    QApplication::processEvents();
+    EXPECT_EQ(table->columnWidth(1), nameWidth);
+}
+
+TEST_F(Panel, FirstSeriesDoesNotOverrideManuallySizedValue)
+{
+    build();
+    auto *table = panel->findChild<QTableWidget *>();
+    ASSERT_NE(table, nullptr);
+    table->setColumnWidth(2, 180);
+    model->feed(QStringLiteral("1,2"), 0);
+    QApplication::processEvents();
+    EXPECT_EQ(table->columnWidth(2), 180);
+}
+
+TEST_F(Panel, FirstSeriesWhileHiddenFillsWidthWhenShown)
+{
+    panel = std::make_unique<PlotterPanel>(host.get(), model.get(), view.get());
+    panel->resize(1000, 500);
+    model->feed(QStringLiteral("1,2"), 0);
+    QApplication::processEvents();
+    panel->show();
+    QApplication::processEvents();
+    auto *table = panel->findChild<QTableWidget *>();
+    ASSERT_NE(table, nullptr);
+    EXPECT_EQ(table->horizontalHeader()->length(), table->viewport()->width());
+}
+
+TEST_F(Panel, HeaderMenuStoresColumnChoiceAndAllowsAllNumbersHidden)
+{
+    for (const char *key : {"showCurrent", "showMin", "showAverage", "showMax"})
+        host->settings.insert(QLatin1String(key), false);
+    build();
+    auto *table = panel->findChild<QTableWidget *>();
+    ASSERT_NE(table, nullptr);
+    for (int column = 2; column <= 6; ++column)
+        EXPECT_TRUE(table->isColumnHidden(column));
+
+    bool found = false;
+    QTimer::singleShot(0, [&found] {
+        auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+        if (!menu)
+            return;
+        for (QAction *action : menu->actions()) {
+            if (action->text() == QStringLiteral("Current")) {
+                found = true;
+                action->trigger();
+                break;
+            }
+        }
+        menu->close();
+    });
+    QWidget *header = table->horizontalHeader()->viewport();
+    const QPoint pos(5, 5);
+    QContextMenuEvent event(QContextMenuEvent::Mouse, pos, header->mapToGlobal(pos));
+    QApplication::sendEvent(header, &event);
+    QApplication::processEvents();
+    EXPECT_TRUE(found);
+    EXPECT_TRUE(host->settings.value(QStringLiteral("showCurrent")).toBool());
+    EXPECT_FALSE(table->isColumnHidden(2));
+
+    panel.reset();
+    build();
+    table = panel->findChild<QTableWidget *>();
+    ASSERT_NE(table, nullptr);
+    EXPECT_FALSE(table->isColumnHidden(2));
+    EXPECT_TRUE(table->isColumnHidden(3));
+}
+
+TEST_F(Panel, SettingsChangesUpdateColumnVisibility)
+{
+    build();
+    auto *table = panel->findChild<QTableWidget *>();
+    ASSERT_NE(table, nullptr);
+    host->settings.insert(QStringLiteral("showMin"), false);
+    host->settings.insert(QStringLiteral("showDelta"), true);
+    Q_EMIT host->settingsReset();
+    EXPECT_TRUE(table->isColumnHidden(3));
+    EXPECT_FALSE(table->isColumnHidden(6));
 }
 
 TEST(PlotterPlugin, ProvidesSettingsForTheGlobalDataFormat)
@@ -314,6 +466,12 @@ TEST(PlotterPlugin, ProvidesSettingsForTheGlobalDataFormat)
     EXPECT_EQ(buffer->suffix, QStringLiteral("K"));
     EXPECT_EQ(delta->type, SettingsField::Toggle);
     EXPECT_FALSE(delta->defaultValue.toBool());
+    for (const char *key : {"showCurrent", "showMin", "showAverage", "showMax"}) {
+        const SettingsField *field = schema.field(QLatin1String(key));
+        ASSERT_NE(field, nullptr);
+        EXPECT_EQ(field->type, SettingsField::Toggle);
+        EXPECT_TRUE(field->defaultValue.toBool());
+    }
 }
 
 TEST_F(Panel, ResetProfileRestoresReportedFieldNamesAndDefaults)
@@ -336,7 +494,7 @@ TEST_F(Panel, ResetProfileRestoresReportedFieldNamesAndDefaults)
     ASSERT_NE(reset, nullptr);
     ASSERT_TRUE(reset->isEnabled());
     EXPECT_TRUE(host->iconGlyphs.contains(char32_t(0xF006F)));
-    reset->click();
+    confirmReset(reset);
 
     EXPECT_EQ(model->separator(), u',');
     EXPECT_EQ(model->capacity(), 50000);
@@ -357,6 +515,73 @@ TEST_F(Panel, ResetProfileRestoresReportedFieldNamesAndDefaults)
     ASSERT_EQ(stored.series.size(), 2);
     EXPECT_FALSE(stored.series.at(0).nameIsCustom);
     EXPECT_EQ(stored.series.at(0).name, QStringLiteral("voltage"));
+}
+
+TEST_F(Panel, ResetKeepsAutomaticallySelectedProfileAndRestoresNames)
+{
+    PlotProfileStore store(dir.path());
+    PlotProfile first;
+    first.name = QStringLiteral("first");
+    for (const QString &name : {QStringLiteral("alpha"), QStringLiteral("bravo")}) {
+        PlotProfileSeries series;
+        series.name = name;
+        series.nameIsCustom = true;
+        first.series.append(series);
+    }
+    ASSERT_TRUE(store.save(first));
+    PlotProfile second = first;
+    second.name = QStringLiteral("second");
+    second.series[0].name = QStringLiteral("voltage");
+    second.series[1].name = QStringLiteral("wrong");
+    ASSERT_TRUE(store.save(second));
+    first.series.append(PlotProfileSeries{});
+    ASSERT_TRUE(store.save(first));
+
+    build();
+    model->feed(QStringLiteral("1,2"), 0);
+    ASSERT_EQ(model->series(0).name, QStringLiteral("voltage"));
+    model->feed(QStringLiteral("voltage,current"), 1);
+    const QString selectedProfile = QStringLiteral("second");
+    model->setSeriesName(0, QStringLiteral("custom"));
+
+    auto *reset = panel->findChild<QToolButton *>(QStringLiteral("resetPlotProfile"));
+    ASSERT_NE(reset, nullptr);
+    ASSERT_TRUE(reset->isEnabled());
+    confirmReset(reset);
+
+    EXPECT_EQ(model->series(0).name, QStringLiteral("voltage"));
+    EXPECT_EQ(model->series(1).name, QStringLiteral("current"));
+    EXPECT_FALSE(model->series(0).nameIsCustom);
+    EXPECT_FALSE(model->series(1).nameIsCustom);
+    EXPECT_EQ(host->settings.value(QStringLiteral("profile")).toString(),
+              selectedProfile);
+    EXPECT_EQ(model->samples().sampleCount(), 1);
+    const PlotProfile saved = store.load(selectedProfile);
+    ASSERT_EQ(saved.series.size(), 2);
+    EXPECT_EQ(saved.series.at(1).name, QStringLiteral("current"));
+    EXPECT_FALSE(saved.series.at(1).nameIsCustom);
+    EXPECT_EQ(store.load(QStringLiteral("first")).series.at(1).name,
+              QStringLiteral("bravo"));
+}
+
+TEST_F(Panel, ResetRestoresDefaultNamesEditedInTable)
+{
+    storeProfile(QStringLiteral("board"), {0xFF112233, 0xFF445566});
+    build();
+    model->feed(QStringLiteral("1,2"), 0);
+    auto *table = panel->findChild<QTableWidget *>();
+    ASSERT_NE(table, nullptr);
+    ASSERT_NE(table->item(0, 1), nullptr);
+    table->item(0, 1)->setText(QStringLiteral("custom"));
+    ASSERT_EQ(model->series(0).name, QStringLiteral("custom"));
+
+    auto *reset = panel->findChild<QToolButton *>(QStringLiteral("resetPlotProfile"));
+    ASSERT_NE(reset, nullptr);
+    confirmReset(reset);
+    EXPECT_EQ(table->item(0, 1)->text(), QStringLiteral("alpha"));
+    EXPECT_EQ(table->item(1, 1)->text(), QStringLiteral("bravo"));
+    EXPECT_FALSE(PlotProfileStore(dir.path()).load(QStringLiteral("board"))
+                     .series.at(0).nameIsCustom);
 }
 
 TEST_F(Panel, MiniatureAndTableBothStayUsable)

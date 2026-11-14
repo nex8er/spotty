@@ -28,6 +28,11 @@
     // Сборкой управляют задачи из tasks.json: CMake Tools не создаёт второй каталог с
     // неясными флагами при открытии рабочей папки.
     "cmake.configureOnOpen": false,
+    // VS Code, запущенный из Dock, не всегда наследует PATH Homebrew; задачи иначе не
+    // находят cmake и ninja, хотя из обычного терминала они доступны.
+    "terminal.integrated.env.osx": {
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:${env:PATH}"
+    },
 
     // --- Соответствия типов файлов ----------------------------------------------------
     "files.associations": {

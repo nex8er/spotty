@@ -146,6 +146,34 @@ SettingsSchema PlotterPlugin::settingsSchema() const
         .hint = tr("How many thousands of samples to keep."),
     });
     schema.add(SettingsField{
+        .key = QStringLiteral("showCurrent"),
+        .label = tr("Show current value"),
+        .group = tr("Table"),
+        .type = SettingsField::Toggle,
+        .defaultValue = true,
+    });
+    schema.add(SettingsField{
+        .key = QStringLiteral("showMin"),
+        .label = tr("Show minimum"),
+        .group = tr("Table"),
+        .type = SettingsField::Toggle,
+        .defaultValue = true,
+    });
+    schema.add(SettingsField{
+        .key = QStringLiteral("showAverage"),
+        .label = tr("Show average"),
+        .group = tr("Table"),
+        .type = SettingsField::Toggle,
+        .defaultValue = true,
+    });
+    schema.add(SettingsField{
+        .key = QStringLiteral("showMax"),
+        .label = tr("Show maximum"),
+        .group = tr("Table"),
+        .type = SettingsField::Toggle,
+        .defaultValue = true,
+    });
+    schema.add(SettingsField{
         .key = QStringLiteral("showDelta"),
         .label = tr("Show delta"),
         .group = tr("Table"),

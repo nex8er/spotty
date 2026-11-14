@@ -151,14 +151,15 @@ SettingsDialog::SettingsDialog(const AppSettings &settings, const QStringList &a
 {
     setWindowTitle(tr("Settings"));
     setModal(true);
-    resize(720, 560);
+    resize(780, 560);
 
     m_categories = new QListWidget(this);
     // Список разделов оформляется отдельно от прочих списков (правило #settingsCategories
     // в QSS): это навигация, а не редактируемые данные, и выглядеть она должна как
     // боковое меню, а не как таблица.
     m_categories->setObjectName(QStringLiteral("settingsCategories"));
-    m_categories->setMaximumWidth(180);
+    m_categories->setMinimumWidth(220);
+    m_categories->setMaximumWidth(240);
     // Названия разделов не переносятся, и самое длинное из них при переводе легко
     // перерастает ширину списка. Полоса прокрутки под ним ничего не даёт — прокручивать
     // приходится, чтобы дочитать название, — а место в списке занимает.
@@ -182,6 +183,17 @@ SettingsDialog::SettingsDialog(const AppSettings &settings, const QStringList &a
     m_pages->addWidget(buildInterfacesPage(registry, plugins));
     m_pages->addWidget(buildPluginsPage(plugins, panels));
     m_pages->addWidget(buildShortcutsPage());
+
+    if (m_interfacePanel) {
+        m_interfacePanel->setDisabledPlugins(m_initial.disabledPlugins);
+        connect(m_interfacePanel, &InterfaceSettingsPanel::pluginDisableRequested,
+                this, [this](const QString &pluginId) {
+                    for (const auto &[id, item] : std::as_const(m_pluginItems)) {
+                        if (id == pluginId)
+                            item->setCheckState(0, Qt::Unchecked);
+                    }
+                });
+    }
 
     m_categories->addItems(titles);
 
@@ -256,8 +268,7 @@ QWidget *SettingsDialog::buildGeneralPage()
 
     m_checkForUpdates = new QCheckBox(tr("Check for updates on startup"), updatesBox);
     m_checkForUpdates->setChecked(m_initial.checkForUpdates);
-    m_checkForUpdates->setToolTip(tr("Asks GitHub for the latest release when Spotty starts. "
-                                     "Nothing is downloaded or installed automatically."));
+    m_checkForUpdates->setToolTip(tr("Checks GitHub for updates when Spotty starts."));
     updatesLayout->addWidget(m_checkForUpdates);
 
     auto *checkRow = new QHBoxLayout;
@@ -266,8 +277,7 @@ QWidget *SettingsDialog::buildGeneralPage()
     m_updateStatus->setObjectName(QStringLiteral("hintLabel"));
     m_updateStatus->setWordWrap(true);
     m_updateStatus->setTextFormat(Qt::RichText);
-    // Ссылка на пакет и на описание релиза открываются прямо из строки состояния.
-    m_updateStatus->setOpenExternalLinks(true);
+    m_updateStatus->setOpenExternalLinks(false);
     checkRow->addWidget(m_checkNow);
     checkRow->addWidget(m_updateStatus, 1);
     updatesLayout->addLayout(checkRow);
@@ -318,12 +328,24 @@ void SettingsDialog::checkForUpdatesNow()
         connect(m_updateChecker, &UpdateChecker::updateAvailable, this,
                 [this](const ReleaseInfo &release) {
                     m_checkNow->setEnabled(true);
+                    disconnect(m_updateStatus, &QLabel::linkActivated, this, nullptr);
+                    connect(m_updateStatus, &QLabel::linkActivated, this,
+                            [this, release](const QString &link) {
+                                if (link == QLatin1String("update"))
+                                    Q_EMIT updateInstallRequested(release);
+                                else {
+                                    QMessageBox notes(QMessageBox::Information, tr("What's new"),
+                                        release.notes.isEmpty() ? tr("No release notes available.")
+                                                                : release.notes,
+                                        QMessageBox::Close, this);
+                                    notes.setTextFormat(Qt::PlainText);
+                                    notes.exec();
+                                }
+                            });
                     m_updateStatus->setText(
-                        tr("Version %1 is available. <a href=\"%2\">Download</a> · "
-                           "<a href=\"%3\">What's new</a>")
-                            .arg(release.version.toHtmlEscaped(),
-                                 release.downloadUrl().toString(QUrl::FullyEncoded),
-                                 release.pageUrl.toString(QUrl::FullyEncoded)));
+                        tr("Version %1 is available. <a href=\"update\">Update and restart</a> · "
+                           "<a href=\"notes\">What's new</a>")
+                            .arg(release.version.toHtmlEscaped()));
                 });
         connect(m_updateChecker, &UpdateChecker::upToDate, this, [this](const QString &) {
             m_checkNow->setEnabled(true);
@@ -567,14 +589,13 @@ QWidget *SettingsDialog::buildDataPage()
     m_packetizerLength->setRange(1, 65536);
     m_packetizerLength->setValue(m_initial.packetizerFixedLength);
     m_packetizerLength->setSuffix(tr(" bytes"));
-    form->addRow(tr("Message length"), m_packetizerLength);
+    form->addRow(tr("Maximum line length"), m_packetizerLength);
 
     layout->addLayout(form);
 
     auto *hint = new QLabel(
-        tr("A binary stream without line breaks collapses into one endless line. "
-           "Splitting by an inter-byte gap is how most binary protocols over UART "
-           "frame their messages."),
+        tr("Line breaks always end a line. The selected rule adds an earlier boundary: "
+           "a delimiter, an inter-byte gap, or a maximum number of bytes."),
         page);
     hint->setObjectName(QStringLiteral("hintLabel"));
     hint->setWordWrap(true);
@@ -619,7 +640,8 @@ QWidget *SettingsDialog::buildPluginsPage(PluginManager *plugins, PanelPluginReg
     const auto addPluginItem = [this](QTreeWidgetItem *group, const PluginRow &row) {
         auto *item = new QTreeWidgetItem(group, {row.id, row.name});
         item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-        item->setCheckState(0, row.enabled ? Qt::Checked : Qt::Unchecked);
+        item->setCheckState(0, m_initial.disabledPlugins.contains(row.id)
+                                  ? Qt::Unchecked : Qt::Checked);
         m_pluginItems.append({row.id, item});
         return item;
     };
@@ -735,6 +757,8 @@ void SettingsDialog::syncPluginRows(QTreeWidget *tree, QTreeWidgetItem *changed)
         if (rowId == id && item != changed)
             item->setCheckState(0, changed->checkState(0));
     }
+    if (m_interfacePanel)
+        m_interfacePanel->setDisabledPlugins(disabledPluginIds());
 }
 
 QStringList SettingsDialog::disabledPluginIds() const

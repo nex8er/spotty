@@ -945,6 +945,26 @@ Check that this is your machine (on it: ssh-keygen -lf /etc/ssh/ssh_host_ed25519
 <context>
     <name>spotty::InterfaceSettingsPanel</name>
     <message>
+        <source>Disable plugin</source>
+        <translation>Отключить плагин</translation>
+    </message>
+    <message>
+        <source>Disable plugin "%1"?</source>
+        <translation>Отключить плагин «%1»?</translation>
+    </message>
+    <message>
+        <source>Disable this plugin and all its devices after restarting Spotty.</source>
+        <translation>Отключить этот плагин и все его устройства после перезапуска Spotty.</translation>
+    </message>
+    <message>
+        <source>All devices provided by this plugin will be unavailable after restarting Spotty. You can enable it again in Settings → Plugins.</source>
+        <translation>Все устройства этого плагина станут недоступны после перезапуска Spotty. Включить его снова можно в разделе «Настройки → Плагины».</translation>
+    </message>
+    <message>
+        <source>Remove this saved connection. Nothing is changed on the remote side.</source>
+        <translation>Удалить сохранённое подключение. На удалённой стороне ничего не изменится.</translation>
+    </message>
+    <message>
         <source>New connection…</source>
         <translation>Новое подключение…</translation>
     </message>
@@ -1952,6 +1972,14 @@ Double-click to edit, right-click for options</source>
 <context>
     <name>spotty::MainWindow</name>
     <message>
+        <source>Update failed</source>
+        <translation>Ошибка обновления</translation>
+    </message>
+    <message>
+        <source>Plugin %1 will be disabled after restarting Spotty.</source>
+        <translation>Плагин %1 будет отключён после перезапуска Spotty.</translation>
+    </message>
+    <message>
         <source>Back to live output</source>
         <translation>К живому выводу</translation>
     </message>
@@ -2547,6 +2575,16 @@ Double-click to edit, right-click for options</source>
         <translation>Сбросить этот профиль к настройкам по умолчанию</translation>
     </message>
     <message>
+        <source>Reset profile</source>
+        <translation>Сброс профиля</translation>
+    </message>
+    <message>
+        <source>Reset profile "%1" and rebuild the table from the current data?
+Series names and settings will be reset. Collected samples will be kept.</source>
+        <translation>Сбросить профиль «%1» и пересобрать таблицу по текущим данным?
+Имена рядов и настройки будут сброшены. Накопленные точки сохранятся.</translation>
+    </message>
+    <message>
         <source>Mode</source>
         <translation>Режим</translation>
     </message>
@@ -2577,6 +2615,10 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>Delta</source>
         <translation>Дельта</translation>
+    </message>
+    <message>
+        <source>Current</source>
+        <translation>Текущее</translation>
     </message>
     <message>
         <source>Hide every series at once; click again to bring back the previous selection</source>
@@ -2672,6 +2714,22 @@ Double-click to edit, right-click for options</source>
     <message>
         <source>How many thousands of samples to keep.</source>
         <translation>Сколько тысяч отсчётов хранить.</translation>
+    </message>
+    <message>
+        <source>Show current value</source>
+        <translation>Показывать текущее значение</translation>
+    </message>
+    <message>
+        <source>Show minimum</source>
+        <translation>Показывать минимум</translation>
+    </message>
+    <message>
+        <source>Show average</source>
+        <translation>Показывать среднее</translation>
+    </message>
+    <message>
+        <source>Show maximum</source>
+        <translation>Показывать максимум</translation>
     </message>
     <message>
         <source>Show delta</source>
@@ -2975,6 +3033,22 @@ Double-click to edit, right-click for options</source>
 </context>
 <context>
     <name>spotty::SettingsDialog</name>
+    <message>
+        <source>What&apos;s new</source>
+        <translation>Что нового</translation>
+    </message>
+    <message>
+        <source>No release notes available.</source>
+        <translation>Описание изменений отсутствует.</translation>
+    </message>
+    <message>
+        <source>Checks GitHub for updates when Spotty starts.</source>
+        <translation>Проверять обновления на GitHub при запуске Spotty.</translation>
+    </message>
+    <message>
+        <source>Version %1 is available. &lt;a href=&quot;update&quot;&gt;Update and restart&lt;/a&gt; · &lt;a href=&quot;notes&quot;&gt;What&apos;s new&lt;/a&gt;</source>
+        <translation>Доступна версия %1. &lt;a href=&quot;update&quot;&gt;Обновить и перезапустить&lt;/a&gt; · &lt;a href=&quot;notes&quot;&gt;Что нового&lt;/a&gt;</translation>
+    </message>
     <message>
         <source>Black</source>
         <translation>Чёрный</translation>
@@ -3320,12 +3394,12 @@ Continue?</source>
         <translation> байт</translation>
     </message>
     <message>
-        <source>Message length</source>
-        <translation>Длина сообщения</translation>
+        <source>Maximum line length</source>
+        <translation>Максимальная длина строки</translation>
     </message>
     <message>
-        <source>A binary stream without line breaks collapses into one endless line. Splitting by an inter-byte gap is how most binary protocols over UART frame their messages.</source>
-        <translation>Двоичный поток без переводов строк слипается в одну бесконечную строку. Разбиение по межбайтовой паузе — то, как размечает сообщения большинство двоичных протоколов поверх UART.</translation>
+        <source>Line breaks always end a line. The selected rule adds an earlier boundary: a delimiter, an inter-byte gap, or a maximum number of bytes.</source>
+        <translation>Перевод строки всегда завершает строку. Выбранное правило задаёт дополнительную границу: разделитель, межбайтовую паузу или предельное число байтов.</translation>
     </message>
     <message>
         <source>Plugin</source>
@@ -4325,6 +4399,14 @@ Continue?</source>
 <context>
     <name>spotty::UpdatePrompt</name>
     <message>
+        <source>Spotty will download and install the update, then restart.</source>
+        <translation>Spotty скачает и установит обновление, а затем перезапустится.</translation>
+    </message>
+    <message>
+        <source>Update</source>
+        <translation>Обновить</translation>
+    </message>
+    <message>
         <source>Update available</source>
         <translation>Доступно обновление</translation>
     </message>
@@ -4398,6 +4480,85 @@ Continue?</source>
     <message>
         <source>Administrator rights are needed to remove %1.</source>
         <translation>Чтобы удалить %1, нужны права администратора.</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::UpdateInstaller</name>
+    <message>
+        <source>Preparing the update…</source>
+        <translation>Подготовка обновления…</translation>
+    </message>
+    <message>
+        <source>Downloading the update…</source>
+        <translation>Загрузка обновления…</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отмена</translation>
+    </message>
+    <message>
+        <source>The update package has an invalid address.</source>
+        <translation>Некорректный адрес пакета обновления.</translation>
+    </message>
+    <message>
+        <source>The update package is too large.</source>
+        <translation>Пакет обновления слишком велик.</translation>
+    </message>
+    <message>
+        <source>The update checksum is not supported.</source>
+        <translation>Контрольная сумма обновления не поддерживается.</translation>
+    </message>
+    <message>
+        <source>Could not save the downloaded package.</source>
+        <translation>Не удалось сохранить скачанный пакет.</translation>
+    </message>
+    <message>
+        <source>The downloaded package failed verification.</source>
+        <translation>Скачанный пакет не прошёл проверку.</translation>
+    </message>
+    <message>
+        <source>Update failed</source>
+        <translation>Ошибка обновления</translation>
+    </message>
+    <message>
+        <source>Could not create a temporary directory for the update.</source>
+        <translation>Не удалось создать временный каталог для обновления.</translation>
+    </message>
+    <message>
+        <source>The running application is not an installed macOS bundle.</source>
+        <translation>Запущенное приложение не является установленным пакетом macOS.</translation>
+    </message>
+    <message>
+        <source>Automatic updates are available when Spotty is running as an AppImage.</source>
+        <translation>Автоматическое обновление доступно при запуске Spotty из AppImage.</translation>
+    </message>
+    <message>
+        <source>No update package is available for this installation.</source>
+        <translation>Для этой установки пакет обновления недоступен.</translation>
+    </message>
+    <message>
+        <source>Cannot update this location. Move Spotty to a writable location and try again.</source>
+        <translation>Нет прав для обновления в этом каталоге. Переместите Spotty в доступный для записи каталог и повторите попытку.</translation>
+    </message>
+    <message>
+        <source>The update package does not contain a valid Spotty application.</source>
+        <translation>Пакет обновления не содержит корректного приложения Spotty.</translation>
+    </message>
+    <message>
+        <source>Could not prepare the update package.</source>
+        <translation>Не удалось подготовить пакет обновления.</translation>
+    </message>
+    <message>
+        <source>The update package does not contain Spotty.</source>
+        <translation>Пакет обновления не содержит Spotty.</translation>
+    </message>
+    <message>
+        <source>Could not install the update. Check the application folder and the temporary directory.</source>
+        <translation>Не удалось установить обновление. Проверьте каталог приложения и временный каталог.</translation>
+    </message>
+    <message>
+        <source>Could not start the update helper.</source>
+        <translation>Не удалось запустить установщик обновления.</translation>
     </message>
 </context>
 </TS>

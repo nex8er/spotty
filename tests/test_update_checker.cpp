@@ -24,9 +24,11 @@ QByteArray sampleRelease(const QString &tag = QStringLiteral("v0.9.0"))
         "body": "Notes",
         "assets": [
             {"name": "Spotty-0.9.0-Windows-x64.zip",
-             "browser_download_url": "https://example.test/win.zip"},
+             "browser_download_url": "https://example.test/win.zip", "size": 1234,
+             "digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"},
             {"name": "Spotty-0.9.0-Windows-x64-Setup.exe",
-             "browser_download_url": "https://example.test/win-setup.exe"},
+             "browser_download_url": "https://example.test/win-setup.exe", "size": 5678,
+             "digest": "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"},
             {"name": "Spotty-0.9.0-macOS-arm64.dmg",
              "browser_download_url": "https://example.test/mac-arm.dmg"},
             {"name": "Spotty-0.9.0-macOS-x86_64.dmg",
@@ -60,6 +62,13 @@ TEST(UpdateChecker, ParsePicksPackageForPlatform)
     EXPECT_EQ(windows->tag, QStringLiteral("v0.9.0"));
     // Установщик, а не переносной .zip.
     EXPECT_EQ(windows->assetUrl, QUrl(QStringLiteral("https://example.test/win-setup.exe")));
+    EXPECT_EQ(windows->assetSize, 5678);
+    EXPECT_EQ(windows->assetDigest,
+              QStringLiteral("sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"));
+    EXPECT_EQ(windows->portableAssetUrl, QUrl(QStringLiteral("https://example.test/win.zip")));
+    EXPECT_EQ(windows->portableAssetSize, 1234);
+    EXPECT_EQ(windows->portableAssetDigest,
+              QStringLiteral("sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
 
     const auto macArm = UpdateChecker::parseRelease(sampleRelease(), "macos", "arm64");
     ASSERT_TRUE(macArm);
@@ -82,6 +91,21 @@ TEST(UpdateChecker, WrongArchitectureFallsBackToReleasePage)
     ASSERT_TRUE(release);
     EXPECT_TRUE(release->assetUrl.isEmpty());
     EXPECT_EQ(release->downloadUrl(), release->pageUrl);
+}
+
+TEST(UpdateChecker, IgnoresOtherProductsAndUnknownArchitectures)
+{
+    const QByteArray json = R"({"tag_name":"v1.0.0","assets":[
+        {"name":"Other-1.0.0-Linux-x86_64.AppImage", "browser_download_url":"https://example.test/other"},
+        {"name":"Spotty-1.0.0-Windows-x86_64.AppImage", "browser_download_url":"https://example.test/wrong-os"},
+        {"name":"Spotty-1.0.0-Linux.AppImage", "browser_download_url":"https://example.test/unknown"}
+    ]})";
+    const auto linux = UpdateChecker::parseRelease(json, QStringLiteral("linux"), QStringLiteral("x64"));
+    ASSERT_TRUE(linux);
+    EXPECT_TRUE(linux->assetUrl.isEmpty());
+    const auto unknown = UpdateChecker::parseRelease(sampleRelease(), QStringLiteral("linux"), QString());
+    ASSERT_TRUE(unknown);
+    EXPECT_TRUE(unknown->assetUrl.isEmpty());
 }
 
 TEST(UpdateChecker, ParseRejectsGarbage)

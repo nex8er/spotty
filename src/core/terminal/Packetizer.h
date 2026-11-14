@@ -26,7 +26,11 @@ namespace spotty {
  * - #Mode::InterByteTimeout — граница там, где в потоке возникла пауза. Так устроено
  *   большинство двоичных протоколов поверх UART, включая Modbus RTU.
  * - #Mode::Delimiter — граница по заданной последовательности байтов.
- * - #Mode::FixedLength — сообщения постоянной длины.
+ * - #Mode::FixedLength — дополнительная граница по предельному числу байтов.
+ *
+ * Во всех режимах LF (в том числе в CRLF) завершает строку сразу. Дополнительное
+ * ограничение отсчитывается заново после каждой границы; одиночный CR сохраняет
+ * терминальную семантику возврата курсора.
  *
  * \par Работа с таймаутом
  *
@@ -43,7 +47,7 @@ public:
         Stream,            ///< Не вмешиваться; границы задают переводы строк.
         InterByteTimeout,  ///< Граница по паузе в потоке.
         Delimiter,         ///< Граница по последовательности байтов.
-        FixedLength,       ///< Сообщения постоянной длины.
+        FixedLength,       ///< Дополнительная граница по предельному числу байтов.
     };
 
     /**
@@ -74,7 +78,7 @@ public:
     void setDelimiter(const QByteArray &delimiter);
     QByteArray delimiter() const { return m_delimiter; }
 
-    /// \brief Длина сообщения для #Mode::FixedLength.
+    /// \brief Предельное число байтов строки для #Mode::FixedLength.
     void setFixedLength(int length);
     int fixedLength() const { return m_fixedLength; }
 
