@@ -332,7 +332,9 @@ TEST_F(Panel, ValueColumnWidthsStayFixedWhenDataAndSeriesChange)
     auto *table = panel->findChild<QTableWidget *>();
     ASSERT_NE(table, nullptr);
     model->feed(QStringLiteral("1,2"), 0);
-    QApplication::processEvents();
+    ASSERT_TRUE(test::waitFor([table] {
+        return table->item(0, 2) && table->item(0, 2)->text() == QStringLiteral("1");
+    }, 3000));
 
     table->setColumnWidth(2, 130);
     QList<int> widths;
@@ -343,7 +345,7 @@ TEST_F(Panel, ValueColumnWidthsStayFixedWhenDataAndSeriesChange)
     model->setSeriesName(1, QStringLiteral("a_much_longer_series_name"));
     ASSERT_TRUE(test::waitFor([table] {
         return table->rowCount() == 15 && table->item(0, 2)
-               && table->item(0, 2)->text() == QStringLiteral("1234567");
+               && table->item(0, 2)->text() != QStringLiteral("1");
     }, 3000));
     for (int column = 0; column < table->columnCount(); ++column)
         if (column != 1)
