@@ -817,7 +817,7 @@ SPOTTY_PLUGIN_PATH=/path/to/my/plugins ./build/spotty.app/Contents/MacOS/spotty
 Транспорт с адресуемыми узлами может дополнительно реализовать `INodeDiscovery` из
 `spotty/api/INodeDiscovery.h` и объявить `Q_INTERFACES(spotty::IInterfacePlugin
 spotty::INodeDiscovery)`. Основной ABI транспорта при этом не меняется: роль определяется
-отдельным IID `org.spotty.INodeDiscovery/1.0`.
+отдельным IID `org.spotty.INodeDiscovery/3.0`.
 
 `nodeSettingKey()` возвращает ключ целочисленной настройки адреса узла.
 `networkNodes(descriptor, settings, discover)` возвращает накопленный список в порядке

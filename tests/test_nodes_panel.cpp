@@ -1,3 +1,6 @@
+#include <QMouseEvent>
+#include <QKeyEvent>
+#include <spotty/ui/MdiCodepoints.h>
 /**
  * \file test_nodes_panel.cpp
  * \brief Проводка списка узлов проверяется без CAN и рабочего стола.
@@ -12,6 +15,7 @@
 #include <QFontDatabase>
 #include <QPushButton>
 #include <QCheckBox>
+#include <QToolButton>
 #include <QMenu>
 #include <QTimer>
 #include <QLineEdit>
@@ -34,6 +38,15 @@ public:
     QHash<QString, bool> discovering;
     QString selectedAdapter;
     int selectedNode = 0;
+    QHash<QString, bool> adapterEnabled;
+    bool discoveryEnabled = true;
+    QStringList scanRequests;
+    void scanNetworkOnce(const QString &id) override { scanRequests.append(id); }
+    bool networkAdapterEnabled(const QString &id) const override
+    { return adapterEnabled.value(id, true); }
+    void setNetworkAdapterEnabled(const QString &id, bool enabled) override
+    { adapterEnabled[id] = enabled; }
+    void setNodeDiscoveryEnabled(bool enabled) override { discoveryEnabled = enabled; }
     bool common = false;
     bool rebooting = false;
     bool nodeRebooting(const QString &adapter, int node) const override
@@ -216,7 +229,7 @@ TEST(NodesPanel, ClearsNamesWithoutClearingNodesOrConnecting)
     auto *table = tableFor(panel, QStringLiteral("a"));
     ASSERT_NE(table, nullptr);
     table->item(0, 2)->setText(QStringLiteral("Battery"));
-    auto *button = panel.findChild<QPushButton *>(QStringLiteral("clearNodeNames"));
+    auto *button = panel.findChild<QToolButton *>(QStringLiteral("clearNodeNames"));
     ASSERT_NE(button, nullptr);
     button->click();
     EXPECT_EQ(table->rowCount(), 2);
@@ -263,4 +276,127 @@ TEST(RebootIndicator, ResponseAndTimeoutStopIndicationWithoutExtendingTimeout)
     EXPECT_TRUE(disabledTimeout.active(100000));
     disabledTimeout.answered(100000);
     EXPECT_FALSE(disabledTimeout.active(100000));
+}
+
+TEST(NodesPanel, DisconnectRemainsEffectiveWhilePanelIsVisible)
+{
+    TempDir dir;
+    NodesHost host(dir.path());
+    NodesPanel panel(&host);
+    panel.show();
+    auto *table = tableFor(panel, QStringLiteral("a"));
+    ASSERT_NE(table, nullptr);
+    auto *button = table->parentWidget()->findChild<QToolButton *>(
+        QStringLiteral("nodeAdapterConnection"));
+    ASSERT_NE(button, nullptr);
+    button->click();
+    EXPECT_FALSE(host.networkAdapterEnabled(QStringLiteral("a")));
+    EXPECT_FALSE(host.discovering.value(QStringLiteral("a")));
+    refresh(panel);
+    EXPECT_FALSE(host.discovering.value(QStringLiteral("a")));
+    button->click();
+    EXPECT_TRUE(host.networkAdapterEnabled(QStringLiteral("a")));
+    EXPECT_TRUE(host.discovering.value(QStringLiteral("a")));
+}
+TEST(NodesPanel, SingleNodeModeDisablesBroadcastAndPersistsSelection)
+{
+    TempDir dir;
+    NodesHost host(dir.path());
+    {
+        NodesPanel panel(&host);
+        panel.show();
+        auto *button = panel.findChild<QToolButton *>(QStringLiteral("singleNodeOnly"));
+        ASSERT_NE(button, nullptr);
+        button->click();
+        EXPECT_FALSE(host.discoveryEnabled);
+        EXPECT_TRUE(host.settings.value(QStringLiteral("singleNodeOnly")).toBool());
+        EXPECT_EQ(host.selectedNode, 0);
+    }
+    NodesPanel panel(&host);
+    EXPECT_FALSE(host.discoveryEnabled);
+}
+
+TEST(NodesPanel, HexadecimalFormatChangesOnlyDisplayAndPersists)
+{
+    TempDir dir;
+    NodesHost host(dir.path());
+    {
+        NodesPanel panel(&host);
+        panel.show();
+        auto *table = tableFor(panel, QStringLiteral("a"));
+        ASSERT_NE(table, nullptr);
+        auto *hex = panel.findChild<QToolButton *>(QStringLiteral("hexNodeNumbers"));
+        ASSERT_NE(hex, nullptr);
+        EXPECT_EQ(table->item(0, 1)->text(), QStringLiteral("12"));
+        hex->click();
+        EXPECT_EQ(table->item(0, 1)->text(), QStringLiteral("0xC"));
+        EXPECT_EQ(table->item(0, 1)->data(Qt::UserRole).toInt(), 12);
+        EXPECT_EQ(table->item(0, 0)->text(), QStringLiteral("1"));
+        QMetaObject::invokeMethod(table, "cellClicked", Q_ARG(int, 0), Q_ARG(int, 1));
+        EXPECT_EQ(host.selectedNode, 12);
+        EXPECT_TRUE(host.settings.value(QStringLiteral("hexNodeNumbers")).toBool());
+    }
+    NodesPanel restored(&host);
+    restored.show();
+    auto *table = tableFor(restored, QStringLiteral("a"));
+    ASSERT_NE(table, nullptr);
+    EXPECT_EQ(table->item(0, 1)->text(), QStringLiteral("0xC"));
+    auto *hex = restored.findChild<QToolButton *>(QStringLiteral("hexNodeNumbers"));
+    ASSERT_NE(hex, nullptr);
+    hex->click();
+    EXPECT_EQ(table->item(0, 1)->text(), QStringLiteral("12"));
+    EXPECT_TRUE(host.iconGlyphs.contains(mdi::TagRemoveOutline));
+    EXPECT_TRUE(host.iconGlyphs.contains(mdi::Hexadecimal));
+}
+
+TEST(NodesPanel, DoubleClickRenamesWithoutConnectingAndSavesName)
+{
+    TempDir dir;
+    NodesHost host(dir.path());
+    NodesPanel panel(&host);
+    panel.resize(310, 700);
+    panel.show();
+    QApplication::processEvents();
+    auto *table = tableFor(panel, QStringLiteral("a"));
+    ASSERT_NE(table, nullptr);
+    const QPointF position(table->visualItemRect(table->item(0, 2)).center());
+    for (auto type : {QEvent::MouseButtonPress, QEvent::MouseButtonRelease,
+                      QEvent::MouseButtonDblClick, QEvent::MouseButtonRelease}) {
+        QMouseEvent event(type, position, table->viewport()->mapToGlobal(position.toPoint()),
+                          Qt::LeftButton,
+                          type == QEvent::MouseButtonRelease ? Qt::NoButton : Qt::LeftButton,
+                          Qt::NoModifier);
+        QApplication::sendEvent(table->viewport(), &event);
+    }
+    EXPECT_EQ(host.selectedNode, 0);
+    auto *editor = table->findChild<QLineEdit *>();
+    ASSERT_NE(editor, nullptr);
+    editor->setText(QStringLiteral("Renamed by double-click"));
+    QKeyEvent enter(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+    QApplication::sendEvent(editor, &enter);
+    QApplication::processEvents();
+    EXPECT_EQ(host.selectedNode, 0);
+    EXPECT_EQ(host.settings.value(QStringLiteral("names")).toMap()
+                  .value(QStringLiteral("a")).toMap().value(QStringLiteral("12")).toString(),
+              QStringLiteral("Renamed by double-click"));
+}
+
+TEST(NodesPanel, RadarScansOnlyItsAdapterWithoutConnectingOrChangingSingleNodeFlag)
+{
+    TempDir dir;
+    NodesHost host(dir.path());
+    host.adapterEnabled[QStringLiteral("a")] = false;
+    host.settings[QStringLiteral("singleNodeOnly")] = true;
+    NodesPanel panel(&host);
+    panel.show();
+    auto *table = tableFor(panel, QStringLiteral("a"));
+    ASSERT_NE(table, nullptr);
+    auto *scan = table->parentWidget()->findChild<QToolButton *>(QStringLiteral("scanNetworkOnce"));
+    ASSERT_NE(scan, nullptr);
+    scan->click();
+    EXPECT_EQ(host.scanRequests, QStringList{QStringLiteral("a")});
+    EXPECT_FALSE(host.networkAdapterEnabled(QStringLiteral("a")));
+    EXPECT_FALSE(host.discoveryEnabled);
+    EXPECT_EQ(host.selectedNode, 0);
+    EXPECT_TRUE(host.iconGlyphs.contains(mdi::Radar));
 }

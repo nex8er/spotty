@@ -155,8 +155,10 @@ bool CanBus::send(quint32 id, const QByteArray &payload, QString *error)
     return PcanLibrary::instance().write(m_handle, id, payload, error);
 }
 
-void CanBus::setDiscoveryEnabled(bool enabled)
+void CanBus::setDiscoveryEnabled(bool enabled, int durationMs)
 {
+    m_discoveryUntil = durationMs > 0 ? m_clock.elapsed() + durationMs : 0;
+    if (enabled && durationMs > 0) m_discoveryImmediate = true;
     m_discovery = enabled;
 }
 
@@ -207,7 +209,9 @@ void CanBus::readLoop()
 
         if (m_discovery) {
             const qint64 now = m_clock.elapsed();
-            if (now - lastDiscovery >= kDiscoveryIntervalMs) {
+            const qint64 until = m_discoveryUntil.load();
+            if (clican::discoveryDue(now, lastDiscovery, until,
+                                    m_discoveryImmediate.exchange(false), kDiscoveryIntervalMs)) {
                 lastDiscovery = now;
                 // Пустой широковещательный пакет: каждый узел обязан отозваться пустым
                 // пакетом со своего идентификатора ответа, и это единственный способ

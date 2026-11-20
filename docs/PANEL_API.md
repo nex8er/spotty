@@ -2,7 +2,7 @@
 
 Плагины, которые обрабатывают данные и показывают собственный интерфейс.
 
-**Версия API:** 10 (`SPOTTY_UI_API_VERSION`)
+**Версия API:** 13 (`SPOTTY_UI_API_VERSION`)
 
 Про плагины **транспортов** — отдельный документ: [PLUGIN_API.md](PLUGIN_API.md).
 
@@ -216,6 +216,12 @@ void composeInSendBar(const QString &text, DataCodec::Format format);
 Сигналы и чтение строк SDK по-прежнему относятся к общему живому потоку, поэтому смена
 показываемой истории не заставляет обработчики повторно разбирать старые данные.
 
+`networkAdapterEnabled(id)` и `setNetworkAdapterEnabled(id, enabled)` управляют
+подключением адаптера вместе с поиском. Отключённый адаптер не открывается снова
+из-за обновления панели или диалога настроек. `setNodeDiscoveryEnabled(false)`
+выключает широковещательный поиск и оставляет обмен с выбранной нодой основного интерфейса.
+`nodeRebooting(adapter, node)` сообщает об ожидании ответа после команды перезагрузки.
+
 ### Свои настройки и свои файлы
 
 ```cpp
@@ -231,6 +237,10 @@ QString documentsDir() const;  // для файлов, которые откро
 Показ: `setHighlightRules()`, `setSearchPattern()`, `setFilterEnabled()`, `findNext()`,
 `findPrevious()`, `matchCount()`, `currentMatch()`, `selectedText()`.
 Чтение: `firstLineNumber()`, `nextLineNumber()`, `line(number, TerminalLine *)`.
+
+Для экспорта показанной истории используйте `displayedFirstLineNumber()`,
+`displayedNextLineNumber()` и `displayedLine()`. Обычные методы чтения строк продолжают
+обслуживать общий поток, даже когда терминал показывает историю отдельной ноды.
 
 > Нумерация строк сквозная и никогда не сбрасывается, но буфер подрезается спереди —
 > `line()` вернёт `false` для вытесненной строки. Читать нужно от `firstLineNumber()`, а
@@ -436,6 +446,10 @@ add_subdirectory(mypanel)
 
 | Версия | Что изменилось |
 |---|---|
+| 14 | Однократный поиск сети: `scanNetworkOnce()` |
+| 13 | Подключение и отключение сетевых адаптеров, запрет широковещательного поиска |
+| 12 | Состояние ожидания ответа после перезагрузки ноды: `nodeRebooting()` |
+| 11 | Чтение показанной истории для экспорта: `displayedFirstLineNumber()`, `displayedNextLineNumber()`, `displayedLine()` |
 | 10 | Поиск узлов через дополнительную роль транспорта `INodeDiscovery`, выбор адаптера/узла и переключение общей истории в `IPanelHost` |
 | 9 | Дотянулась правка основного API 5: в `SettingsField` дописаны поля `advanced`, `compact` и `primary`, раскладка структуры изменилась, а панели возвращают `SettingsSchema`. В настройках панелей `advanced` работает (свёрнутый раздел), `compact` и `primary` игнорируются, а поле `Password` не показывается вовсе — настройки панелей пишутся на диск как есть |
 | 5–8 | Правки `IPanelHost` и самих панелей; в этом документе по отдельности не описаны, смотрите историю git файла `UiApiVersion.h` |
@@ -476,5 +490,3 @@ add_subdirectory(mypanel)
 Слою не хватает правила `#panelOverlay { background: transparent; border: none; }` — он
 унаследовал вид `#card`. Правило уже есть в штатной таблице стилей; если панель задаёт
 своё оформление, фон нужно погасить явно.
-
-`displayedFirstLineNumber()`, `displayedNextLineNumber()` ? `displayedLine()` ?????? ???????????? ??????? ??? ????????. ??????? ?????? ?????? ????? ?????????? ??????????? ????? ?????.

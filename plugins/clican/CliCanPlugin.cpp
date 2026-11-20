@@ -23,7 +23,7 @@ constexpr auto kIdPrefix = "clican:";
 constexpr auto kSystemNamePrefix = "PCAN_USBBUS";
 
 /// \brief Как часто проверять, не пора ли отпустить шину поиска.
-constexpr int kScanTimerIntervalMs = 1000;
+constexpr int kScanTimerIntervalMs = 50;
 
 /**
  * \brief Устойчивый идентификатор адаптера.
@@ -182,6 +182,16 @@ SettingsSchema CliCanPlugin::settingsSchema() const
                    "open - a rebooting board comes back on its own. Zero disables it."),
     });
 
+    schema.add(SettingsField{
+        .key = QLatin1String(clican::kScanDurationKey),
+        .label = tr("Scan duration"),
+        .group = tr("Scan"),
+        .type = SettingsField::Integer,
+        .defaultValue = clican::kDefaultScanDurationMs,
+        .minimum = 1,
+        .maximum = 60000,
+        .suffix = tr("ms"),
+    });
     return schema;
 }
 
@@ -213,6 +223,9 @@ CliCanPlugin::Scan *CliCanPlugin::requestScan(const InterfaceDescriptor &descrip
     if (!entry)
         entry = std::make_unique<Scan>();
     Scan *scan = entry.get();
+    if (scan->mode == NodeDiscoveryMode::Disconnected && !scan->pendingScanMs
+        && scan->manualUntil.hasExpired())
+        return nullptr;
     const int bitrate = settings.value(QLatin1String(clican::kBitrateKey),
                                         clican::kDefaultBitrate).toInt();
     if (scan->opening.load())
@@ -233,6 +246,7 @@ CliCanPlugin::Scan *CliCanPlugin::requestScan(const InterfaceDescriptor &descrip
     if (scan->thread.joinable() || scan->opening.load())
         return scan;
     if (!scan->bus) {
+        if (!scan->pendingScanMs) scan->manualOnly = false;
         scan->bitrate = bitrate;
         scan->opening = true;
         Q_ASSERT(!scan->thread.joinable());
@@ -261,7 +275,9 @@ QList<SettingsOption> CliCanPlugin::liveOptions(const InterfaceDescriptor &descr
     scan->settingsRequested.start();
     QList<SettingsOption> options;
     if (scan->bus) {
-        scan->bus->setDiscoveryEnabled(true);
+        if (scan->manualUntil.hasExpired() && !scan->pendingScanMs)
+            scan->bus->setDiscoveryEnabled(scan->mode == NodeDiscoveryMode::Active
+                                           && !scan->manualOnly);
         for (int node : scan->bus->nodes())
             options.append({QString::number(node), node});
     }
@@ -273,6 +289,10 @@ QList<NetworkNode> CliCanPlugin::networkNodes(const InterfaceDescriptor &descrip
 {
     const auto handle = handleFromSystemName(descriptor.systemName);
     Scan *scan = nullptr;
+    const auto existingScan = m_scans.find(handle);
+    if (existingScan != m_scans.end()
+        && existingScan->second->mode == NodeDiscoveryMode::Disconnected)
+        discover = false;
     if (discover) {
         QVariantMap effectiveSettings = settings;
         auto it = m_scans.find(handle);
@@ -295,10 +315,45 @@ QList<NetworkNode> CliCanPlugin::networkNodes(const InterfaceDescriptor &descrip
     if (scan->bus) {
         const bool settingsActive = scan->settingsRequested.isValid()
                                     && scan->settingsRequested.elapsed() < kScanIdleMs;
-        scan->bus->setDiscoveryEnabled(discover || settingsActive);
+        if (scan->manualUntil.hasExpired() && !scan->pendingScanMs)
+            scan->bus->setDiscoveryEnabled(scan->mode == NodeDiscoveryMode::Active
+                                          && !scan->manualOnly && (discover || settingsActive));
         return scan->bus->networkNodes();
     }
     return {};
+}
+
+void CliCanPlugin::scanOnce(const InterfaceDescriptor &descriptor, const QVariantMap &settings)
+{
+    const auto handle = handleFromSystemName(descriptor.systemName);
+    if (!handle) return;
+    auto &entry = m_scans[handle];
+    if (!entry) entry = std::make_unique<Scan>();
+    entry->pendingScanMs = qBound(1, settings.value(QLatin1String(clican::kScanDurationKey),
+                                               clican::kDefaultScanDurationMs).toInt(), 60000);
+    entry->manualOnly = true;
+    if (entry->bus) entry->bus->setDiscoveryEnabled(false);
+    requestScan(descriptor, settings);
+    expireScan();
+}
+
+void CliCanPlugin::setDiscoveryMode(const InterfaceDescriptor &descriptor, NodeDiscoveryMode mode)
+{
+    const auto handle = handleFromSystemName(descriptor.systemName);
+    if (!handle) return;
+    auto &entry = m_scans[handle];
+    if (!entry) entry = std::make_unique<Scan>();
+    if (entry->mode == mode) return;
+    entry->mode = mode;
+    if (mode != NodeDiscoveryMode::Active && entry->bus)
+        entry->bus->setDiscoveryEnabled(false);
+    if (mode == NodeDiscoveryMode::Disconnected) {
+        entry->pendingScanMs = 0;
+        entry->manualUntil = QDeadlineTimer(0);
+        entry->panelActive = false;
+        entry->settingsRequested.invalidate();
+        expireScan();
+    }
 }
 
 void CliCanPlugin::clearNetworkNodes(const InterfaceDescriptor &descriptor)
@@ -314,12 +369,20 @@ void CliCanPlugin::expireScan()
         Scan *scan = entry.get();
         const bool settingsActive = scan->settingsRequested.isValid()
                                     && scan->settingsRequested.elapsed() < kScanIdleMs;
-        if (scan->panelActive || settingsActive || scan->opening.load())
-            continue;
+        if (scan->opening.load()) continue;
         if (scan->thread.joinable()) {
             scan->thread.join();
             scan->bus = std::move(scan->openedBus);
         }
+        if (scan->pendingScanMs && scan->bus) {
+            scan->bus->setDiscoveryEnabled(true, scan->pendingScanMs);
+            scan->manualUntil = QDeadlineTimer(scan->pendingScanMs);
+        }
+        scan->pendingScanMs = 0;
+        if (!scan->manualUntil.hasExpired()) continue;
+        if (scan->manualOnly && scan->bus) scan->bus->setDiscoveryEnabled(false);
+        if (scan->mode != NodeDiscoveryMode::Disconnected
+            && (scan->panelActive || settingsActive)) continue;
         if (scan->bus) {
             scan->bus->setDiscoveryEnabled(false);
             scan->opening = true;

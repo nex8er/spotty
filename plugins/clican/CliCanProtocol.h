@@ -22,6 +22,12 @@ namespace spotty::clican {
 /// \brief Начало выделенного туннелю диапазона идентификаторов.
 inline constexpr quint32 kBroadcastId = 0x400;
 
+/// \brief Первый запрос не ждёт интервала; после срока скана новые запросы запрещены.
+inline bool discoveryDue(qint64 now, qint64 last, qint64 until, bool immediate, int intervalMs)
+{
+    return (until == 0 || now < until) && (immediate || now - last >= intervalMs);
+}
+
 /// \brief Последний идентификатор диапазона; вместе с 0x77E зарезервирован.
 inline constexpr quint32 kLastReservedId = 0x77F;
 

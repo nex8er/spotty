@@ -12,6 +12,8 @@
 #include <QPushButton>
 #include <QCheckBox>
 #include <QMenu>
+#include <QToolButton>
+#include <spotty/ui/MdiCodepoints.h>
 #include <QSet>
 #include <QShowEvent>
 #include <QSignalBlocker>
@@ -53,10 +55,48 @@ NodesPanel::NodesPanel(IPanelHost *panelHost, QWidget *parent)
             [this](bool common) { host()->setCommonNodeHistory(common); });
     auto *historyRow = new QHBoxLayout;
     historyRow->addWidget(m_common, 1);
-    auto *clearNames = new QPushButton(tr("Clear names"), this);
+    auto *clearNames = new QToolButton(this);
+    clearNames->setAutoRaise(true);
+    clearNames->setToolTip(tr("Clear names"));
+    clearNames->setAccessibleName(tr("Clear names"));
     clearNames->setObjectName(QStringLiteral("clearNodeNames"));
     historyRow->addWidget(clearNames);
-    connect(clearNames, &QPushButton::clicked, this, [this] {
+    m_hexNodeNumbers = new QToolButton(this);
+    m_hexNodeNumbers->setObjectName(QStringLiteral("hexNodeNumbers"));
+    m_hexNodeNumbers->setAutoRaise(true);
+    m_hexNodeNumbers->setCheckable(true);
+    m_hexNodeNumbers->setToolTip(tr("Show node numbers in hexadecimal"));
+    m_hexNodeNumbers->setAccessibleName(tr("Show node numbers in hexadecimal"));
+    m_hexNodeNumbers->setChecked(host()->value(QStringLiteral("hexNodeNumbers"), false).toBool());
+    connect(m_hexNodeNumbers, &QToolButton::toggled, this, [this](bool hex) {
+        host()->setValue(QStringLiteral("hexNodeNumbers"), hex);
+        refresh();
+    });
+    connect(host(), &IPanelHost::settingsReset, m_hexNodeNumbers,
+            [this] { m_hexNodeNumbers->setChecked(false); });
+    historyRow->addWidget(m_hexNodeNumbers);
+    const auto updateIcons = [this, clearNames] {
+        clearNames->setIcon(host()->icon(mdi::TagRemoveOutline));
+        m_hexNodeNumbers->setIcon(host()->icon(mdi::Hexadecimal));
+    };
+    updateIcons();
+    connect(host(), &IPanelHost::themeChanged, this, updateIcons);
+    auto *singleNode = new QToolButton(this);
+    singleNode->setObjectName(QStringLiteral("singleNodeOnly"));
+    singleNode->setCheckable(true);
+    singleNode->setText(QStringLiteral("1"));
+    singleNode->setToolTip(tr("Only the selected node: disable broadcast discovery"));
+    singleNode->setChecked(host()->value(QStringLiteral("singleNodeOnly"), false).toBool());
+    host()->setNodeDiscoveryEnabled(!singleNode->isChecked());
+    connect(singleNode, &QToolButton::toggled, this, [this](bool single) {
+        host()->setValue(QStringLiteral("singleNodeOnly"), single);
+        host()->setNodeDiscoveryEnabled(!single);
+        refresh();
+    });
+    historyRow->addWidget(singleNode);
+    connect(host(), &IPanelHost::settingsReset, singleNode,
+            [singleNode] { singleNode->setChecked(false); });
+    connect(clearNames, &QToolButton::clicked, this, [this] {
         m_names.clear();
         host()->setValue(QStringLiteral("names"), m_names);
         for (const auto &view : m_adapters) {
@@ -102,7 +142,24 @@ NodesPanel::AdapterView NodesPanel::addAdapter(const QString &id)
     layout->setContentsMargins(0, 0, 0, 0);
     view.title = new QLabel(view.widget);
     view.title->setWordWrap(true);
-    layout->addWidget(view.title);
+    auto *titleRow = new QHBoxLayout;
+    titleRow->addWidget(view.title, 1);
+    view.scan = new QToolButton(view.widget);
+    view.scan->setObjectName(QStringLiteral("scanNetworkOnce"));
+    view.scan->setAutoRaise(true);
+    view.scan->setToolTip(tr("Scan network once"));
+    view.scan->setAccessibleName(tr("Scan network once"));
+    titleRow->addWidget(view.scan);
+    connect(view.scan, &QToolButton::clicked, this, [this, id] { host()->scanNetworkOnce(id); });
+    view.connection = new QToolButton(view.widget);
+    view.connection->setObjectName(QStringLiteral("nodeAdapterConnection"));
+    view.connection->setAutoRaise(true);
+    titleRow->addWidget(view.connection);
+    connect(view.connection, &QToolButton::clicked, this, [this, id] {
+        host()->setNetworkAdapterEnabled(id, !host()->networkAdapterEnabled(id));
+        refresh();
+    });
+    layout->addLayout(titleRow);
     view.table = new QTableWidget(0, 3, view.widget);
     view.table->setObjectName(QStringLiteral("nodesTable"));
     view.table->setProperty("adapterId", id);
@@ -113,7 +170,7 @@ NodesPanel::AdapterView NodesPanel::addAdapter(const QString &id)
     view.table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
     view.table->setSelectionBehavior(QAbstractItemView::SelectRows);
     view.table->setSelectionMode(QAbstractItemView::SingleSelection);
-    view.table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    view.table->setEditTriggers(QAbstractItemView::DoubleClicked);
     view.table->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(view.table, &QWidget::customContextMenuRequested, this,
             [this, table = view.table](const QPoint &pos) {
@@ -128,7 +185,9 @@ NodesPanel::AdapterView NodesPanel::addAdapter(const QString &id)
     view.table->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Ignored);
     layout->addWidget(view.table, 1);
     m_adaptersLayout->addWidget(view.widget, 1);
-    connect(view.table, &QTableWidget::cellClicked, this, [this, id, table = view.table](int row) {
+    connect(view.table, &QTableWidget::cellClicked, this, [this, id, table = view.table](int row, int column) {
+        if (column == 2)
+            return;
         host()->selectNetworkNode(id, table->item(row, 1)->data(Qt::UserRole).toInt());
     });
     connect(view.table, &QTableWidget::itemChanged, this, [this, id](QTableWidgetItem *item) {
@@ -154,8 +213,12 @@ void NodesPanel::refresh()
             m_adapters.insert(adapter.id, addAdapter(adapter.id));
         auto &view = m_adapters[adapter.id];
         view.title->setText(adapter.name);
+        view.scan->setIcon(host()->icon(mdi::Radar));
+        const bool enabled = host()->networkAdapterEnabled(adapter.id);
+        view.connection->setIcon(host()->icon(enabled ? mdi::PowerPlugOff : mdi::PowerPlug));
+        view.connection->setToolTip(enabled ? tr("Disconnect adapter") : tr("Connect adapter"));
         view.title->setToolTip(adapter.id);
-        const auto nodes = host()->networkNodes(adapter.id, true);
+        const auto nodes = host()->networkNodes(adapter.id, enabled);
         QVariantList known = m_known.value(adapter.id).toList();
         QSet<int> online;
         for (const auto &node : nodes) {
@@ -182,9 +245,12 @@ void NodesPanel::refresh()
                 view.table->setItem(row, 1, number);
                 auto *name = new QTableWidgetItem(names.value(QString::number(node)).toString());
                 name->setData(Qt::UserRole, node);
-                name->setToolTip(tr("Right-click to rename"));
+                name->setToolTip(tr("Double-click or right-click to rename"));
                 view.table->setItem(row, 2, name);
             }
+            view.table->item(row, 1)->setText(m_hexNodeNumbers->isChecked()
+                ? QStringLiteral("0x%1").arg(QString::number(node, 16).toUpper())
+                : QString::number(node));
             auto *ordinal = view.table->item(row, 0);
             ordinal->setIcon(statusIcon(online.contains(node), host()->nodeRebooting(adapter.id, node)));
             ordinal->setToolTip(host()->nodeRebooting(adapter.id, node) ? tr("Rebooting")

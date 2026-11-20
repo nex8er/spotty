@@ -464,6 +464,14 @@ Check that this is your machine (on it: ssh-keygen -lf /etc/ssh/ssh_host_ed25519
         <source>CLI over CAN (PCAN)</source>
         <translation>CLI через CAN (PCAN)</translation>
     </message>
+    <message>
+        <source>Scan</source>
+        <translation>Скан</translation>
+    </message>
+    <message>
+        <source>Scan duration</source>
+        <translation>Время сканирования</translation>
+    </message>
 </context>
 <context>
     <name>spotty::DataCodec</name>
@@ -4626,6 +4634,30 @@ Continue?</source>
     <message>
         <source>Rebooting</source>
         <translation>Перезагрузка</translation>
+    </message>
+    <message>
+        <source>Only the selected node: disable broadcast discovery</source>
+        <translation>Только выбранная нода: отключить широковещательный поиск</translation>
+    </message>
+    <message>
+        <source>Disconnect adapter</source>
+        <translation>Отключить адаптер</translation>
+    </message>
+    <message>
+        <source>Connect adapter</source>
+        <translation>Подключить адаптер</translation>
+    </message>
+    <message>
+        <source>Show node numbers in hexadecimal</source>
+        <translation>Показывать номера нод в шестнадцатеричном формате</translation>
+    </message>
+    <message>
+        <source>Double-click or right-click to rename</source>
+        <translation>Двойной щелчок или правая кнопка мыши для изменения имени</translation>
+    </message>
+    <message>
+        <source>Scan network once</source>
+        <translation>Однократно сканировать сеть</translation>
     </message>
 </context>
 <context>

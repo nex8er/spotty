@@ -10,6 +10,7 @@
 #include <spotty/api/INodeDiscovery.h>
 
 #include <QElapsedTimer>
+#include <QDeadlineTimer>
 #include <QObject>
 
 #include <memory>
@@ -63,6 +64,8 @@ public:
     /// \copydoc spotty::IInterfacePlugin::createChannel
     IInterfaceChannel *createChannel(const InterfaceDescriptor &descriptor) override;
 
+    void setDiscoveryMode(const InterfaceDescriptor &descriptor, NodeDiscoveryMode mode) override;
+    void scanOnce(const InterfaceDescriptor &descriptor, const QVariantMap &settings) override;
     QString nodeSettingKey() const override;
     QList<NetworkNode> networkNodes(const InterfaceDescriptor &descriptor,
                                    const QVariantMap &settings, bool discover) override;
@@ -77,9 +80,13 @@ private:
         std::thread thread;
         std::atomic<bool> opening{false};
         int bitrate = 0;
+        NodeDiscoveryMode mode = NodeDiscoveryMode::Active;
         bool panelActive = false;
         QElapsedTimer settingsRequested;
         QString error;
+        int pendingScanMs = 0;
+        QDeadlineTimer manualUntil{0};
+        bool manualOnly = false;
     };
 
     Scan *requestScan(const InterfaceDescriptor &descriptor, const QVariantMap &settings);

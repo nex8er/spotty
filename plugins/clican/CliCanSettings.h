@@ -24,6 +24,8 @@ inline constexpr auto kKeepAliveKey = "keepAliveMs";
 
 /// \brief Через сколько молчания узла предупредить пользователя.
 inline constexpr auto kTimeoutKey = "responseTimeoutMs";
+inline constexpr auto kScanDurationKey = "scanDurationMs";
+inline constexpr int kDefaultScanDurationMs = 1000;
 
 /// \brief Скорость по умолчанию — самая распространённая на платах.
 inline constexpr int kDefaultBitrate = 500'000;

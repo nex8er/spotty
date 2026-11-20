@@ -353,6 +353,12 @@ public:
     virtual bool nodeRebooting(const QString &adapter, int node) const
     { Q_UNUSED(adapter); Q_UNUSED(node); return false; }
 
+    virtual bool networkAdapterEnabled(const QString &id) const { Q_UNUSED(id); return true; }
+    virtual void setNetworkAdapterEnabled(const QString &id, bool enabled)
+    { Q_UNUSED(id); Q_UNUSED(enabled); }
+    virtual void setNodeDiscoveryEnabled(bool enabled) { Q_UNUSED(enabled); }
+    virtual void scanNetworkOnce(const QString &id) { Q_UNUSED(id); }
+
 Q_SIGNALS:
     /**
      * \brief Данные прошли через сессию — сырые, до цепочки преобразования.

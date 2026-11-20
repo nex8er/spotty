@@ -103,6 +103,21 @@ void PanelHostImpl::selectNetworkNode(const QString &adapterId, int node)
         m_window->selectNetworkNode(adapterId, node);
 }
 
+bool PanelHostImpl::networkAdapterEnabled(const QString &id) const
+{ return m_window && m_window->networkAdapterEnabled(id); }
+void PanelHostImpl::setNetworkAdapterEnabled(const QString &id, bool enabled)
+{ if (m_window) m_window->setNetworkAdapterEnabled(id, enabled); }
+void PanelHostImpl::setNodeDiscoveryEnabled(bool enabled)
+{ if (m_window) m_window->setNodeDiscoveryEnabled(enabled); }
+
+void PanelHostImpl::scanNetworkOnce(const QString &id)
+{
+    const auto *entry = m_context.registry ? m_context.registry->entry(id) : nullptr;
+    if (entry && entry->present)
+        if (auto *discovery = nodeDiscovery(m_context, entry))
+            discovery->scanOnce(entry->descriptor, entry->settings);
+}
+
 bool PanelHostImpl::nodeRebooting(const QString &adapter, int node) const
 {
     return m_window && m_window->nodeRebooting(adapter, node);

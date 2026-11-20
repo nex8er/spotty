@@ -95,6 +95,9 @@ inline constexpr char32_t SawtoothWave = 0xF147A;
 inline constexpr char32_t StepForward = 0xF04D7;
 inline constexpr char32_t CodeJson = 0xF0626;
 inline constexpr char32_t FileTree = 0xF0645;
+inline constexpr char32_t Radar = 0xF0437;
+inline constexpr char32_t TagRemoveOutline = 0xF1223;
+inline constexpr char32_t ScriptTextOutline = 0xF0BC3;
 inline constexpr char32_t Lan = 0xF0317;
 inline constexpr char32_t Connection = 0xF1616;
 

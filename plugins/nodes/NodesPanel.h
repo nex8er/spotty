@@ -13,6 +13,7 @@ class QTimer;
 class QPushButton;
 class QCheckBox;
 class QVBoxLayout;
+class QToolButton;
 
 namespace spotty {
 class NodesPanel : public PanelWidget
@@ -29,6 +30,8 @@ private:
     {
         QWidget *widget = nullptr;
         QLabel *title = nullptr;
+        QToolButton *connection = nullptr;
+        QToolButton *scan = nullptr;
         QTableWidget *table = nullptr;
     };
     void refresh();
@@ -41,6 +44,7 @@ private:
     QVBoxLayout *m_adaptersLayout = nullptr;
     QLabel *m_empty = nullptr;
     QCheckBox *m_common = nullptr;
+    QToolButton *m_hexNodeNumbers = nullptr;
     QTimer *m_timer = nullptr;
 };
 } // namespace spotty

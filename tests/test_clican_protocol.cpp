@@ -12,6 +12,16 @@
 
 using namespace spotty::clican;
 
+TEST(CliCanProtocol, TimedDiscoveryStartsImmediatelyAndStopsAtDeadline)
+{
+    EXPECT_TRUE(discoveryDue(1000, 999, 2000, true, 500));
+    EXPECT_FALSE(discoveryDue(1499, 1000, 2000, false, 500));
+    EXPECT_TRUE(discoveryDue(1500, 1000, 2000, false, 500));
+    EXPECT_FALSE(discoveryDue(2000, 1500, 2000, false, 500));
+    EXPECT_FALSE(discoveryDue(2001, 1500, 2000, true, 500));
+    EXPECT_TRUE(discoveryDue(2000, 1500, 0, false, 500));
+}
+
 TEST(CliCanProtocol, AddressesNodesAsTheSpecificationSays)
 {
     // Пример из описания протокола: узел 5 принимает на 0x40A, отвечает с 0x40B.

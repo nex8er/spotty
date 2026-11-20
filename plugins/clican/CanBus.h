@@ -97,7 +97,7 @@ public:
      * идентификатором 0x400, на который откликается каждый узел. Выключается, когда
      * поиск не нужен ни настройкам, ни панели узлов: лишний трафик на шине не нужен.
      */
-    void setDiscoveryEnabled(bool enabled);
+    void setDiscoveryEnabled(bool enabled, int durationMs = 0);
 
     /**
      * \brief Узлы, отозвавшиеся за последние ::kNodeExpiryMs.
@@ -149,6 +149,8 @@ private:
     std::atomic<bool> m_open{false};
     std::atomic<bool> m_stopping{false};
     std::atomic<bool> m_discovery{false};
+    std::atomic<qint64> m_discoveryUntil{0};
+    std::atomic<bool> m_discoveryImmediate{false};
 
     std::thread m_reader;
     qintptr m_receiveEvent = -1;

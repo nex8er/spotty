@@ -153,6 +153,8 @@ MainWindow::MainWindow(const AppContext &context, QWidget *parent)
 
     buildUi();
     buildMenus();
+    connect(m_context.registry, &InterfaceRegistry::changed, this,
+            [this] { updateNodeDiscoveryModes(); });
     m_rebootClock.start();
     for (Session *session : {m_context.session, m_secondSession}) {
         if (!session)
@@ -467,6 +469,8 @@ void MainWindow::buildUi()
             return;
 
         m_context.session->setInterfaceId(id);
+        m_disabledNodeAdapters.remove(id);
+        updateNodeDiscoveryModes();
         prepareNodeHistory();
 
         // Выбор в выпадающем списке — уже осознанное решение пользователя: он назвал
@@ -491,14 +495,24 @@ void MainWindow::buildUi()
     if (m_secondSession) {
         connect(m_secondBar, &InterfaceBar::interfaceSelected, this, [this](const QString &id) {
             m_secondSession->setInterfaceId(id);
+            m_disabledNodeAdapters.remove(id);
+            updateNodeDiscoveryModes();
             if (!id.isEmpty())
                 m_secondSession->open();
         });
         connect(m_secondBar, &InterfaceBar::toggleOpenRequested, this, [this] {
-            if (m_secondSession->isActive())
-                m_secondSession->close();
-            else
-                m_secondSession->open();
+            const auto *entry = m_context.registry->entry(m_secondSession->interfaceId());
+            auto *plugin = entry ? m_context.plugins->plugin(entry->descriptor.pluginId) : nullptr;
+            if (qobject_cast<INodeDiscovery *>(dynamic_cast<QObject *>(plugin))) {
+                if (m_secondSession->isActive()) {
+                    setNetworkAdapterEnabled(entry->descriptor.id, false);
+                } else {
+                    m_disabledNodeAdapters.remove(entry->descriptor.id);
+                    updateNodeDiscoveryModes();
+                    m_secondSession->open();
+                }
+            } else if (m_secondSession->isActive()) m_secondSession->close();
+            else m_secondSession->open();
         });
         connect(m_secondBar, &InterfaceBar::settingsRequested, this,
                 [this](const QString &id) { showInterfaceSettings(id); });
@@ -1416,10 +1430,14 @@ void MainWindow::toggleConnection()
     if (!m_context.session)
         return;
 
-    if (m_context.session->isActive())
-        m_context.session->close();
-    else
-        m_context.session->open();
+    const auto *entry = m_context.registry->entry(m_context.session->interfaceId());
+    auto *plugin = entry ? m_context.plugins->plugin(entry->descriptor.pluginId) : nullptr;
+    if (qobject_cast<INodeDiscovery *>(dynamic_cast<QObject *>(plugin))) {
+        setNetworkAdapterEnabled(entry->descriptor.id, !m_context.session->isActive());
+        return;
+    }
+    if (m_context.session->isActive()) m_context.session->close();
+    else m_context.session->open();
 }
 
 void MainWindow::showInterfaceSettings(const QString &interfaceId, const QStringList &invalidFields,
@@ -1936,6 +1954,7 @@ void MainWindow::selectNetworkNode(const QString &adapterId, int node)
     auto *discovery = qobject_cast<INodeDiscovery *>(dynamic_cast<QObject *>(plugin));
     if (!discovery || !entry->present || node <= 0)
         return;
+    m_disabledNodeAdapters.remove(adapterId);
     const QString key = discovery->nodeSettingKey();
     if (m_context.session->interfaceId() == adapterId
         && entry->settings.value(key).toInt() == node && m_context.session->isActive()) {
@@ -1947,6 +1966,7 @@ void MainWindow::selectNetworkNode(const QString &adapterId, int node)
     m_context.session->close();
     m_context.registry->setSettingsFor(adapterId, settings);
     m_context.session->setInterfaceId(adapterId);
+    updateNodeDiscoveryModes();
     m_interfaceBar->setCurrentInterfaceId(adapterId);
     m_context.settings->setValue(QLatin1String(kKeyInterface), adapterId);
     prepareNodeHistory();
@@ -1958,6 +1978,7 @@ void MainWindow::prepareNodeHistory()
 {
     if (!m_context.session || !m_context.registry || !m_context.plugins)
         return;
+    updateNodeDiscoveryModes();
     m_nodeHistory = nullptr;
     const QString id = m_context.session->interfaceId();
     const auto *entry = m_context.registry->entry(id);
@@ -1982,6 +2003,52 @@ bool MainWindow::nodeRebooting(const QString &adapter, int node) const
 {
     const auto it = m_rebooting.constFind(adapter + u'/' + QString::number(node));
     return it != m_rebooting.cend() && it->active(m_rebootClock.elapsed());
+}
+
+bool MainWindow::networkAdapterEnabled(const QString &id) const
+{
+    return !m_disabledNodeAdapters.contains(id);
+}
+
+void MainWindow::updateNodeDiscoveryModes()
+{
+    if (!m_context.registry || !m_context.plugins) return;
+    for (const auto &entry : m_context.registry->entries()) {
+        auto *plugin = m_context.plugins->plugin(entry.descriptor.pluginId);
+        auto *discovery = qobject_cast<INodeDiscovery *>(dynamic_cast<QObject *>(plugin));
+        if (!discovery) continue;
+        auto mode = NodeDiscoveryMode::Disconnected;
+        if (entry.present && networkAdapterEnabled(entry.descriptor.id)) {
+            if (m_nodeDiscoveryEnabled) mode = NodeDiscoveryMode::Active;
+            else mode = NodeDiscoveryMode::Passive;
+        }
+        discovery->setDiscoveryMode(entry.descriptor, mode);
+    }
+}
+
+void MainWindow::setNodeDiscoveryEnabled(bool enabled)
+{
+    m_nodeDiscoveryEnabled = enabled;
+    updateNodeDiscoveryModes();
+}
+
+void MainWindow::setNetworkAdapterEnabled(const QString &id, bool enabled)
+{
+    if (enabled) m_disabledNodeAdapters.remove(id);
+    else m_disabledNodeAdapters.insert(id);
+    updateNodeDiscoveryModes();
+    if (!enabled) {
+        for (Session *session : {m_context.session, m_secondSession})
+            if (session && session->interfaceId() == id) session->close();
+    } else {
+        const auto *entry = m_context.registry->entry(id);
+        if (entry) {
+            auto *plugin = m_context.plugins->plugin(entry->descriptor.pluginId);
+            auto *discovery = qobject_cast<INodeDiscovery *>(dynamic_cast<QObject *>(plugin));
+            if (discovery && entry->settings.value(discovery->nodeSettingKey()).toInt() > 0)
+                selectNetworkNode(id, entry->settings.value(discovery->nodeSettingKey()).toInt());
+        }
+    }
 }
 
 void MainWindow::setCommonNodeHistory(bool common)

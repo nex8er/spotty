@@ -26,6 +26,14 @@ TS_FILE = Path(__file__).resolve().parent.parent / "resources" / "i18n" / "spott
 
 #: Переводы по исходной строке. Ключи — ровно то, что стоит в tr() в коде.
 TRANSLATIONS = {
+    "Scan": "Скан",
+    "Scan duration": "Время сканирования",
+    "Scan network once": "Однократно сканировать сеть",
+    "Double-click or right-click to rename": "Двойной щелчок или правая кнопка мыши для изменения имени",
+    "Show node numbers in hexadecimal": "Показывать номера нод в шестнадцатеричном формате",
+    "Only the selected node: disable broadcast discovery": "Только выбранная нода: отключить широковещательный поиск",
+    "Disconnect adapter": "Отключить адаптер",
+    "Connect adapter": "Подключить адаптер",
     "Clear names": "Стереть имена",
     "Rename": "Переименовать",
     "Right-click to rename": "Правая кнопка мыши для изменения имени",

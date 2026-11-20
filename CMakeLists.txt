@@ -19,7 +19,7 @@ if(APPLE AND NOT CMAKE_OSX_SYSROOT AND NOT DEFINED ENV{SDKROOT})
 endif()
 
 project(Spotty
-    VERSION 0.10.5
+    VERSION 0.11.0
     DESCRIPTION "Modular terminal port monitor"
     HOMEPAGE_URL "https://github.com/nex8er/spotty"
     LANGUAGES CXX)
@@ -48,9 +48,10 @@ if(SPOTTY_ENABLE_COVERAGE AND NOT SPOTTY_STATIC_PLUGINS)
 endif()
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets Network)
-# SerialPort нужен только плагину UART, LinguistTools — только переводам. Оба
-# необязательны: без них собирается урезанный, но работающий комплект.
-find_package(Qt6 6.5 QUIET COMPONENTS SerialPort LinguistTools)
+# SerialPort нужен плагинам UART, LinguistTools — переводам. Ищем их независимо:
+# отсутствие SerialPort не должно мешать сборке русского перевода.
+find_package(Qt6 6.5 QUIET COMPONENTS SerialPort)
+find_package(Qt6 6.5 QUIET COMPONENTS LinguistTools)
 
 qt_standard_project_setup()
 
