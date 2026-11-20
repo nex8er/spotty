@@ -13,6 +13,8 @@
 #include <spotty/api/IInterfacePlugin.h>
 
 #include <QLoggingCategory>
+#include <QCoreApplication>
+#include <QEvent>
 #include <QThread>
 #include <QTimer>
 
@@ -90,7 +92,7 @@ Session::Session(PluginManager *plugins, InterfaceRegistry *registry, QObject *p
 
 Session::~Session()
 {
-    destroyWorker();
+    destroyWorker(false);
 }
 
 void Session::setInterfaceId(const QString &id)
@@ -213,7 +215,7 @@ bool Session::createWorker()
     return true;
 }
 
-void Session::destroyWorker()
+void Session::destroyWorker(bool drain)
 {
     if (!m_thread)
         return;
@@ -229,6 +231,15 @@ void Session::destroyWorker()
         // поток нельзя — останутся захваченные дескрипторы, — но и молчать нельзя.
         qCWarning(lcSession) << "I/O thread did not stop within"
                              << kThreadStopTimeoutMs << "ms";
+    }
+
+    /** \brief Сигналы старого канала разбираются до смены истории, иначе последние
+     *         байты одной ноды попали бы в следующую. Поток уже остановлен.
+     */
+    if (drain) {
+        QCoreApplication::sendPostedEvents(this, QEvent::MetaCall);
+        flushPendingIncoming();
+        handlePacketTimeout();
     }
 
     delete m_thread;

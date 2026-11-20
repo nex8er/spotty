@@ -18,7 +18,8 @@
  * \note Всё, что сказано в #SPOTTY_API_VERSION про ломающие изменения, действует и здесь,
  *       включая добавление виртуального метода в конец класса.
  */
-#define SPOTTY_UI_API_VERSION 9
+/// \brief Версия 10 добавляет поиск узлов и переключение истории через IPanelHost.
+#define SPOTTY_UI_API_VERSION 14
 
 /**
  * \def SPOTTY_PANEL_PLUGIN_IID

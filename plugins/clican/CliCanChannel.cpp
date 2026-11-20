@@ -176,6 +176,9 @@ void CliCanChannel::handleFrame(quint32 id, const QByteArray &data, qint64 monot
         return;
 
     m_lastResponseMs = m_clock.elapsed();
+    /// \brief Пустое подтверждение тоже завершает индикацию перезагрузки без вывода в терминал.
+    m_respondedNode = m_node;
+    Q_EMIT controlLinesChanged();
     if (m_silenceReported) {
         m_silenceReported = false;
         setState(ChannelState::Open, tr("Node %1").arg(m_node));

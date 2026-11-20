@@ -16,7 +16,10 @@
 #include <spotty/ui/PanelDescriptor.h>
 
 #include <QDateTime>
+#include "RebootIndicator.h"
+#include <QElapsedTimer>
 #include <QHash>
+#include <QSet>
 #include <QList>
 #include <QMainWindow>
 #include <QStringList>
@@ -105,6 +108,15 @@ public:
 
     /// \brief Показать файл в области терминала вместо живого вывода.
     bool showDocument(const QString &filePath, const QString &title);
+
+    /// \brief Переключить адрес основного интерфейса и открыть его, сохранив историю.
+    void selectNetworkNode(const QString &adapterId, int node);
+    bool networkAdapterEnabled(const QString &id) const;
+    void setNetworkAdapterEnabled(const QString &id, bool enabled);
+    void setNodeDiscoveryEnabled(bool enabled);
+    bool nodeRebooting(const QString &adapter, int node) const;
+    bool commonNodeHistory() const { return m_commonNodeHistory; }
+    void setCommonNodeHistory(bool common);
 
     /// @}
 
@@ -345,6 +357,10 @@ private:
     /// \brief Вернуть в область терминала живой вывод сессии.
     void returnToLiveView();
 
+    /// \brief Привязать будущий вывод к истории выбранной пары адаптер/узел.
+    void prepareNodeHistory();
+    void updateNodeHistoryView();
+
     AppContext m_context;
     AppSettings m_settings;
 
@@ -365,6 +381,14 @@ private:
      * собственный буфер интерфейса A, чтобы история переживала смену режима.
      */
     TerminalBuffer *m_sharedBuffer = nullptr;
+    QHash<QString, TerminalBuffer *> m_nodeHistories;
+    QHash<QString, RebootIndicator> m_rebooting;
+    QElapsedTimer m_rebootClock;
+    TerminalBuffer *m_nodeHistory = nullptr;
+    bool m_commonNodeHistory = false;
+    QSet<QString> m_disabledNodeAdapters;
+    bool m_nodeDiscoveryEnabled = true;
+    void updateNodeDiscoveryModes();
 
     QComboBox *m_modeCombo = nullptr;
 

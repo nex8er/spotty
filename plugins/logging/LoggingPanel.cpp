@@ -463,20 +463,20 @@ void LoggingPanel::toggleRecording()
 void LoggingPanel::saveCurrentBuffer()
 {
     QList<LogWriter::WriteRequest> requests;
-    const qint64 first = host()->firstLineNumber();
-    const qint64 next = host()->nextLineNumber();
+    const qint64 first = host()->displayedFirstLineNumber();
+    const qint64 next = host()->displayedNextLineNumber();
     requests.reserve(int(qMin(next - first, qint64(std::numeric_limits<int>::max()))));
 
     for (qint64 number = first; number < next; ++number) {
         if (m_includeGutter->isChecked()) {
-            LogWriter::WriteRequest request = gutterRequest(number);
+            LogWriter::WriteRequest request = gutterRequest(number, true);
             if (!request.data.isEmpty())
                 requests.append(std::move(request));
             continue;
         }
 
         TerminalLine line;
-        if (host()->line(number, &line)) {
+        if (host()->displayedLine(number, &line)) {
             QByteArray data = line.raw;
             if (data.isEmpty()) {
                 data = line.text.toUtf8();
@@ -520,15 +520,15 @@ void LoggingPanel::saveCurrentBuffer()
 
 void LoggingPanel::writeGutterLine(qint64 number, LogWriter &writer) const
 {
-    const LogWriter::WriteRequest request = gutterRequest(number);
+    const LogWriter::WriteRequest request = gutterRequest(number, true);
     if (!request.data.isEmpty())
         writer.writeMany({request});
 }
 
-LogWriter::WriteRequest LoggingPanel::gutterRequest(qint64 number) const
+LogWriter::WriteRequest LoggingPanel::gutterRequest(qint64 number, bool displayed) const
 {
     TerminalLine line;
-    if (!host()->line(number, &line))
+    if (!(displayed ? host()->displayedLine(number, &line) : host()->line(number, &line)))
         return {};
 
     const TerminalGutterSettings settings = host()->terminalGutterSettings();
@@ -541,7 +541,7 @@ LogWriter::WriteRequest LoggingPanel::gutterRequest(qint64 number) const
         QString timestamp;
         if (settings.relativeTimestamps) {
             TerminalLine previous;
-            if (!host()->line(number - 1, &previous) || !previous.wallClock.isValid()) {
+            if (!(displayed ? host()->displayedLine(number - 1, &previous) : host()->line(number - 1, &previous)) || !previous.wallClock.isValid()) {
                 timestamp = QStringLiteral("+0.000");
             } else {
                 const qint64 deltaMs = previous.wallClock.msecsTo(line.wallClock);

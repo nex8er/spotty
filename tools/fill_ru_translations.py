@@ -26,6 +26,29 @@ TS_FILE = Path(__file__).resolve().parent.parent / "resources" / "i18n" / "spott
 
 #: Переводы по исходной строке. Ключи — ровно то, что стоит в tr() в коде.
 TRANSLATIONS = {
+    "Scan": "Скан",
+    "Scan duration": "Время сканирования",
+    "Scan network once": "Однократно сканировать сеть",
+    "Double-click or right-click to rename": "Двойной щелчок или правая кнопка мыши для изменения имени",
+    "Show node numbers in hexadecimal": "Показывать номера нод в шестнадцатеричном формате",
+    "Only the selected node: disable broadcast discovery": "Только выбранная нода: отключить широковещательный поиск",
+    "Disconnect adapter": "Отключить адаптер",
+    "Connect adapter": "Подключить адаптер",
+    "Clear names": "Стереть имена",
+    "Rename": "Переименовать",
+    "Right-click to rename": "Правая кнопка мыши для изменения имени",
+    "Rebooting": "Перезагрузка",
+    "Network nodes": "Сетевые ноды",
+    "Nodes": "Ноды",
+    "Common history": "Общая история",
+    "Show all output instead of the selected node's history":
+        "Показывать общий вывод вместо истории выбранной ноды",
+    "No network adapters available": "Нет доступных сетевых адаптеров",
+    "Clear list": "Очистить список",
+    "№": "№",
+    "Double-click to rename": "Двойной щелчок для изменения имени",
+    "Online": "В сети",
+    "No response": "Нет ответа",
     # --- Общие элементы интерфейса ---
     "&File": "&Файл",
     "&View": "&Вид",

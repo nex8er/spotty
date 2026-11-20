@@ -95,9 +95,9 @@ public:
      *
      * Пока включён, поток приёма раз в ::kDiscoveryIntervalMs шлёт пустой пакет с
      * идентификатором 0x400, на который откликается каждый узел. Выключается, когда
-     * диалог настроек закрыт: лишний трафик на рабочей шине никому не нужен.
+     * поиск не нужен ни настройкам, ни панели узлов: лишний трафик на шине не нужен.
      */
-    void setDiscoveryEnabled(bool enabled);
+    void setDiscoveryEnabled(bool enabled, int durationMs = 0);
 
     /**
      * \brief Узлы, отозвавшиеся за последние ::kNodeExpiryMs.
@@ -105,6 +105,11 @@ public:
      * Снимок под мьютексом; звать можно из любого потока, в том числе из потока UI.
      */
     QList<int> nodes() const;
+
+    /// \brief Снимок присутствия в порядке первых ответов, включая молчащие узлы.
+    QList<NetworkNode> networkNodes() const;
+    /// \brief Начать список обнаружения заново, не закрывая соединение.
+    void clearNetworkNodes();
 
     /// \brief Подписаться на кадры. Возвращает метку для removeHandler().
     int addHandler(FrameHandler frameHandler, ErrorHandler errorHandler);
@@ -144,6 +149,8 @@ private:
     std::atomic<bool> m_open{false};
     std::atomic<bool> m_stopping{false};
     std::atomic<bool> m_discovery{false};
+    std::atomic<qint64> m_discoveryUntil{0};
+    std::atomic<bool> m_discoveryImmediate{false};
 
     std::thread m_reader;
     qintptr m_receiveEvent = -1;

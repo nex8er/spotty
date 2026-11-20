@@ -155,9 +155,23 @@ bool CanBus::send(quint32 id, const QByteArray &payload, QString *error)
     return PcanLibrary::instance().write(m_handle, id, payload, error);
 }
 
-void CanBus::setDiscoveryEnabled(bool enabled)
+void CanBus::setDiscoveryEnabled(bool enabled, int durationMs)
 {
+    m_discoveryUntil = durationMs > 0 ? m_clock.elapsed() + durationMs : 0;
+    if (enabled && durationMs > 0) m_discoveryImmediate = true;
     m_discovery = enabled;
+}
+
+QList<NetworkNode> CanBus::networkNodes() const
+{
+    const QMutexLocker lock(&m_nodesMutex);
+    return m_nodes.snapshot(m_clock.isValid() ? m_clock.elapsed() : 0, kNodeExpiryMs);
+}
+
+void CanBus::clearNetworkNodes()
+{
+    const QMutexLocker lock(&m_nodesMutex);
+    m_nodes.clear();
 }
 
 QList<int> CanBus::nodes() const
@@ -195,7 +209,9 @@ void CanBus::readLoop()
 
         if (m_discovery) {
             const qint64 now = m_clock.elapsed();
-            if (now - lastDiscovery >= kDiscoveryIntervalMs) {
+            const qint64 until = m_discoveryUntil.load();
+            if (clican::discoveryDue(now, lastDiscovery, until,
+                                    m_discoveryImmediate.exchange(false), kDiscoveryIntervalMs)) {
                 lastDiscovery = now;
                 // Пустой широковещательный пакет: каждый узел обязан отозваться пустым
                 // пакетом со своего идентификатора ответа, и это единственный способ
@@ -307,7 +323,7 @@ std::shared_ptr<CanBus> CanBusPool::acquire(PcanLibrary::Handle handle, int bitr
     // что владельцем стало на одного меньше. Захват `this`, а не обращение к общему
     // синглтону — держатель shared_ptr обязан отпустить его раньше, чем разрушится сам
     // пул (см. \par «Почему не синглтон» в CanBus.h), и это гарантируется владением: пул
-    // живёт членом spotty::CliCanPlugin, а держатели — им самим (m_scanBus) и его же
+    // живёт членом spotty::CliCanPlugin, а держатели — им самим (m_scans) и его же
     // каналами (spotty::CliCanChannel), которые не переживают свой плагин.
     return std::shared_ptr<CanBus>(entry.bus.get(), [this, handle](CanBus *) {
         release(handle);

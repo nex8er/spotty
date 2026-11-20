@@ -71,7 +71,14 @@ public:
     /// \copydoc spotty::IInterfaceChannel::state
     ChannelState state() const override { return m_state; }
 
+    QVariantMap controlLines() const override
+    {
+        return m_respondedNode > 0
+            ? QVariantMap{{QStringLiteral("nodeResponse"), m_respondedNode}} : QVariantMap{};
+    }
+
 private:
+    int m_respondedNode = 0;
     /// \brief Кадр с шины — уже в потоке ввода-вывода канала.
     void handleFrame(quint32 id, const QByteArray &data, qint64 monotonicNs);
 

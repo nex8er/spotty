@@ -146,6 +146,8 @@ const TerminalBuffer::Line *TerminalBuffer::line(qint64 lineNumber) const
 void TerminalBuffer::append(const QByteArray &data, DataDirection direction,
                             qint64 monotonicNs, bool terminatesLine, quint8 source)
 {
+    if (m_mirror && source == m_mirrorSource)
+        m_mirror->append(data, direction, monotonicNs, terminatesLine);
     if (data.isEmpty())
         return;
 
@@ -230,6 +232,8 @@ void TerminalBuffer::append(const QByteArray &data, DataDirection direction,
 
 void TerminalBuffer::appendSystemMessage(const QString &message, quint8 source)
 {
+    if (m_mirror && source == m_mirrorSource)
+        m_mirror->appendSystemMessage(message);
     if (m_hasOpenLine) {
         if (Line *line = currentLine()) {
             line->complete = true;
@@ -260,6 +264,14 @@ void TerminalBuffer::appendSystemMessage(const QString &message, quint8 source)
     Q_EMIT linesAppended(lineNumber, 1);
     Q_EMIT lineFinalized(lineNumber);
     trimToLimit();
+}
+
+void TerminalBuffer::setMirror(TerminalBuffer *buffer, quint8 source)
+{
+    Q_ASSERT(buffer != this);
+    Q_ASSERT(!buffer || !buffer->m_mirror);
+    m_mirror = buffer;
+    m_mirrorSource = source;
 }
 
 void TerminalBuffer::startLine(DataDirection direction, qint64 monotonicNs)

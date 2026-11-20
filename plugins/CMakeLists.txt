@@ -48,6 +48,7 @@ add_subdirectory(generator)
 add_subdirectory(logging)
 add_subdirectory(macros)
 add_subdirectory(search)
+add_subdirectory(nodes)
 
 # Плагины-примеры: они и есть проверка API на прочность — писались с нуля, а не
 # переделывались из встроенных панелей.

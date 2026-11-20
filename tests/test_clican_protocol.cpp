@@ -12,6 +12,16 @@
 
 using namespace spotty::clican;
 
+TEST(CliCanProtocol, TimedDiscoveryStartsImmediatelyAndStopsAtDeadline)
+{
+    EXPECT_TRUE(discoveryDue(1000, 999, 2000, true, 500));
+    EXPECT_FALSE(discoveryDue(1499, 1000, 2000, false, 500));
+    EXPECT_TRUE(discoveryDue(1500, 1000, 2000, false, 500));
+    EXPECT_FALSE(discoveryDue(2000, 1500, 2000, false, 500));
+    EXPECT_FALSE(discoveryDue(2001, 1500, 2000, true, 500));
+    EXPECT_TRUE(discoveryDue(2000, 1500, 0, false, 500));
+}
+
 TEST(CliCanProtocol, AddressesNodesAsTheSpecificationSays)
 {
     // Пример из описания протокола: узел 5 принимает на 0x40A, отвечает с 0x40B.
@@ -109,4 +119,32 @@ TEST(NodeDirectory, IgnoresNodesItCouldNotAddress)
     directory.noteSeen(-1, 100);
 
     EXPECT_TRUE(directory.nodes(100, 5000).isEmpty());
+}
+
+TEST(NodeDirectory, SnapshotKeepsFirstResponseOrderAndOfflineNodes)
+{
+    NodeDirectory directory;
+    directory.noteSeen(12, 1000);
+    directory.noteSeen(3, 1000);
+    directory.noteSeen(8, 4000);
+    auto nodes = directory.snapshot(6001, 5000);
+    ASSERT_EQ(nodes.size(), 3);
+    EXPECT_EQ(nodes[0].number, 12);
+    EXPECT_FALSE(nodes[0].online);
+    EXPECT_EQ(nodes[1].number, 3);
+    EXPECT_FALSE(nodes[1].online);
+    EXPECT_EQ(nodes[2].number, 8);
+    EXPECT_TRUE(nodes[2].online);
+    directory.noteSeen(12, 6500);
+    nodes = directory.snapshot(6500, 5000);
+    EXPECT_EQ(nodes[0].number, 12);
+    EXPECT_TRUE(nodes[0].online);
+    EXPECT_EQ(nodes[1].number, 3);
+    directory.clear();
+    directory.noteSeen(8, 7000);
+    directory.noteSeen(12, 7000);
+    nodes = directory.snapshot(7000, 5000);
+    ASSERT_EQ(nodes.size(), 2);
+    EXPECT_EQ(nodes[0].number, 8);
+    EXPECT_EQ(nodes[1].number, 12);
 }

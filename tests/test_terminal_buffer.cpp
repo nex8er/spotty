@@ -10,6 +10,42 @@
 
 using namespace spotty;
 
+TEST(TerminalBuffer, MirrorsOnlySelectedSourceAndKeepsIndependentNodeHistories)
+{
+    TerminalBuffer common;
+    TerminalBuffer first;
+    TerminalBuffer second;
+    common.setMirror(&first);
+    common.append(QByteArrayLiteral("first\n"), DataDirection::Rx, 100, true, 0);
+    common.append(QByteArrayLiteral("other transport\n"), DataDirection::Rx, 110, true, 1);
+    common.appendSystemMessage(QStringLiteral("closed"));
+    common.setMirror(&second);
+    common.append(QByteArrayLiteral("second\n"), DataDirection::Rx, 120, true);
+    common.setMirror(&first);
+    common.append(QByteArrayLiteral("back\n"), DataDirection::Rx, 130, true);
+    ASSERT_EQ(first.lineCount(), 3);
+    EXPECT_EQ(first.line(0)->text, QStringLiteral("first"));
+    EXPECT_EQ(first.line(1)->text, QStringLiteral("closed"));
+    EXPECT_EQ(first.line(2)->text, QStringLiteral("back"));
+    ASSERT_EQ(second.lineCount(), 1);
+    EXPECT_EQ(second.line(0)->text, QStringLiteral("second"));
+    EXPECT_EQ(common.lineCount(), 5);
+    second.clear();
+    EXPECT_EQ(common.lineCount(), 5);
+    EXPECT_EQ(first.lineCount(), 3);
+}
+
+TEST(TerminalBuffer, DestroyingMirroredHistoryLeavesCommonOutputUsable)
+{
+    TerminalBuffer common;
+    auto *history = new TerminalBuffer;
+    common.setMirror(history);
+    delete history;
+    common.append(QByteArrayLiteral("still here\n"), DataDirection::Rx, 100, true);
+    ASSERT_EQ(common.lineCount(), 1);
+    EXPECT_EQ(common.line(0)->text, QStringLiteral("still here"));
+}
+
 namespace {
 
 /// \brief Текст строки по сквозному номеру; пустая строка, если строки нет.

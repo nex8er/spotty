@@ -464,6 +464,14 @@ Check that this is your machine (on it: ssh-keygen -lf /etc/ssh/ssh_host_ed25519
         <source>CLI over CAN (PCAN)</source>
         <translation>CLI через CAN (PCAN)</translation>
     </message>
+    <message>
+        <source>Scan</source>
+        <translation>Скан</translation>
+    </message>
+    <message>
+        <source>Scan duration</source>
+        <translation>Время сканирования</translation>
+    </message>
 </context>
 <context>
     <name>spotty::DataCodec</name>
@@ -933,6 +941,10 @@ Check that this is your machine (on it: ssh-keygen -lf /etc/ssh/ssh_host_ed25519
     <message>
         <source>New connection…</source>
         <translation>Новое подключение…</translation>
+    </message>
+    <message>
+        <source>Rebooting</source>
+        <translation>Перезагрузка</translation>
     </message>
 </context>
 <context>
@@ -4559,6 +4571,104 @@ Continue?</source>
     <message>
         <source>Could not start the update helper.</source>
         <translation>Не удалось запустить установщик обновления.</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::NodesPanel</name>
+    <message>
+        <source>Nodes</source>
+        <translation>Ноды</translation>
+    </message>
+    <message>
+        <source>Common history</source>
+        <translation>Общая история</translation>
+    </message>
+    <message>
+        <source>Show all output instead of the selected node&apos;s history</source>
+        <translation>Показывать общий вывод вместо истории выбранной ноды</translation>
+    </message>
+    <message>
+        <source>No network adapters available</source>
+        <translation>Нет доступных сетевых адаптеров</translation>
+    </message>
+    <message>
+        <source>Clear list</source>
+        <translation>Очистить список</translation>
+    </message>
+    <message>
+        <source>№</source>
+        <translation>№</translation>
+    </message>
+    <message>
+        <source>Node</source>
+        <translation>Узел</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>Имя</translation>
+    </message>
+    <message>
+        <source>Double-click to rename</source>
+        <translation>Двойной клик — переименовать</translation>
+    </message>
+    <message>
+        <source>Online</source>
+        <translation>В сети</translation>
+    </message>
+    <message>
+        <source>No response</source>
+        <translation>Нет ответа</translation>
+    </message>
+    <message>
+        <source>Clear names</source>
+        <translation>Стереть имена</translation>
+    </message>
+    <message>
+        <source>Rename</source>
+        <translation>Переименовать</translation>
+    </message>
+    <message>
+        <source>Right-click to rename</source>
+        <translation>Правая кнопка мыши для изменения имени</translation>
+    </message>
+    <message>
+        <source>Rebooting</source>
+        <translation>Перезагрузка</translation>
+    </message>
+    <message>
+        <source>Only the selected node: disable broadcast discovery</source>
+        <translation>Только выбранная нода: отключить широковещательный поиск</translation>
+    </message>
+    <message>
+        <source>Disconnect adapter</source>
+        <translation>Отключить адаптер</translation>
+    </message>
+    <message>
+        <source>Connect adapter</source>
+        <translation>Подключить адаптер</translation>
+    </message>
+    <message>
+        <source>Show node numbers in hexadecimal</source>
+        <translation>Показывать номера нод в шестнадцатеричном формате</translation>
+    </message>
+    <message>
+        <source>Double-click or right-click to rename</source>
+        <translation>Двойной щелчок или правая кнопка мыши для изменения имени</translation>
+    </message>
+    <message>
+        <source>Scan network once</source>
+        <translation>Однократно сканировать сеть</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::NodesPlugin</name>
+    <message>
+        <source>Nodes</source>
+        <translation>Ноды</translation>
+    </message>
+    <message>
+        <source>Network nodes</source>
+        <translation>Сетевые ноды</translation>
     </message>
 </context>
 </TS>
