@@ -393,11 +393,25 @@ void InterfaceBar::flagError(const QString &detail)
     updateStatusIndicator();
 }
 
+void InterfaceBar::setRebootBlink(bool active, bool bright)
+{
+    m_rebooting = active;
+    m_rebootBright = bright;
+    updateStatusIndicator();
+}
+
 void InterfaceBar::updateStatusIndicator()
 {
     const ThemeColors colors =
         m_context.theme ? m_context.theme->colors() : ThemeColors{};
 
+    if (m_rebooting) {
+        m_statusDot->setPixmap(MdiIcons::icon(mdi::CheckboxBlankCircle,
+            m_rebootBright ? QColor(56, 153, 248) : QColor(25, 75, 125),
+            kStatusGlyphSize).pixmap(kStatusGlyphSize));
+        m_statusDot->setToolTip(tr("Rebooting"));
+        return;
+    }
     if (m_hasError) {
         m_statusDot->setPixmap(MdiIcons::icon(mdi::AlertCircleOutline, colors.errorText,
                                               kStatusGlyphSize)

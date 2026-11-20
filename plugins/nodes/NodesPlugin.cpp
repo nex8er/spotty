@@ -10,7 +10,7 @@ namespace spotty {
 QList<PanelDescriptor> NodesPlugin::panels() const
 {
     return {{.id = QStringLiteral("nodes"), .title = tr("Nodes"),
-             .glyph = mdi::Connection, .placement = PanelPlacement::Rail, .order = 50}};
+             .glyph = mdi::Lan, .placement = PanelPlacement::Rail, .order = 800}};
 }
 
 QWidget *NodesPlugin::createPanel(const QString &panelId, IPanelHost *host, QWidget *parent)

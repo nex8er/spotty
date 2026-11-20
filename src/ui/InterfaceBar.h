@@ -69,6 +69,7 @@ public:
      * \param detail Пояснение; показывается во всплывающей подсказке.
      */
     void setChannelState(ChannelState state, const QString &detail = {});
+    void setRebootBlink(bool active, bool bright);
 
     /**
      * \brief Показать индикатор ошибки, не меняя состояния канала.
@@ -144,6 +145,8 @@ private:
     ChannelState m_state = ChannelState::Closed; ///< Отображаемое состояние.
     QString m_stateDetail;                ///< Пояснение к состоянию.
 
+    bool m_rebooting = false;
+    bool m_rebootBright = false;
     bool m_hasError = false;              ///< Индикатор временно показывает ошибку.
     QString m_errorDetail;                ///< Текст ошибки для всплывающей подсказки.
 

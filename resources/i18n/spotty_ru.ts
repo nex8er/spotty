@@ -934,6 +934,10 @@ Check that this is your machine (on it: ssh-keygen -lf /etc/ssh/ssh_host_ed25519
         <source>New connection…</source>
         <translation>Новое подключение…</translation>
     </message>
+    <message>
+        <source>Rebooting</source>
+        <translation>Перезагрузка</translation>
+    </message>
 </context>
 <context>
     <name>spotty::InterfaceSettingsDialog</name>
@@ -4606,6 +4610,22 @@ Continue?</source>
     <message>
         <source>No response</source>
         <translation>Нет ответа</translation>
+    </message>
+    <message>
+        <source>Clear names</source>
+        <translation>Стереть имена</translation>
+    </message>
+    <message>
+        <source>Rename</source>
+        <translation>Переименовать</translation>
+    </message>
+    <message>
+        <source>Right-click to rename</source>
+        <translation>Правая кнопка мыши для изменения имени</translation>
+    </message>
+    <message>
+        <source>Rebooting</source>
+        <translation>Перезагрузка</translation>
     </message>
 </context>
 <context>

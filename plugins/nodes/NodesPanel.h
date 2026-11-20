@@ -11,6 +11,7 @@ class QLabel;
 class QTableWidget;
 class QTimer;
 class QPushButton;
+class QCheckBox;
 class QVBoxLayout;
 
 namespace spotty {
@@ -39,7 +40,7 @@ private:
     QVariantMap m_names;
     QVBoxLayout *m_adaptersLayout = nullptr;
     QLabel *m_empty = nullptr;
-    QPushButton *m_common = nullptr;
+    QCheckBox *m_common = nullptr;
     QTimer *m_timer = nullptr;
 };
 } // namespace spotty

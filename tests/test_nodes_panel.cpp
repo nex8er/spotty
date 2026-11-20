@@ -2,6 +2,7 @@
  * \file test_nodes_panel.cpp
  * \brief Проводка списка узлов проверяется без CAN и рабочего стола.
  */
+#include "../src/ui/RebootIndicator.h"
 #include "../plugins/nodes/NodesPanel.h"
 #include "support/FakePanelHost.h"
 #include "support/TestSupport.h"
@@ -10,6 +11,10 @@
 #include <QFile>
 #include <QFontDatabase>
 #include <QPushButton>
+#include <QCheckBox>
+#include <QMenu>
+#include <QTimer>
+#include <QLineEdit>
 #include <QTableWidget>
 #include <gtest/gtest.h>
 
@@ -30,6 +35,9 @@ public:
     QString selectedAdapter;
     int selectedNode = 0;
     bool common = false;
+    bool rebooting = false;
+    bool nodeRebooting(const QString &adapter, int node) const override
+    { return rebooting && adapter == QLatin1String("a") && node == 12; }
     QList<NetworkAdapter> networkAdapters() const override { return adapters; }
     QList<NetworkNode> networkNodes(const QString &id, bool scan) override
     {
@@ -107,7 +115,7 @@ TEST(NodesPanel, RetainsOfflineOrderSelectsOfflineNodesAndSavesNamesPerAdapter)
         QMetaObject::invokeMethod(a, "cellClicked", Q_ARG(int, 0), Q_ARG(int, 1));
         EXPECT_EQ(host.selectedAdapter, QStringLiteral("a"));
         EXPECT_EQ(host.selectedNode, 12);
-        auto *common = panel.findChild<QPushButton *>(QStringLiteral("commonNodeHistory"));
+        auto *common = panel.findChild<QCheckBox *>(QStringLiteral("commonNodeHistory"));
         ASSERT_NE(common, nullptr);
         common->click();
         EXPECT_TRUE(host.common);
@@ -170,4 +178,89 @@ TEST(NodesPanel, Snapshot)
     QApplication::processEvents();
     QDir().mkpath(path);
     EXPECT_TRUE(panel.grab().save(QDir(path).filePath(QStringLiteral("nodes.png"))));
+}
+
+TEST(NodesPanel, ContextRenameDoesNotConnectToTheEditedNode)
+{
+    TempDir dir;
+    NodesHost host(dir.path());
+    NodesPanel panel(&host);
+    panel.resize(310, 700);
+    panel.show();
+    auto *table = tableFor(panel, QStringLiteral("a"));
+    ASSERT_NE(table, nullptr);
+    auto *item = table->item(0, 2);
+    QTimer::singleShot(0, [&] {
+        auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+        ASSERT_NE(menu, nullptr);
+        menu->actions().first()->trigger();
+        menu->close();
+    });
+    QMetaObject::invokeMethod(table, "customContextMenuRequested",
+                             Q_ARG(QPoint, table->visualItemRect(item).center()));
+    EXPECT_EQ(host.selectedNode, 0);
+    auto *editor = table->findChild<QLineEdit *>();
+    ASSERT_NE(editor, nullptr);
+    editor->setText(QStringLiteral("Renamed"));
+    table->setFocus();
+    QApplication::processEvents();
+    EXPECT_EQ(host.selectedNode, 0);
+}
+
+TEST(NodesPanel, ClearsNamesWithoutClearingNodesOrConnecting)
+{
+    TempDir dir;
+    NodesHost host(dir.path());
+    NodesPanel panel(&host);
+    panel.show();
+    auto *table = tableFor(panel, QStringLiteral("a"));
+    ASSERT_NE(table, nullptr);
+    table->item(0, 2)->setText(QStringLiteral("Battery"));
+    auto *button = panel.findChild<QPushButton *>(QStringLiteral("clearNodeNames"));
+    ASSERT_NE(button, nullptr);
+    button->click();
+    EXPECT_EQ(table->rowCount(), 2);
+    EXPECT_TRUE(table->item(0, 2)->text().isEmpty());
+    EXPECT_TRUE(host.settings.value(QStringLiteral("names")).toMap().isEmpty());
+    EXPECT_EQ(host.selectedNode, 0);
+}
+
+TEST(NodesPanel, ShowsRebootStatusOnlyForTheAffectedNode)
+{
+    TempDir dir;
+    NodesHost host(dir.path());
+    host.rebooting = true;
+    NodesPanel panel(&host);
+    panel.show();
+    auto *table = tableFor(panel, QStringLiteral("a"));
+    ASSERT_NE(table, nullptr);
+    EXPECT_EQ(table->item(0, 0)->toolTip(), QStringLiteral("Rebooting"));
+    EXPECT_EQ(table->item(1, 0)->toolTip(), QStringLiteral("Online"));
+    host.rebooting = false;
+    refresh(panel);
+    EXPECT_EQ(table->item(0, 0)->toolTip(), QStringLiteral("Online"));
+}
+
+TEST(RebootIndicator, ImmediateAcknowledgementRemainsVisibleForOneCycle)
+{
+    RebootIndicator indicator(1000, 3000);
+    indicator.answered(1001);
+    EXPECT_TRUE(indicator.active(1250));
+    EXPECT_TRUE(indicator.active(1499));
+    EXPECT_FALSE(indicator.active(1500));
+}
+TEST(RebootIndicator, ResponseAndTimeoutStopIndicationWithoutExtendingTimeout)
+{
+    RebootIndicator indicator(1000, 3000);
+    EXPECT_TRUE(indicator.active(3999));
+    EXPECT_FALSE(indicator.active(4000));
+    indicator.answered(2000);
+    EXPECT_FALSE(indicator.active(2000));
+    RebootIndicator shortTimeout(1000, 100);
+    shortTimeout.answered(1001);
+    EXPECT_FALSE(shortTimeout.active(1100));
+    RebootIndicator disabledTimeout(1000, 0);
+    EXPECT_TRUE(disabledTimeout.active(100000));
+    disabledTimeout.answered(100000);
+    EXPECT_FALSE(disabledTimeout.active(100000));
 }

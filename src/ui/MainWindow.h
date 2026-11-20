@@ -16,6 +16,8 @@
 #include <spotty/ui/PanelDescriptor.h>
 
 #include <QDateTime>
+#include "RebootIndicator.h"
+#include <QElapsedTimer>
 #include <QHash>
 #include <QList>
 #include <QMainWindow>
@@ -108,6 +110,7 @@ public:
 
     /// \brief Переключить адрес основного интерфейса и открыть его, сохранив историю.
     void selectNetworkNode(const QString &adapterId, int node);
+    bool nodeRebooting(const QString &adapter, int node) const;
     bool commonNodeHistory() const { return m_commonNodeHistory; }
     void setCommonNodeHistory(bool common);
 
@@ -375,6 +378,8 @@ private:
      */
     TerminalBuffer *m_sharedBuffer = nullptr;
     QHash<QString, TerminalBuffer *> m_nodeHistories;
+    QHash<QString, RebootIndicator> m_rebooting;
+    QElapsedTimer m_rebootClock;
     TerminalBuffer *m_nodeHistory = nullptr;
     bool m_commonNodeHistory = false;
 

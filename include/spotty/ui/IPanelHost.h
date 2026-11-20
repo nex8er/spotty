@@ -349,6 +349,10 @@ public:
     virtual qint64 displayedNextLineNumber() const { return nextLineNumber(); }
     virtual bool displayedLine(qint64 number, TerminalLine *out) const { return line(number, out); }
 
+    /// \brief Ожидается ли ответ после команды перезагрузки данной ноды.
+    virtual bool nodeRebooting(const QString &adapter, int node) const
+    { Q_UNUSED(adapter); Q_UNUSED(node); return false; }
+
 Q_SIGNALS:
     /**
      * \brief Данные прошли через сессию — сырые, до цепочки преобразования.

@@ -103,6 +103,7 @@ public:
     QList<NetworkNode> networkNodes(const QString &adapterId, bool discover) override;
     void clearNetworkNodes(const QString &adapterId) override;
     void selectNetworkNode(const QString &adapterId, int node) override;
+    bool nodeRebooting(const QString &adapter, int node) const override;
     bool commonNodeHistory() const override;
     void setCommonNodeHistory(bool common) override;
 

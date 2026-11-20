@@ -153,6 +153,54 @@ MainWindow::MainWindow(const AppContext &context, QWidget *parent)
 
     buildUi();
     buildMenus();
+    m_rebootClock.start();
+    for (Session *session : {m_context.session, m_secondSession}) {
+        if (!session)
+            continue;
+        connect(session, &Session::dataLogged, this,
+                [this, session](const QByteArray &data, DataDirection direction) {
+            QByteArray command = data;
+            while (command.endsWith('\0'))
+                command.chop(1);
+            if (direction != DataDirection::Tx || command.trimmed() != "reboot")
+                return;
+            const auto *entry = m_context.registry->entry(session->interfaceId());
+            if (!entry || entry->descriptor.pluginId != QLatin1String("clican"))
+                return;
+            const QString key = session->interfaceId() + u'/'
+                                + QString::number(entry->settings.value("node").toInt());
+            const int timeout = entry->settings.value("responseTimeoutMs").toInt();
+            m_rebooting.insert(key, RebootIndicator(m_rebootClock.elapsed(), timeout));
+            (session == m_context.session ? m_interfaceBar : m_secondBar)
+                ->setRebootBlink(true, true);
+        });
+        connect(session, &Session::controlLinesChanged, this,
+                [this, session](const QVariantMap &lines) {
+            if (!lines.contains("nodeResponse"))
+                return;
+            auto it = m_rebooting.find(session->interfaceId() + u'/'
+                                      + QString::number(lines.value("nodeResponse").toInt()));
+            if (it != m_rebooting.end())
+                it->answered(m_rebootClock.elapsed());
+        });
+    }
+    auto *rebootTimer = new QTimer(this);
+    rebootTimer->setInterval(250);
+    connect(rebootTimer, &QTimer::timeout, this, [this] {
+        for (auto it = m_rebooting.begin(); it != m_rebooting.end();) {
+            if (!it->active(m_rebootClock.elapsed())) it = m_rebooting.erase(it);
+            else ++it;
+        }
+        const bool bright = (QDateTime::currentMSecsSinceEpoch() / 250) % 2;
+        const auto update = [this, bright](Session *session, InterfaceBar *bar) {
+            const auto *entry = session ? m_context.registry->entry(session->interfaceId()) : nullptr;
+            bar->setRebootBlink(entry && nodeRebooting(session->interfaceId(),
+                                  entry->settings.value("node").toInt()), bright);
+        };
+        update(m_context.session, m_interfaceBar);
+        update(m_secondSession, m_secondBar);
+    });
+    rebootTimer->start();
     restoreWindowState();
     applySettings();
 
@@ -1928,6 +1976,12 @@ void MainWindow::prepareNodeHistory()
     }
     m_context.session->buffer()->setMirror(m_nodeHistory);
     updateNodeHistoryView();
+}
+
+bool MainWindow::nodeRebooting(const QString &adapter, int node) const
+{
+    const auto it = m_rebooting.constFind(adapter + u'/' + QString::number(node));
+    return it != m_rebooting.cend() && it->active(m_rebootClock.elapsed());
 }
 
 void MainWindow::setCommonNodeHistory(bool common)

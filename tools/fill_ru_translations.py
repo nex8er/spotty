@@ -26,6 +26,10 @@ TS_FILE = Path(__file__).resolve().parent.parent / "resources" / "i18n" / "spott
 
 #: Переводы по исходной строке. Ключи — ровно то, что стоит в tr() в коде.
 TRANSLATIONS = {
+    "Clear names": "Стереть имена",
+    "Rename": "Переименовать",
+    "Right-click to rename": "Правая кнопка мыши для изменения имени",
+    "Rebooting": "Перезагрузка",
     "Network nodes": "Сетевые ноды",
     "Nodes": "Ноды",
     "Common history": "Общая история",

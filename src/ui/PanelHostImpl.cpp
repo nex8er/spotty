@@ -103,6 +103,11 @@ void PanelHostImpl::selectNetworkNode(const QString &adapterId, int node)
         m_window->selectNetworkNode(adapterId, node);
 }
 
+bool PanelHostImpl::nodeRebooting(const QString &adapter, int node) const
+{
+    return m_window && m_window->nodeRebooting(adapter, node);
+}
+
 bool PanelHostImpl::commonNodeHistory() const
 {
     return m_window && m_window->commonNodeHistory();

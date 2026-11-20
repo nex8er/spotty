@@ -5,28 +5,35 @@
 #include "NodesPanel.h"
 #include <spotty/ui/IPanelHost.h>
 #include <QHeaderView>
+#include <QDateTime>
 #include <QHideEvent>
 #include <QLabel>
 #include <QPainter>
 #include <QPushButton>
+#include <QCheckBox>
+#include <QMenu>
 #include <QSet>
 #include <QShowEvent>
 #include <QSignalBlocker>
 #include <QTableWidget>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 
 namespace spotty {
 namespace {
 /// \brief Фиксированные цвета позволяют различать присутствие независимо от темы.
-QIcon statusIcon(bool online)
+QIcon statusIcon(bool online, bool rebooting = false)
 {
     QPixmap image(14, 14);
     image.fill(Qt::transparent);
     QPainter painter(&image);
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setPen(Qt::NoPen);
-    painter.setBrush(online ? QColor(109, 183, 116) : QColor(170, 112, 217));
+    painter.setBrush(rebooting
+        ? ((QDateTime::currentMSecsSinceEpoch() / 250) % 2
+            ? QColor(56, 153, 248) : QColor(25, 75, 125))
+        : (online ? QColor(109, 183, 116) : QColor(170, 112, 217)));
     painter.drawEllipse(QRectF(2, 2, 10, 10));
     return QIcon(image);
 }
@@ -38,14 +45,27 @@ NodesPanel::NodesPanel(IPanelHost *panelHost, QWidget *parent)
     , m_names(panelHost->value(QStringLiteral("names")).toMap())
 {
     setPanelTitle(tr("Nodes"));
-    m_common = new QPushButton(tr("Common history"), this);
+    m_common = new QCheckBox(tr("Common history"), this);
     m_common->setObjectName(QStringLiteral("commonNodeHistory"));
-    m_common->setCheckable(true);
     m_common->setChecked(host()->commonNodeHistory());
     m_common->setToolTip(tr("Show all output instead of the selected node's history"));
-    connect(m_common, &QPushButton::toggled, this,
+    connect(m_common, &QCheckBox::toggled, this,
             [this](bool common) { host()->setCommonNodeHistory(common); });
-    content()->addWidget(m_common);
+    auto *historyRow = new QHBoxLayout;
+    historyRow->addWidget(m_common, 1);
+    auto *clearNames = new QPushButton(tr("Clear names"), this);
+    clearNames->setObjectName(QStringLiteral("clearNodeNames"));
+    historyRow->addWidget(clearNames);
+    connect(clearNames, &QPushButton::clicked, this, [this] {
+        m_names.clear();
+        host()->setValue(QStringLiteral("names"), m_names);
+        for (const auto &view : m_adapters) {
+            const QSignalBlocker blocker(view.table);
+            for (int row = 0; row < view.table->rowCount(); ++row)
+                view.table->item(row, 2)->setText(QString());
+        }
+    });
+    content()->addLayout(historyRow);
     m_empty = new QLabel(tr("No network adapters available"), this);
     m_empty->setObjectName(QStringLiteral("hintLabel"));
     m_empty->setWordWrap(true);
@@ -57,7 +77,7 @@ NodesPanel::NodesPanel(IPanelHost *panelHost, QWidget *parent)
     connect(clear, &QPushButton::clicked, this, &NodesPanel::clearLists);
     content()->addWidget(clear);
     m_timer = new QTimer(this);
-    m_timer->setInterval(500);
+    m_timer->setInterval(250);
     connect(m_timer, &QTimer::timeout, this, &NodesPanel::refresh);
     connect(host(), &IPanelHost::aboutToClose, this, &NodesPanel::stopDiscovery);
     connect(host(), &IPanelHost::settingsReset, this, [this] {
@@ -93,7 +113,17 @@ NodesPanel::AdapterView NodesPanel::addAdapter(const QString &id)
     view.table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
     view.table->setSelectionBehavior(QAbstractItemView::SelectRows);
     view.table->setSelectionMode(QAbstractItemView::SingleSelection);
-    view.table->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
+    view.table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    view.table->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(view.table, &QWidget::customContextMenuRequested, this,
+            [this, table = view.table](const QPoint &pos) {
+        auto *item = table->itemAt(pos);
+        if (!item || item->column() != 2)
+            return;
+        QMenu menu(table);
+        menu.addAction(tr("Rename"), table, [table, item] { table->editItem(item); });
+        menu.exec(table->viewport()->mapToGlobal(pos));
+    });
     view.table->setMinimumHeight(0);
     view.table->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Ignored);
     layout->addWidget(view.table, 1);
@@ -152,15 +182,16 @@ void NodesPanel::refresh()
                 view.table->setItem(row, 1, number);
                 auto *name = new QTableWidgetItem(names.value(QString::number(node)).toString());
                 name->setData(Qt::UserRole, node);
-                name->setToolTip(tr("Double-click to rename"));
+                name->setToolTip(tr("Right-click to rename"));
                 view.table->setItem(row, 2, name);
             }
             auto *ordinal = view.table->item(row, 0);
-            ordinal->setIcon(statusIcon(online.contains(node)));
-            ordinal->setToolTip(online.contains(node) ? tr("Online") : tr("No response"));
-            if (host()->interfaceId() == adapter.id && node == adapter.selectedNode
-                && view.table->currentRow() != row)
-                view.table->setCurrentCell(row, 1);
+            ordinal->setIcon(statusIcon(online.contains(node), host()->nodeRebooting(adapter.id, node)));
+            ordinal->setToolTip(host()->nodeRebooting(adapter.id, node) ? tr("Rebooting")
+                : (online.contains(node) ? tr("Online") : tr("No response")));
+            QFont font = ordinal->font();
+            font.setBold(host()->interfaceId() == adapter.id && node == adapter.selectedNode);
+            ordinal->setFont(font);
         }
     }
     for (auto it = m_adapters.begin(); it != m_adapters.end();) {
