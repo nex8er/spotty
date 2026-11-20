@@ -47,6 +47,7 @@ target_sources(spotty-api
         # каталога цели, и без явного указания moc до них не доберётся.
         "${CMAKE_SOURCE_DIR}/include/spotty/api/IInterfaceChannel.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/api/IInterfacePlugin.h"
+        "${CMAKE_SOURCE_DIR}/include/spotty/api/INodeDiscovery.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/api/ApiVersion.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/api/ChannelState.h"
         "${CMAKE_SOURCE_DIR}/include/spotty/api/DataDirection.h"

@@ -106,6 +106,11 @@ public:
     /// \brief Показать файл в области терминала вместо живого вывода.
     bool showDocument(const QString &filePath, const QString &title);
 
+    /// \brief Переключить адрес основного интерфейса и открыть его, сохранив историю.
+    void selectNetworkNode(const QString &adapterId, int node);
+    bool commonNodeHistory() const { return m_commonNodeHistory; }
+    void setCommonNodeHistory(bool common);
+
     /// @}
 
 public Q_SLOTS:
@@ -345,6 +350,10 @@ private:
     /// \brief Вернуть в область терминала живой вывод сессии.
     void returnToLiveView();
 
+    /// \brief Привязать будущий вывод к истории выбранной пары адаптер/узел.
+    void prepareNodeHistory();
+    void updateNodeHistoryView();
+
     AppContext m_context;
     AppSettings m_settings;
 
@@ -365,6 +374,9 @@ private:
      * собственный буфер интерфейса A, чтобы история переживала смену режима.
      */
     TerminalBuffer *m_sharedBuffer = nullptr;
+    QHash<QString, TerminalBuffer *> m_nodeHistories;
+    TerminalBuffer *m_nodeHistory = nullptr;
+    bool m_commonNodeHistory = false;
 
     QComboBox *m_modeCombo = nullptr;
 

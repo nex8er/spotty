@@ -13,6 +13,7 @@
 #include <QByteArray>
 #include <QHash>
 #include <QList>
+#include <spotty/api/INodeDiscovery.h>
 
 #include <algorithm>
 
@@ -139,6 +140,8 @@ public:
     {
         if (!isValidNode(node))
             return;
+        if (!m_lastSeen.contains(node))
+            m_order.append(node);
         m_lastSeen.insert(node, nowMs);
     }
 
@@ -158,10 +161,20 @@ public:
     }
 
     /// \brief Забыть всё: шина закрыта или переоткрыта на другой скорости.
-    void clear() { m_lastSeen.clear(); }
+    void clear() { m_lastSeen.clear(); m_order.clear(); }
+
+    /// \brief Все известные узлы в порядке первого ответа, включая переставшие отвечать.
+    QList<NetworkNode> snapshot(qint64 nowMs, qint64 maxAgeMs) const
+    {
+        QList<NetworkNode> result;
+        for (int node : m_order)
+            result.append({node, nowMs - m_lastSeen.value(node) <= maxAgeMs});
+        return result;
+    }
 
 private:
     QHash<int, qint64> m_lastSeen;
+    QList<int> m_order;
 };
 
 } // namespace spotty::clican

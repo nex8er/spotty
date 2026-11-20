@@ -10,6 +10,8 @@
 #include "theme/ThemeManager.h"
 
 #include <InterfaceRegistry.h>
+#include <PluginManager.h>
+#include <spotty/api/IInterfacePlugin.h>
 #include <Session.h>
 #include <settings/Paths.h>
 #include <settings/SettingsStore.h>
@@ -52,6 +54,65 @@ PanelHostImpl::PanelHostImpl(const AppContext &context, MainWindow *window, QStr
 }
 
 PanelHostImpl::~PanelHostImpl() = default;
+
+namespace {
+/// \brief Дополнительная роль проверяется через Qt, включая границу загружаемого модуля.
+INodeDiscovery *nodeDiscovery(const AppContext &context, const InterfaceEntry *entry)
+{
+    if (!entry || !context.plugins)
+        return nullptr;
+    auto *plugin = context.plugins->plugin(entry->descriptor.pluginId);
+    return qobject_cast<INodeDiscovery *>(dynamic_cast<QObject *>(plugin));
+}
+} // namespace
+
+QList<NetworkAdapter> PanelHostImpl::networkAdapters() const
+{
+    QList<NetworkAdapter> result;
+    if (!m_context.registry)
+        return result;
+    for (const auto &entry : m_context.registry->entries()) {
+        if (entry.present) {
+            if (auto *discovery = nodeDiscovery(m_context, &entry)) {
+                result.append({entry.descriptor.id, entry.displayName(),
+                               entry.settings.value(discovery->nodeSettingKey()).toInt()});
+            }
+        }
+    }
+    return result;
+}
+
+QList<NetworkNode> PanelHostImpl::networkNodes(const QString &adapterId, bool discover)
+{
+    const auto *entry = m_context.registry ? m_context.registry->entry(adapterId) : nullptr;
+    if (auto *discovery = nodeDiscovery(m_context, entry))
+        return discovery->networkNodes(entry->descriptor, entry->settings, discover);
+    return {};
+}
+
+void PanelHostImpl::clearNetworkNodes(const QString &adapterId)
+{
+    const auto *entry = m_context.registry ? m_context.registry->entry(adapterId) : nullptr;
+    if (auto *discovery = nodeDiscovery(m_context, entry))
+        discovery->clearNetworkNodes(entry->descriptor);
+}
+
+void PanelHostImpl::selectNetworkNode(const QString &adapterId, int node)
+{
+    if (m_window)
+        m_window->selectNetworkNode(adapterId, node);
+}
+
+bool PanelHostImpl::commonNodeHistory() const
+{
+    return m_window && m_window->commonNodeHistory();
+}
+
+void PanelHostImpl::setCommonNodeHistory(bool common)
+{
+    if (m_window)
+        m_window->setCommonNodeHistory(common);
+}
 
 // --- Отправка ------------------------------------------------------------------------
 
@@ -289,6 +350,37 @@ QString PanelHostImpl::selectedText() const
 }
 
 // --- Терминал: чтение строк ------------------------------------------------------------------
+
+qint64 PanelHostImpl::displayedFirstLineNumber() const
+{
+    return m_context.session ? m_window->terminalView()->buffer()->firstLineNumber() : 0;
+}
+
+qint64 PanelHostImpl::displayedNextLineNumber() const
+{
+    return m_context.session ? m_window->terminalView()->buffer()->nextLineNumber() : 0;
+}
+
+bool PanelHostImpl::displayedLine(qint64 number, TerminalLine *out) const
+{
+    if (!out || !m_context.session)
+        return false;
+
+    const TerminalBuffer::Line *source = m_window->terminalView()->buffer()->line(number);
+    if (!source)
+        return false;
+
+    // Отрезки оформления не копируются намеренно: раскраска — дело виджета, а тип отрезка
+    // в ABI замораживать незачем.
+    out->text = source->text;
+    out->raw = source->raw;
+    out->monotonicNs = source->monotonicNs;
+    out->wallClock = source->wallClock;
+    out->direction = source->direction;
+    out->source = source->source;
+    out->complete = source->complete;
+    return true;
+}
 
 qint64 PanelHostImpl::firstLineNumber() const
 {

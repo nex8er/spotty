@@ -160,6 +160,18 @@ void CanBus::setDiscoveryEnabled(bool enabled)
     m_discovery = enabled;
 }
 
+QList<NetworkNode> CanBus::networkNodes() const
+{
+    const QMutexLocker lock(&m_nodesMutex);
+    return m_nodes.snapshot(m_clock.isValid() ? m_clock.elapsed() : 0, kNodeExpiryMs);
+}
+
+void CanBus::clearNetworkNodes()
+{
+    const QMutexLocker lock(&m_nodesMutex);
+    m_nodes.clear();
+}
+
 QList<int> CanBus::nodes() const
 {
     const QMutexLocker locker(&m_nodesMutex);
@@ -307,7 +319,7 @@ std::shared_ptr<CanBus> CanBusPool::acquire(PcanLibrary::Handle handle, int bitr
     // что владельцем стало на одного меньше. Захват `this`, а не обращение к общему
     // синглтону — держатель shared_ptr обязан отпустить его раньше, чем разрушится сам
     // пул (см. \par «Почему не синглтон» в CanBus.h), и это гарантируется владением: пул
-    // живёт членом spotty::CliCanPlugin, а держатели — им самим (m_scanBus) и его же
+    // живёт членом spotty::CliCanPlugin, а держатели — им самим (m_scans) и его же
     // каналами (spotty::CliCanChannel), которые не переживают свой плагин.
     return std::shared_ptr<CanBus>(entry.bus.get(), [this, handle](CanBus *) {
         release(handle);

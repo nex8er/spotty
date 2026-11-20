@@ -5,6 +5,8 @@
 #include "MainWindow.h"
 
 #include <spotty/data/Formatting.h>
+#include <spotty/api/INodeDiscovery.h>
+#include <spotty/api/IInterfacePlugin.h>
 #include "InterfaceBar.h"
 #include "SendBar.h"
 #include "dialogs/InterfaceSettingsDialog.h"
@@ -27,6 +29,7 @@
 #include <settings/SettingsStore.h>
 
 #include <QActionGroup>
+#include <QAbstractItemView>
 #include <QApplication>
 #include <QButtonGroup>
 #include <QCloseEvent>
@@ -143,6 +146,8 @@ MainWindow::MainWindow(const AppContext &context, QWidget *parent)
     , m_context(context)
     , m_settings(AppSettings::load(*context.settings))
 {
+    m_commonNodeHistory = context.settings->value(QStringLiteral("nodes/commonHistory"), false)
+                             .toBool();
     setWindowTitle(QStringLiteral("Spotty %1").arg(QLatin1String(SPOTTY_VERSION)));
     updateApplicationIcon();
 
@@ -186,6 +191,7 @@ MainWindow::MainWindow(const AppContext &context, QWidget *parent)
     if (m_context.session && !interfaceId.isEmpty() && m_settings.autoOpenLastInterface) {
         m_interfaceBar->setCurrentInterfaceId(interfaceId);
         m_context.session->setInterfaceId(interfaceId);
+        prepareNodeHistory();
         m_context.session->open();
     }
 }
@@ -413,6 +419,7 @@ void MainWindow::buildUi()
             return;
 
         m_context.session->setInterfaceId(id);
+        prepareNodeHistory();
 
         // Выбор в выпадающем списке — уже осознанное решение пользователя: он назвал
         // порт, с которым хочет работать, и второй клик по кнопке открытия был бы лишним
@@ -737,8 +744,8 @@ QWidget *MainWindow::buildTerminalToolbar()
         m_settings.save(*m_context.settings);
     });
     connect(m_clearButton, &QToolButton::clicked, this, [this] {
-        if (m_context.session)
-            m_context.session->buffer()->clear();
+        if (m_terminal->buffer())
+            m_terminal->buffer()->clear();
     });
     connect(m_followButton, &QToolButton::toggled,
             m_terminal, &TerminalView::setFollowTail);
@@ -1016,8 +1023,8 @@ void MainWindow::buildMenus()
 
     m_actions.insert(QStringLiteral("terminal.clear"),
                      viewMenu->addAction(tr("C&lear terminal"), this, [this] {
-                         if (m_context.session)
-                             m_context.session->buffer()->clear();
+                         if (m_terminal->buffer())
+                             m_terminal->buffer()->clear();
                      }));
 
     viewMenu->addSeparator();
@@ -1150,6 +1157,10 @@ void MainWindow::applySettings()
         m_context.session->setPacketizerDelimiter(
             QByteArray::fromHex(m_settings.packetizerDelimiterHex.toLatin1()));
         m_context.session->setPacketizerFixedLength(m_settings.packetizerFixedLength);
+    }
+    for (auto *history : std::as_const(m_nodeHistories)) {
+        history->setMaxLines(m_settings.maxLines);
+        history->setEncoding(encodingFromName(m_settings.encoding));
     }
     if (m_secondSession)
         m_secondSession->setEchoEnabled(m_settings.localEcho);
@@ -1315,6 +1326,7 @@ void MainWindow::resetToDefaults()
         m_context.session->setInterfaceId(QString());
     }
     m_interfaceBar->setCurrentInterfaceId(QString());
+    prepareNodeHistory();
 
     if (m_context.registry)
         m_context.registry->resetAll();
@@ -1325,6 +1337,7 @@ void MainWindow::resetToDefaults()
     }
 
     m_settings = AppSettings{};
+    m_commonNodeHistory = false;
     if (m_context.settings) {
         // Вся settings.json, а не только известные ключи AppSettings: геометрия окна,
         // положение сплиттера и прочее состояние UI живут в том же файле и «сброс к
@@ -1407,8 +1420,19 @@ void MainWindow::reloadSessionSettingsIfActive(const QString &interfaceId)
     // значило бы дёрнуть DTR и перезагрузить плату. Но только если это тот самый
     // интерфейс — панель настроек умеет переключаться на любое известное устройство, а
     // не только на открытое сейчас.
-    if (m_context.session && m_context.session->interfaceId() == interfaceId)
+    if (m_context.session && m_context.session->interfaceId() == interfaceId) {
+        const auto *entry = m_context.registry->entry(interfaceId);
+        auto *plugin = entry ? m_context.plugins->plugin(entry->descriptor.pluginId) : nullptr;
+        if (qobject_cast<INodeDiscovery *>(dynamic_cast<QObject *>(plugin))) {
+            const bool active = m_context.session->isActive();
+            m_context.session->close();
+            prepareNodeHistory();
+            if (active)
+                m_context.session->open();
+            return;
+        }
         m_context.session->reloadSettings();
+    }
 }
 
 void MainWindow::applyChannelState(ChannelState state, const QString &detail)
@@ -1472,7 +1496,17 @@ void MainWindow::applyChannelState(ChannelState state, const QString &detail)
     for (PanelHostImpl *host : std::as_const(m_hosts))
         host->notifyChannelState(state);
 
-    if (open)
+    bool editingCell = false;
+    if (auto *editor = qobject_cast<QLineEdit *>(QApplication::focusWidget())) {
+        for (QWidget *parent = editor->parentWidget(); parent; parent = parent->parentWidget()) {
+            if (qobject_cast<QAbstractItemView *>(parent)) {
+                editingCell = true;
+                break;
+            }
+        }
+    }
+    /** \brief Фоновое открытие канала не должно прерывать правку имени в таблице. */
+    if (open && !editingCell)
         m_sendBar->focusInput();
 }
 
@@ -1551,6 +1585,7 @@ void MainWindow::applyViewMode(ViewMode mode, const QString &stripId)
 
     m_context.settings->setValue(QLatin1String(kKeyViewMode), int(mode));
     m_context.settings->setValue(QLatin1String(kKeyViewStrip), stripId);
+    updateNodeHistoryView();
     updateSendAvailability();
 }
 
@@ -1834,6 +1869,7 @@ void MainWindow::returnToLiveView()
 
     m_terminal->setBuffer(m_context.session->buffer());
     m_logViewBar->hide();
+    updateNodeHistoryView();
     updatePlaceholder(m_context.session->state());
 
     if (m_overlay)
@@ -1841,6 +1877,80 @@ void MainWindow::returnToLiveView()
 
     if (m_logBuffer)
         m_logBuffer->clear();
+}
+
+void MainWindow::selectNetworkNode(const QString &adapterId, int node)
+{
+    if (!m_context.session || !m_context.registry || !m_context.plugins)
+        return;
+    const auto *entry = m_context.registry->entry(adapterId);
+    auto *plugin = entry ? m_context.plugins->plugin(entry->descriptor.pluginId) : nullptr;
+    auto *discovery = qobject_cast<INodeDiscovery *>(dynamic_cast<QObject *>(plugin));
+    if (!discovery || !entry->present || node <= 0)
+        return;
+    const QString key = discovery->nodeSettingKey();
+    if (m_context.session->interfaceId() == adapterId
+        && entry->settings.value(key).toInt() == node && m_context.session->isActive()) {
+        returnToLiveView();
+        return;
+    }
+    QVariantMap settings = entry->settings;
+    settings.insert(key, node);
+    m_context.session->close();
+    m_context.registry->setSettingsFor(adapterId, settings);
+    m_context.session->setInterfaceId(adapterId);
+    m_interfaceBar->setCurrentInterfaceId(adapterId);
+    m_context.settings->setValue(QLatin1String(kKeyInterface), adapterId);
+    prepareNodeHistory();
+    returnToLiveView();
+    m_context.session->open();
+}
+
+void MainWindow::prepareNodeHistory()
+{
+    if (!m_context.session || !m_context.registry || !m_context.plugins)
+        return;
+    m_nodeHistory = nullptr;
+    const QString id = m_context.session->interfaceId();
+    const auto *entry = m_context.registry->entry(id);
+    auto *plugin = entry ? m_context.plugins->plugin(entry->descriptor.pluginId) : nullptr;
+    if (auto *discovery = qobject_cast<INodeDiscovery *>(dynamic_cast<QObject *>(plugin))) {
+        const int node = entry->settings.value(discovery->nodeSettingKey()).toInt();
+        if (node > 0) {
+            const QString key = id + QLatin1Char('/') + QString::number(node);
+            auto &buffer = m_nodeHistories[key];
+            if (!buffer)
+                buffer = new TerminalBuffer(this);
+            buffer->setMaxLines(m_settings.maxLines);
+            buffer->setEncoding(encodingFromName(m_settings.encoding));
+            m_nodeHistory = buffer;
+        }
+    }
+    m_context.session->buffer()->setMirror(m_nodeHistory);
+    updateNodeHistoryView();
+}
+
+void MainWindow::setCommonNodeHistory(bool common)
+{
+    m_commonNodeHistory = common;
+    m_context.settings->setValue(QStringLiteral("nodes/commonHistory"), common);
+    updateNodeHistoryView();
+}
+
+void MainWindow::updateNodeHistoryView()
+{
+    if (!m_context.session || (m_logViewBar && !m_logViewBar->isHidden()))
+        return;
+    const bool individual = m_nodeHistory && !m_commonNodeHistory;
+    m_terminal->setBuffer(individual ? m_nodeHistory : m_context.session->buffer());
+    m_terminal->setShowSource(m_dualTransport && !individual);
+    for (int source = 0; source < 2; ++source) {
+        m_terminal->setSourceVisible(quint8(source),
+                                    individual || !(m_settings.hiddenSources & (1 << source)));
+        if (m_muteSourceButtons[source])
+            m_muteSourceButtons[source]->setVisible(m_dualTransport && !individual
+                                                    && !m_terminal->isHidden());
+    }
 }
 
 void MainWindow::raiseWindow()
@@ -2164,6 +2274,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
         }
     }
 
+    if (m_secondSession)
+        m_secondSession->close();
     persistWindowState();
 
     // Канал закрывается до разрушения окна: поток ввода-вывода должен остановиться, пока

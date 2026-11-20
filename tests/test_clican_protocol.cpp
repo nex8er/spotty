@@ -110,3 +110,31 @@ TEST(NodeDirectory, IgnoresNodesItCouldNotAddress)
 
     EXPECT_TRUE(directory.nodes(100, 5000).isEmpty());
 }
+
+TEST(NodeDirectory, SnapshotKeepsFirstResponseOrderAndOfflineNodes)
+{
+    NodeDirectory directory;
+    directory.noteSeen(12, 1000);
+    directory.noteSeen(3, 1000);
+    directory.noteSeen(8, 4000);
+    auto nodes = directory.snapshot(6001, 5000);
+    ASSERT_EQ(nodes.size(), 3);
+    EXPECT_EQ(nodes[0].number, 12);
+    EXPECT_FALSE(nodes[0].online);
+    EXPECT_EQ(nodes[1].number, 3);
+    EXPECT_FALSE(nodes[1].online);
+    EXPECT_EQ(nodes[2].number, 8);
+    EXPECT_TRUE(nodes[2].online);
+    directory.noteSeen(12, 6500);
+    nodes = directory.snapshot(6500, 5000);
+    EXPECT_EQ(nodes[0].number, 12);
+    EXPECT_TRUE(nodes[0].online);
+    EXPECT_EQ(nodes[1].number, 3);
+    directory.clear();
+    directory.noteSeen(8, 7000);
+    directory.noteSeen(12, 7000);
+    nodes = directory.snapshot(7000, 5000);
+    ASSERT_EQ(nodes.size(), 2);
+    EXPECT_EQ(nodes[0].number, 8);
+    EXPECT_EQ(nodes[1].number, 12);
+}

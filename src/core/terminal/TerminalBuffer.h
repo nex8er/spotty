@@ -13,6 +13,7 @@
 #include <QDateTime>
 #include <QList>
 #include <QObject>
+#include <QPointer>
 #include <QString>
 
 #include <deque>
@@ -150,6 +151,12 @@ public:
     /// \brief Обнулить счётчики байтов.
     void resetStatistics();
 
+    /**
+     * \brief Дублировать будущие добавления выбранного источника в отдельную историю.
+     * \note Получатель не должен иметь собственного зеркала; очистка независима.
+     */
+    void setMirror(TerminalBuffer *buffer, quint8 source = 0);
+
 Q_SIGNALS:
     /**
      * \brief Добавлены новые строки.
@@ -237,6 +244,8 @@ private:
 
     qint64 m_bytesReceived = 0;
     qint64 m_bytesSent = 0;
+    QPointer<TerminalBuffer> m_mirror;
+    quint8 m_mirrorSource = 0;
 };
 
 } // namespace spotty

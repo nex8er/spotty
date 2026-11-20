@@ -96,7 +96,7 @@ private:
     void toggleRecording();
     void saveCurrentBuffer();
     void writeGutterLine(qint64 number, LogWriter &writer) const;
-    LogWriter::WriteRequest gutterRequest(qint64 number) const;
+    LogWriter::WriteRequest gutterRequest(qint64 number, bool displayed = false) const;
     void updateRecordingUi();
     void refreshFileList();
 

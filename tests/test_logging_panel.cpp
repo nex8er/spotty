@@ -145,3 +145,31 @@ TEST(LoggingPanel, RecordsFinalizedLinesWithGutter)
     ASSERT_EQ(logs.size(), 1);
     EXPECT_EQ(readAll(QDir(dir.path()).filePath(logs.first())), QByteArrayLiteral("> received\n"));
 }
+
+TEST(LoggingPanel, SnapshotReadsDisplayedHistoryInsteadOfOtherNodes)
+{
+    class DisplayHost : public test::FakePanelHost {
+    public:
+        using FakePanelHost::FakePanelHost;
+        qint64 displayedFirstLineNumber() const override { return 10; }
+        qint64 displayedNextLineNumber() const override { return 11; }
+        bool displayedLine(qint64 number, TerminalLine *out) const override
+        {
+            if (number != 10 || !out) return false;
+            *out = TerminalLine{.text = QStringLiteral("selected"),
+                                .raw = QByteArrayLiteral("selected\n"), .complete = true};
+            return true;
+        }
+    };
+    test::TempDir dir;
+    DisplayHost host(dir.path());
+    host.terminalLines = {{.text = QStringLiteral("other node"),
+                           .raw = QByteArrayLiteral("other node\n"), .complete = true}};
+    LoggingPanel panel(&host);
+    auto *save = panel.findChild<QToolButton *>(QStringLiteral("saveBufferButton"));
+    ASSERT_NE(save, nullptr);
+    save->click();
+    const auto logs = QDir(dir.path()).entryList({QStringLiteral("*.log")}, QDir::Files);
+    ASSERT_EQ(logs.size(), 1);
+    EXPECT_EQ(readAll(QDir(dir.path()).filePath(logs.first())), QByteArrayLiteral("selected\n"));
+}

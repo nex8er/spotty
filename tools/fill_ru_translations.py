@@ -26,6 +26,17 @@ TS_FILE = Path(__file__).resolve().parent.parent / "resources" / "i18n" / "spott
 
 #: Переводы по исходной строке. Ключи — ровно то, что стоит в tr() в коде.
 TRANSLATIONS = {
+    "Network nodes": "Сетевые ноды",
+    "Nodes": "Ноды",
+    "Common history": "Общая история",
+    "Show all output instead of the selected node's history":
+        "Показывать общий вывод вместо истории выбранной ноды",
+    "No network adapters available": "Нет доступных сетевых адаптеров",
+    "Clear list": "Очистить список",
+    "№": "№",
+    "Double-click to rename": "Двойной щелчок для изменения имени",
+    "Online": "В сети",
+    "No response": "Нет ответа",
     # --- Общие элементы интерфейса ---
     "&File": "&Файл",
     "&View": "&Вид",

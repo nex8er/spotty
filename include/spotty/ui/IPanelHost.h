@@ -5,6 +5,7 @@
 #pragma once
 
 #include <spotty/api/ChannelState.h>
+#include <spotty/api/INodeDiscovery.h>
 #include <spotty/api/DataDirection.h>
 #include <spotty/data/DataCodec.h>
 #include <spotty/data/HighlightRules.h>
@@ -321,6 +322,32 @@ public:
     virtual QIcon mutedIcon(char32_t glyph, int size = 20) const = 0;
 
     /// @}
+
+    /// \brief Доступные адаптеры транспортов с ролью поиска узлов.
+    virtual QList<NetworkAdapter> networkAdapters() const { return {}; }
+    /// \brief Накопленные ответы; опрос нужен только пока панель видима.
+    virtual QList<NetworkNode> networkNodes(const QString &adapterId, bool discover)
+    {
+        Q_UNUSED(adapterId);
+        Q_UNUSED(discover);
+        return {};
+    }
+    /// \brief Очистить найденные узлы адаптера.
+    virtual void clearNetworkNodes(const QString &adapterId) { Q_UNUSED(adapterId); }
+    /// \brief Выбрать узел и открыть основной интерфейс.
+    virtual void selectNetworkNode(const QString &adapterId, int node)
+    {
+        Q_UNUSED(adapterId);
+        Q_UNUSED(node);
+    }
+    /// \brief Показывается ли общая история вместо истории выбранного узла.
+    virtual bool commonNodeHistory() const { return false; }
+    /// \brief Сменить представление истории без потери данных.
+    virtual void setCommonNodeHistory(bool common) { Q_UNUSED(common); }
+
+    virtual qint64 displayedFirstLineNumber() const { return firstLineNumber(); }
+    virtual qint64 displayedNextLineNumber() const { return nextLineNumber(); }
+    virtual bool displayedLine(qint64 number, TerminalLine *out) const { return line(number, out); }
 
 Q_SIGNALS:
     /**

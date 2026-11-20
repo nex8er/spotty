@@ -85,6 +85,9 @@ public:
     int currentMatch() const override;
     QString selectedText() const override;
 
+    qint64 displayedFirstLineNumber() const override;
+    qint64 displayedNextLineNumber() const override;
+    bool displayedLine(qint64 number, TerminalLine *out) const override;
     qint64 firstLineNumber() const override;
     qint64 nextLineNumber() const override;
     bool line(qint64 number, TerminalLine *out) const override;
@@ -95,6 +98,13 @@ public:
     bool isDarkTheme() const override;
     QIcon icon(char32_t glyph, int size = 20) const override;
     QIcon mutedIcon(char32_t glyph, int size = 20) const override;
+
+    QList<NetworkAdapter> networkAdapters() const override;
+    QList<NetworkNode> networkNodes(const QString &adapterId, bool discover) override;
+    void clearNetworkNodes(const QString &adapterId) override;
+    void selectNetworkNode(const QString &adapterId, int node) override;
+    bool commonNodeHistory() const override;
+    void setCommonNodeHistory(bool common) override;
 
     /// \name Толкают сигналы хоста; зовёт spotty::MainWindow
     /// @{

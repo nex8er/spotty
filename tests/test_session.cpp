@@ -84,6 +84,27 @@ TEST(Session, StartsClosedAndInactive)
     EXPECT_TRUE(fixture.session.interfaceId().isEmpty());
 }
 
+TEST(Session, ClosingDrainsQueuedBytesBeforeHistorySwitch)
+{
+    Fixture fixture;
+    TerminalBuffer first;
+    TerminalBuffer second;
+    fixture.session.buffer()->setMirror(&first);
+    ASSERT_TRUE(fixture.openDevice());
+    auto *channel = fixture.plugin.lastChannel;
+    ASSERT_NE(channel, nullptr);
+    ASSERT_TRUE(QMetaObject::invokeMethod(channel, "injectData", Qt::BlockingQueuedConnection,
+                                          Q_ARG(QByteArray, QByteArrayLiteral("last bytes\n"))));
+    fixture.session.close();
+    fixture.session.buffer()->setMirror(&second);
+    QCoreApplication::processEvents();
+    bool found = false;
+    for (qint64 i = first.firstLineNumber(); i < first.nextLineNumber(); ++i)
+        found = found || first.line(i)->text == QStringLiteral("last bytes");
+    EXPECT_TRUE(found);
+    EXPECT_EQ(second.lineCount(), 0);
+}
+
 TEST(Session, OpeningWithoutInterfaceReportsError)
 {
     Fixture fixture;
@@ -564,4 +585,18 @@ TEST(Session, DestroyingOpenSessionStopsCleanly)
     fixture.reset();
 
     EXPECT_TRUE(waitFor([&] { return channel.isNull(); }));
+}
+
+TEST(Session, DestructionDoesNotDeliverQueuedStateCallbacks)
+{
+    Fixture fixture;
+    auto *session = new Session(&fixture.plugins, &fixture.registry);
+    session->setInterfaceId(kDeviceId);
+    session->open();
+    ASSERT_TRUE(waitFor([&] { return session->state() == ChannelState::Open; }));
+    int callbacks = 0;
+    QObject::connect(session, &Session::stateChanged, QCoreApplication::instance(),
+                     [&](ChannelState, const QString &) { ++callbacks; });
+    delete session;
+    EXPECT_EQ(callbacks, 0);
 }

@@ -1,0 +1,45 @@
+/**
+ * \file NodesPanel.h
+ * \brief Независимые списки узлов всех доступных адаптеров.
+ */
+#pragma once
+#include <spotty/ui/PanelWidget.h>
+#include <QHash>
+#include <QVariantMap>
+
+class QLabel;
+class QTableWidget;
+class QTimer;
+class QPushButton;
+class QVBoxLayout;
+
+namespace spotty {
+class NodesPanel : public PanelWidget
+{
+    Q_OBJECT
+public:
+    explicit NodesPanel(IPanelHost *panelHost, QWidget *parent = nullptr);
+    ~NodesPanel() override;
+protected:
+    void showEvent(QShowEvent *event) override;
+    void hideEvent(QHideEvent *event) override;
+private:
+    struct AdapterView
+    {
+        QWidget *widget = nullptr;
+        QLabel *title = nullptr;
+        QTableWidget *table = nullptr;
+    };
+    void refresh();
+    void stopDiscovery();
+    void clearLists();
+    AdapterView addAdapter(const QString &id);
+    QHash<QString, AdapterView> m_adapters;
+    QVariantMap m_known;
+    QVariantMap m_names;
+    QVBoxLayout *m_adaptersLayout = nullptr;
+    QLabel *m_empty = nullptr;
+    QPushButton *m_common = nullptr;
+    QTimer *m_timer = nullptr;
+};
+} // namespace spotty

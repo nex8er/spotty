@@ -4561,4 +4561,62 @@ Continue?</source>
         <translation>Не удалось запустить установщик обновления.</translation>
     </message>
 </context>
+<context>
+    <name>spotty::NodesPanel</name>
+    <message>
+        <source>Nodes</source>
+        <translation>Ноды</translation>
+    </message>
+    <message>
+        <source>Common history</source>
+        <translation>Общая история</translation>
+    </message>
+    <message>
+        <source>Show all output instead of the selected node&apos;s history</source>
+        <translation>Показывать общий вывод вместо истории выбранной ноды</translation>
+    </message>
+    <message>
+        <source>No network adapters available</source>
+        <translation>Нет доступных сетевых адаптеров</translation>
+    </message>
+    <message>
+        <source>Clear list</source>
+        <translation>Очистить список</translation>
+    </message>
+    <message>
+        <source>№</source>
+        <translation>№</translation>
+    </message>
+    <message>
+        <source>Node</source>
+        <translation>Узел</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>Имя</translation>
+    </message>
+    <message>
+        <source>Double-click to rename</source>
+        <translation>Двойной клик — переименовать</translation>
+    </message>
+    <message>
+        <source>Online</source>
+        <translation>В сети</translation>
+    </message>
+    <message>
+        <source>No response</source>
+        <translation>Нет ответа</translation>
+    </message>
+</context>
+<context>
+    <name>spotty::NodesPlugin</name>
+    <message>
+        <source>Nodes</source>
+        <translation>Ноды</translation>
+    </message>
+    <message>
+        <source>Network nodes</source>
+        <translation>Сетевые ноды</translation>
+    </message>
+</context>
 </TS>

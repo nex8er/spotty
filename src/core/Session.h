@@ -209,7 +209,7 @@ private:
     bool createWorker();
 
     /// \brief Остановить поток и уничтожить канал.
-    void destroyWorker();
+    void destroyWorker(bool drain = true);
 
     /// \brief Сменить состояние и известить, если оно действительно изменилось.
     void setState(ChannelState state, const QString &detail = {});

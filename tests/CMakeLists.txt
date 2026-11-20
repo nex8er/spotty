@@ -133,6 +133,8 @@ endif()
 spotty_add_test(spotty-ui-tests
     SOURCES
         test_panel_registry.cpp
+        test_nodes_panel.cpp
+        "${CMAKE_SOURCE_DIR}/plugins/nodes/NodesPanel.cpp"
         test_series_swatch.cpp
         test_plotter_panel.cpp
         test_live_options.cpp
@@ -205,6 +207,8 @@ spotty_add_test(spotty-ui-tests
 # несколько, и второй же добавленный плагин даёт «redefinition». Статический режим заставляет
 # moc назвать функции по классу, и конфликт исчезает.
 target_compile_definitions(spotty-ui-tests PRIVATE QT_STATICPLUGIN)
+target_compile_definitions(spotty-ui-tests PRIVATE
+    "SPOTTY_NODE_TEST_FONT=\"${CMAKE_SOURCE_DIR}/resources/fonts/FiraCodeNerdFontMono-Regular.ttf\"")
 target_link_libraries(spotty-ui-tests PRIVATE Qt6::Network)
 
 # Установка агента через плагин: «удалённая машина» — песочница, а агент — собранный для этой.
